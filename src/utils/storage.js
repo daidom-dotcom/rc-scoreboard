@@ -37,3 +37,7 @@ export function loadQuickCounter() {
 export function saveQuickCounter(payload) {
   localStorage.setItem(QUICK_COUNTER_KEY, JSON.stringify(payload));
 }
+
+export function clearQuickCounter() {
+  localStorage.removeItem(QUICK_COUNTER_KEY);
+}

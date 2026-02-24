@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
-import { loadAppDate, loadQuickCounter, loadSettings, saveAppDate, saveQuickCounter, saveSettings } from '../utils/storage';
+import { clearQuickCounter, loadAppDate, loadQuickCounter, loadSettings, saveAppDate, saveQuickCounter, saveSettings } from '../utils/storage';
 
 const GameContext = createContext(null);
 
@@ -399,17 +399,21 @@ export function GameProvider({ children }) {
     }
   }
 
-  function prepareNextQuick() {
+  function prepareNextQuick(resetDay = false) {
     setAjusteFinalAtivo(false);
     setRunning(false);
     setCurrentDurationSeconds(settings.quickDurationSeconds);
     setTotalSeconds(settings.quickDurationSeconds);
     resetCounters();
-    const next = quickMatchNumber + 1;
+    const next = resetDay ? 1 : (quickMatchNumber + 1);
     setQuickMatchNumber(next);
     setMatchId(null);
     currentMatchRef.current = null;
-    saveQuickCounter({ dateISO, counter: next });
+    if (resetDay) {
+      clearQuickCounter();
+    } else {
+      saveQuickCounter({ dateISO, counter: next });
+    }
     upsertLiveGame({
       id: 1,
       status: 'paused',
@@ -512,6 +516,22 @@ export function GameProvider({ children }) {
     }).catch(() => {});
   }
 
+  function endLiveGame() {
+    upsertLiveGame({
+      id: 1,
+      status: 'ended',
+      mode,
+      match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
+      match_no: mode === 'quick' ? quickMatchNumber : null,
+      quarter: quarterIndex + 1,
+      time_left: 0,
+      team_a: teamAName,
+      team_b: teamBName,
+      score_a: scoreA,
+      score_b: scoreB
+    }).catch(() => {});
+  }
+
   async function finishTournamentMatch(silent = false) {
     const match = currentMatchRef.current;
     if (!match) return;
@@ -560,7 +580,7 @@ export function GameProvider({ children }) {
     if (mode === 'quick') {
       try {
         await saveQuickMatch();
-        prepareNextQuick();
+        prepareNextQuick(true);
       } catch (err) {
         setLastError(err);
         showAlert(err.message || 'Erro ao salvar partida.');
@@ -568,6 +588,13 @@ export function GameProvider({ children }) {
     } else {
       await finishTournamentMatch(true);
     }
+  }
+
+  function clearGameState() {
+    setRunning(false);
+    setAjusteFinalAtivo(false);
+    setTotalSeconds(currentDurationSeconds);
+    resetCounters();
   }
 
   const value = useMemo(() => ({
@@ -598,6 +625,8 @@ export function GameProvider({ children }) {
     finishQuick,
     finishTournamentMatch,
     advanceQuarterOrFinish,
+    endLiveGame,
+    clearGameState,
     saveCurrentIfNeeded,
     confirmState,
     askConfirm,

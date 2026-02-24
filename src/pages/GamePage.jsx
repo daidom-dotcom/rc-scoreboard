@@ -25,7 +25,11 @@ export default function GamePage() {
     addPoint,
     finishQuick,
     finishTournamentMatch,
-    saveCurrentIfNeeded
+    saveCurrentIfNeeded,
+    endLiveGame,
+    dateISO,
+    clearGameState,
+    pause
   } = useGame();
 
   const navigate = useNavigate();
@@ -70,7 +74,10 @@ export default function GamePage() {
       }
     }
 
-    navigate('/history?summary=1');
+    pause();
+    clearGameState();
+    endLiveGame();
+    navigate(`/history?summary=1&date=${dateISO}&dateTo=${dateISO}`);
   }
 
 
