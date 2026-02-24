@@ -31,6 +31,10 @@ export default function DateWheel({ value, onChange, displayValue }) {
     setTmpMonth(month);
     setTmpDay(day);
     setOpen(true);
+    setTimeout(() => {
+      const el = document.querySelector('.wheel-item.active');
+      if (el) el.scrollIntoView({ block: 'center' });
+    }, 0);
   }
 
   function apply() {
@@ -55,7 +59,7 @@ export default function DateWheel({ value, onChange, displayValue }) {
         {displayValue || value}
       </button>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Selecionar data">
+      <Modal open={open} onClose={() => setOpen(false)} title="Selecionar data" className="date-modal">
         <div className="wheel-grid">
           <div className="wheel-col">
             <div className="wheel-label">Dia</div>

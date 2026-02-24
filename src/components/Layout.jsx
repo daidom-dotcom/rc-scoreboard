@@ -46,7 +46,9 @@ export default function Layout() {
           <div className="brand-sub">Desenvolvido por Daiane Esteves</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`}>
-          <NavLink to="/" className="nav-link">Home</NavLink>
+          {location.pathname !== '/' ? (
+            <NavLink to="/" className="nav-link">Home</NavLink>
+          ) : null}
           {user ? (
             <NavLink to="/checkin" className="nav-link">Check-in</NavLink>
           ) : null}
