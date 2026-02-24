@@ -207,7 +207,7 @@ export default function TournamentPage() {
             />
           </div>
           <div>
-            <button className="btn-outline btn-small" onClick={handleAddTeam}>+</button>
+            <button className="btn-outline btn-add" onClick={handleAddTeam}>+</button>
           </div>
         </div>
         <div className="team-pills">
