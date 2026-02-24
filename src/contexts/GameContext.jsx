@@ -89,7 +89,7 @@ export function GameProvider({ children }) {
         id: 1,
         status: 'running',
         mode,
-        match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+        match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
         match_no: mode === 'quick' ? quickMatchNumber : null,
         quarter: quarterIndex + 1,
         time_left: totalSeconds,
@@ -100,7 +100,7 @@ export function GameProvider({ children }) {
       }).catch(() => {});
     }, 1000);
     return () => clearInterval(liveTick);
-  }, [running, totalSeconds, mode, quarterIndex, teamAName, teamBName, scoreA, scoreB]);
+  }, [running, totalSeconds, mode, quarterIndex, teamAName, teamBName, scoreA, scoreB, matchId, quickMatchNumber]);
 
   useEffect(() => {
     const shouldBeep = running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
@@ -167,6 +167,38 @@ export function GameProvider({ children }) {
     setBasketsB({ one: 0, two: 0, three: 0 });
   }
 
+  async function ensureQuickMatch() {
+    try {
+      if (matchId) return;
+      const match = await createMatch({
+        date_iso: dateISO || todayISO(),
+        mode: 'quick',
+        team_a_name: QUICK_TEAM_A,
+        team_b_name: QUICK_TEAM_B,
+        quarters: 1,
+        durations: [settings.quickDurationSeconds],
+        status: 'pending'
+      });
+      setMatchId(match.id);
+      currentMatchRef.current = match;
+      upsertLiveGame({
+        id: 1,
+        status: running ? 'running' : 'paused',
+        mode: 'quick',
+        match_id: match.id,
+        match_no: quickMatchNumber,
+        quarter: 1,
+        time_left: totalSeconds,
+        team_a: QUICK_TEAM_A,
+        team_b: QUICK_TEAM_B,
+        score_a: scoreA,
+        score_b: scoreB
+      }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+
   function startQuick() {
     setMode('quick');
     setMatchId(null);
@@ -191,6 +223,7 @@ export function GameProvider({ children }) {
       score_a: 0,
       score_b: 0
     }).catch(() => {});
+    ensureQuickMatch();
   }
 
   function startTournamentMatch(match) {
@@ -225,11 +258,12 @@ export function GameProvider({ children }) {
     if (totalSeconds === 0 && ajusteFinalAtivo) return;
     setAjusteFinalAtivo(false);
     setRunning(true);
+    if (mode === 'quick') ensureQuickMatch();
     upsertLiveGame({
       id: 1,
       status: 'running',
       mode,
-      match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+      match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
       match_no: mode === 'quick' ? quickMatchNumber : null,
       quarter: quarterIndex + 1,
       time_left: totalSeconds,
@@ -246,7 +280,7 @@ export function GameProvider({ children }) {
       id: 1,
       status: 'paused',
       mode,
-      match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+      match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
       match_no: mode === 'quick' ? quickMatchNumber : null,
       quarter: quarterIndex + 1,
       time_left: totalSeconds,
@@ -298,7 +332,7 @@ export function GameProvider({ children }) {
         id: 1,
         status: running ? 'running' : 'paused',
         mode,
-        match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+        match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
         match_no: mode === 'quick' ? quickMatchNumber : null,
         quarter: quarterIndex + 1,
         time_left: totalSeconds,
@@ -328,7 +362,7 @@ export function GameProvider({ children }) {
           id: 1,
           status: 'paused',
           mode,
-          match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
           match_no: mode === 'quick' ? quickMatchNumber : null,
           quarter: quarterIndex + 1,
           time_left: totalSeconds,
@@ -342,11 +376,6 @@ export function GameProvider({ children }) {
   }
 
   async function finishQuick() {
-    if (scoreA === 0 && scoreB === 0) {
-      prepareNextQuick();
-      return;
-    }
-
     try {
       await saveQuickMatch();
       showAlert('Partida (rápida) salva!');
@@ -354,7 +383,7 @@ export function GameProvider({ children }) {
         id: 1,
         status: 'ended',
         mode: 'quick',
-        match_id: null,
+        match_id: matchId,
         match_no: quickMatchNumber,
         quarter: 1,
         time_left: 0,
@@ -378,6 +407,8 @@ export function GameProvider({ children }) {
     resetCounters();
     const next = quickMatchNumber + 1;
     setQuickMatchNumber(next);
+    setMatchId(null);
+    currentMatchRef.current = null;
     saveQuickCounter({ dateISO, counter: next });
     upsertLiveGame({
       id: 1,
@@ -399,19 +430,25 @@ export function GameProvider({ children }) {
       const totalC1 = basketsA.one + basketsB.one;
       const totalC2 = basketsA.two + basketsB.two;
       const totalC3 = basketsA.three + basketsB.three;
-
-      const match = await createMatch({
-        date_iso: dateISO || todayISO(),
-        mode: 'quick',
-        team_a_name: QUICK_TEAM_A,
-        team_b_name: QUICK_TEAM_B,
-        quarters: 1,
-        durations: [settings.quickDurationSeconds],
-        status: 'done'
-      });
+      let id = matchId;
+      if (!id) {
+        const match = await createMatch({
+          date_iso: dateISO || todayISO(),
+          mode: 'quick',
+          team_a_name: QUICK_TEAM_A,
+          team_b_name: QUICK_TEAM_B,
+          quarters: 1,
+          durations: [settings.quickDurationSeconds],
+          status: 'done'
+        });
+        id = match.id;
+        setMatchId(id);
+      } else {
+        await updateMatch(id, { status: 'done' });
+      }
 
       await upsertMatchResult({
-        match_id: match.id,
+        match_id: id,
         score_a: scoreA,
         score_b: scoreB,
         baskets1: totalC1,
@@ -445,7 +482,7 @@ export function GameProvider({ children }) {
       id: 1,
       status: 'paused',
       mode,
-      match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+      match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
       match_no: mode === 'quick' ? quickMatchNumber : null,
       quarter: nextIndex + 1,
       time_left: nextDur,
@@ -464,7 +501,7 @@ export function GameProvider({ children }) {
       id: 1,
       status: 'paused',
       mode,
-      match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+      match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
       match_no: mode === 'quick' ? quickMatchNumber : null,
       quarter: quarterIndex + 1,
       time_left: currentDurationSeconds,
@@ -499,7 +536,7 @@ export function GameProvider({ children }) {
         id: 1,
         status: 'ended',
         mode,
-        match_id: mode === 'tournament' ? currentMatchRef.current?.id : null,
+        match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
         match_no: mode === 'quick' ? quickMatchNumber : null,
         quarter: quarterIndex + 1,
         time_left: 0,
