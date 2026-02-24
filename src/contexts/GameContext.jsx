@@ -83,6 +83,24 @@ export function GameProvider({ children }) {
   }, [running]);
 
   useEffect(() => {
+    if (!running) return;
+    const liveTick = setInterval(() => {
+      upsertLiveGame({
+        id: 1,
+        status: 'running',
+        mode,
+        quarter: quarterIndex + 1,
+        time_left: totalSeconds,
+        team_a: teamAName,
+        team_b: teamBName,
+        score_a: scoreA,
+        score_b: scoreB
+      }).catch(() => {});
+    }, 1000);
+    return () => clearInterval(liveTick);
+  }, [running, totalSeconds, mode, quarterIndex, teamAName, teamBName, scoreA, scoreB]);
+
+  useEffect(() => {
     const shouldBeep = running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
     if (!shouldBeep) {
       if (beepIntervalRef.current) {
