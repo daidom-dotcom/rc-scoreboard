@@ -32,7 +32,9 @@ export default function Layout() {
               <NavLink to="/game" className="nav-link">Partida Rápida</NavLink>
             </>
           ) : null}
-          <NavLink to="/history" className="nav-link">Histórico</NavLink>
+          {user ? (
+            <NavLink to="/history" className="nav-link">Histórico</NavLink>
+          ) : null}
           {user && isMaster ? (
             <NavLink to="/settings" className="nav-link gear" title="Configurações" aria-label="Configurações">
               ⚙️
