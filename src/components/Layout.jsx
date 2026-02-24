@@ -9,6 +9,8 @@ export default function Layout() {
   const location = useLocation();
   const isGameRoute = location.pathname === '/game';
   const [showNav, setShowNav] = useState(true);
+  const [timerScale, setTimerScale] = useState(1);
+  const [scoreScale, setScoreScale] = useState(1);
 
   useEffect(() => {
     if (isGameRoute) {
@@ -17,6 +19,16 @@ export default function Layout() {
       setShowNav(true);
     }
   }, [isGameRoute]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--timer-scale', String(timerScale));
+    document.documentElement.style.setProperty('--score-scale', String(scoreScale));
+  }, [timerScale, scoreScale]);
+
+  function adjustFont(delta) {
+    setTimerScale((v) => Math.max(0.7, Math.min(1.5, Number((v + delta).toFixed(2)))));
+    setScoreScale((v) => Math.max(0.7, Math.min(1.5, Number((v + delta).toFixed(2)))));
+  }
 
   function toggleFullScreen() {
     if (!document.fullscreenElement) {
@@ -50,8 +62,28 @@ export default function Layout() {
         </nav>
         <div className="auth">
           {isGameRoute ? (
+            <>
+              <button
+                className="btn-outline btn-ghost topbar-btn"
+                onClick={() => adjustFont(-0.1)}
+                title="Diminuir fonte"
+                aria-label="Diminuir fonte"
+              >
+                A-
+              </button>
+              <button
+                className="btn-outline btn-ghost topbar-btn"
+                onClick={() => adjustFont(0.1)}
+                title="Aumentar fonte"
+                aria-label="Aumentar fonte"
+              >
+                A+
+              </button>
+            </>
+          ) : null}
+          {isGameRoute ? (
             <button
-              className="btn-outline btn-ghost"
+              className="btn-outline btn-ghost topbar-btn"
               onClick={() => setShowNav((v) => !v)}
               title={showNav ? 'Ocultar menu' : 'Mostrar menu'}
               aria-label="Mostrar ou ocultar menu"
@@ -60,17 +92,17 @@ export default function Layout() {
             </button>
           ) : null}
           {user && isMaster ? (
-            <NavLink to="/settings" className="btn-outline btn-ghost" title="Configurações" aria-label="Configurações">
+            <NavLink to="/settings" className="btn-outline btn-ghost topbar-btn" title="Configurações" aria-label="Configurações">
               ⚙️
             </NavLink>
           ) : null}
-          <button className="btn-outline btn-ghost" onClick={toggleFullScreen} title="Tela cheia" aria-label="Tela cheia">
+          <button className="btn-outline btn-ghost topbar-btn" onClick={toggleFullScreen} title="Tela cheia" aria-label="Tela cheia">
             ⛶
           </button>
           {user ? (
-            <button className="btn-outline" onClick={signOut}>Sair</button>
+            <button className="btn-outline topbar-btn" onClick={signOut}>Sair</button>
           ) : (
-            <NavLink to="/login" className="btn-outline">Login</NavLink>
+            <NavLink to="/login" className="btn-outline topbar-btn">Login</NavLink>
           )}
         </div>
       </header>

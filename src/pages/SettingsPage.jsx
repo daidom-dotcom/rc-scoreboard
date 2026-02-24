@@ -58,7 +58,7 @@ export default function SettingsPage() {
           <div className="label">Nome Time B (Quick)</div>
           <input type="text" value={defaultTeamB} onChange={(e) => setDefaultTeamB(e.target.value)} />
 
-          <div className="actions">
+          <div className="actions" style={{ marginTop: 14 }}>
             <button className="btn-controle" onClick={save}>Salvar</button>
           </div>
         </div>

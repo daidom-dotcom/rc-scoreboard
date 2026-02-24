@@ -289,12 +289,12 @@ export default function HistoryPage() {
       </div>
 
       <div className="panel">
-        <div className="row">
-          <div className="col">
+        <div className="row history-date-row">
+          <div className="col history-date-col">
             <div className="label">Data início</div>
             <DateWheelField value={dateISO} onChange={setDateISO} displayValue={formatDateBR(dateISO)} />
           </div>
-          <div className="col">
+          <div className="col history-date-col">
             <div className="label">Data fim</div>
             <DateWheelField value={dateTo} onChange={setDateTo} displayValue={formatDateBR(dateTo)} />
           </div>

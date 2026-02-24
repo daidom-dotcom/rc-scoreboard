@@ -101,7 +101,7 @@ export default function ManageUsersPage() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="email@exemplo.com"
         />
-        <button className="btn-controle" onClick={inviteMaster} disabled={loading}>Enviar Convite</button>
+        <button className="btn-controle" onClick={inviteMaster} disabled={loading}>Convidar</button>
       </div>
 
       <div className="label" style={{ marginTop: 18 }}>Usuários</div>
