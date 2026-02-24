@@ -197,7 +197,7 @@ export default function TournamentPage() {
       {isMaster ? (
         <div className="panel">
         <div className="label">Cadastrar Times</div>
-        <div className="row">
+        <div className="row row-inline">
           <div className="col">
             <input
               type="text"
@@ -207,7 +207,7 @@ export default function TournamentPage() {
             />
           </div>
           <div>
-            <button className="btn-controle" onClick={handleAddTeam}>Adicionar</button>
+            <button className="btn-outline btn-small" onClick={handleAddTeam}>+</button>
           </div>
         </div>
         <div className="team-pills">
