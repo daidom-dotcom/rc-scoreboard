@@ -191,6 +191,12 @@ export function GameProvider({ children }) {
     }
   }
 
+  function resetQuickNumberLocal() {
+    setQuickMatchNumber(1);
+    setMatchId(null);
+    currentMatchRef.current = null;
+  }
+
   async function ensureQuickMatch(desiredNo) {
     try {
       if (matchId) return;
@@ -717,6 +723,7 @@ export function GameProvider({ children }) {
     advanceQuarterOrFinish,
     endLiveGame,
     clearGameState,
+    resetQuickNumberLocal,
     saveCurrentIfNeeded,
     confirmState,
     askConfirm,

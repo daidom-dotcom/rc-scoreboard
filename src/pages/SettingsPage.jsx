@@ -4,7 +4,7 @@ import ManageUsersPage from './ManageUsersPage';
 import { supabase } from '../lib/supabase';
 
 export default function SettingsPage() {
-  const { settings, setSettings, showAlert, askConfirm, dateISO } = useGame();
+  const { settings, setSettings, showAlert, askConfirm, dateISO, resetQuickNumberLocal } = useGame();
   const [tab, setTab] = useState('quick');
   const [quickMinutes, setQuickMinutes] = useState(Math.floor(settings.quickDurationSeconds / 60));
   const [quickSeconds, setQuickSeconds] = useState(settings.quickDurationSeconds % 60);
@@ -38,6 +38,7 @@ export default function SettingsPage() {
       }
       await supabase.from('matches').delete().eq('date_iso', dateISO);
       await supabase.from('live_game').delete();
+      resetQuickNumberLocal();
       showAlert('Dia resetado.');
     } catch (err) {
       showAlert(err.message || 'Erro ao resetar o dia.');
