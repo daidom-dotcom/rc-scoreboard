@@ -70,24 +70,32 @@ export default function LoginPage() {
   return (
     <div className="panel auth-panel">
       <h2>Login</h2>
-      <label className="label">Email</label>
-      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-
-      <label className="label">Senha</label>
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-
       {needPasswordSetup || createObserver ? (
         <>
           <label className="label">Nome</label>
-          <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
 
           <label className="label">Sobrenome</label>
-          <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+
+          <label className="label">Email</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+
+          <label className="label">Senha</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
 
           <label className="label">Confirmar Senha</label>
-          <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
         </>
-      ) : null}
+      ) : (
+        <>
+          <label className="label">Email</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+
+          <label className="label">Senha</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </>
+      )}
 
       <div className="actions" style={{ marginTop: 12 }}>
         {(needPasswordSetup || createObserver) ? (

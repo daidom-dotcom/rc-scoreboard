@@ -7,7 +7,22 @@ import DateWheelField from '../components/DateWheelField';
 
 export default function HomePage() {
   const { user, isMaster } = useAuth();
-  const { dateISO, setDateISO, startQuick, showAlert } = useGame();
+  const {
+    dateISO,
+    setDateISO,
+    startQuick,
+    showAlert,
+    running,
+    mode,
+    teamAName,
+    teamBName,
+    scoreA,
+    scoreB,
+    totalSeconds,
+    quarterIndex,
+    quickMatchNumber,
+    formatTime
+  } = useGame();
   const navigate = useNavigate();
 
   const canEdit = !!user && isMaster;
@@ -46,6 +61,9 @@ export default function HomePage() {
     navigate(`/checkin?date=${targetDate}`);
   }
 
+  const showNow = running;
+  const matchLabel = mode === 'tournament' ? `Quarter ${quarterIndex + 1}` : `Partida ${quickMatchNumber}`;
+
   return (
     <div className="center">
       <h1 className="title-small">Rachão dos Crias</h1>
@@ -60,6 +78,23 @@ export default function HomePage() {
         <div className="home-date-spacer" />
         <DateWheelField value={dateISO} onChange={setDateISO} displayValue={formatDateBR(dateISO)} />
       </div>
+
+      {showNow ? (
+        <div className="panel now-panel">
+          <div className="label">Acontecendo agora...</div>
+          <div className="now-row">
+            <div className="now-team">{teamAName}</div>
+            <div className="now-score">{scoreA}</div>
+            <div className="now-vs">x</div>
+            <div className="now-score">{scoreB}</div>
+            <div className="now-team">{teamBName}</div>
+          </div>
+          <div className="now-meta">
+            <span>{matchLabel}</span>
+            <span>Tempo restante: {formatTime(totalSeconds)}</span>
+          </div>
+        </div>
+      ) : null}
 
       <div className="actions home-actions">
         {user ? (
