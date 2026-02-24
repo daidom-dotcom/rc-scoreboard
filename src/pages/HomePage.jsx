@@ -82,7 +82,8 @@ export default function HomePage() {
     };
   }, []);
 
-  const showNow = running || (live && live.status !== 'ended');
+  const liveActive = live && (live.status === 'running' || live.status === 'paused');
+  const showNow = running || liveActive;
   const matchLabel = mode === 'tournament'
     ? `Quarter ${quarterIndex + 1}`
     : `Partida ${quickMatchNumber}`;
