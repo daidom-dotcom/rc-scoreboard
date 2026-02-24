@@ -456,6 +456,13 @@ select {
 
 
 @media (max-width: 900px) {
+  .topbar { flex-wrap: wrap; gap: 4px; }
+  .brand { order: 1; font-size: 12px; }
+  .brand-sub { font-size: 9px; }
+  .auth { order: 2; margin-left: auto; }
+  .nav { order: 3; width: 100%; justify-content: center; flex-wrap: wrap; gap: 4px; }
+  .nav-link { font-size: 12px; height: 28px; padding: 4px 8px; }
+  .auth .btn-outline, .btn-ghost { height: 28px; font-size: 12px; padding: 4px 8px; }
   #timer { font-size: 86px; }
   #partidaLabel { font-size: 22px; min-width: 140px; }
   #controlesJogos { min-width: 140px; }
