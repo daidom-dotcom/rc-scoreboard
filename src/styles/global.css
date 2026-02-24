@@ -498,7 +498,7 @@ select {
   .home-date .label { white-space: nowrap; }
   .home-date .date-wheel .btn-outline { white-space: nowrap; }
   .home-date-row { width: 100%; }
-  .home-bottom { padding-bottom: 30px; }
+  .home-bottom { padding-bottom: 60px; }
   .home-date-row .field-unified { flex: 1 1 auto; }
   .container { max-width: 100%; }
   .panel { width: 100%; }
