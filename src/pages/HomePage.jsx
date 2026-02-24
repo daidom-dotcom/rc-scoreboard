@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { formatDateBR, todayISO } from '../utils/time';
 import DateWheelField from '../components/DateWheelField';
+import { fetchLiveGame } from '../lib/api';
 
 export default function HomePage() {
   const { user, isMaster } = useAuth();
@@ -61,8 +62,33 @@ export default function HomePage() {
     navigate(`/checkin?date=${targetDate}`);
   }
 
-  const showNow = running;
-  const matchLabel = mode === 'tournament' ? `Quarter ${quarterIndex + 1}` : `Partida ${quickMatchNumber}`;
+  const [live, setLive] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    async function loadLive() {
+      try {
+        const data = await fetchLiveGame();
+        if (active) setLive(data);
+      } catch {
+        // ignore
+      }
+    }
+    loadLive();
+    const t = setInterval(loadLive, 3000);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  const showNow = running || (live && live.status !== 'ended');
+  const matchLabel = mode === 'tournament'
+    ? `Quarter ${quarterIndex + 1}`
+    : `Partida ${quickMatchNumber}`;
+  const liveLabel = live?.mode === 'tournament'
+    ? `Quarter ${live.quarter}`
+    : `Partida ${live?.quarter || 1}`;
 
   return (
     <div className="center">
@@ -83,15 +109,15 @@ export default function HomePage() {
         <div className="panel now-panel">
           <div className="label">Acontecendo agora...</div>
           <div className="now-row">
-            <div className="now-team">{teamAName}</div>
-            <div className="now-score">{scoreA}</div>
+            <div className="now-team">{running ? teamAName : live?.team_a}</div>
+            <div className="now-score">{running ? scoreA : live?.score_a}</div>
             <div className="now-vs">x</div>
-            <div className="now-score">{scoreB}</div>
-            <div className="now-team">{teamBName}</div>
+            <div className="now-score">{running ? scoreB : live?.score_b}</div>
+            <div className="now-team">{running ? teamBName : live?.team_b}</div>
           </div>
           <div className="now-meta">
-            <span>{matchLabel}</span>
-            <span>Tempo restante: {formatTime(totalSeconds)}</span>
+            <span>{running ? matchLabel : liveLabel}</span>
+            <span>Tempo restante: {formatTime(running ? totalSeconds : (live?.time_left || 0))}</span>
           </div>
         </div>
       ) : null}

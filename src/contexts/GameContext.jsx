@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, updateMatch, upsertMatchResult } from '../lib/api';
+import { createMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadQuickCounter, loadSettings, saveAppDate, saveQuickCounter, saveSettings } from '../utils/storage';
 
@@ -158,6 +158,17 @@ export function GameProvider({ children }) {
     setTotalSeconds(settings.quickDurationSeconds);
     setAjusteFinalAtivo(false);
     setRunning(false);
+    upsertLiveGame({
+      id: 1,
+      status: 'paused',
+      mode: 'quick',
+      quarter: 1,
+      time_left: settings.quickDurationSeconds,
+      team_a: QUICK_TEAM_A,
+      team_b: QUICK_TEAM_B,
+      score_a: 0,
+      score_b: 0
+    }).catch(() => {});
   }
 
   function startTournamentMatch(match) {
@@ -173,16 +184,49 @@ export function GameProvider({ children }) {
     setTotalSeconds(initial);
     setAjusteFinalAtivo(false);
     setRunning(false);
+    upsertLiveGame({
+      id: 1,
+      status: 'paused',
+      mode: 'tournament',
+      quarter: 1,
+      time_left: initial,
+      team_a: match.team_a_name || match.teamA || 'TIME 1',
+      team_b: match.team_b_name || match.teamB || 'TIME 2',
+      score_a: 0,
+      score_b: 0
+    }).catch(() => {});
   }
 
   function play() {
     if (totalSeconds === 0 && ajusteFinalAtivo) return;
     setAjusteFinalAtivo(false);
     setRunning(true);
+    upsertLiveGame({
+      id: 1,
+      status: 'running',
+      mode,
+      quarter: quarterIndex + 1,
+      time_left: totalSeconds,
+      team_a: teamAName,
+      team_b: teamBName,
+      score_a: scoreA,
+      score_b: scoreB
+    }).catch(() => {});
   }
 
   function pause() {
     setRunning(false);
+    upsertLiveGame({
+      id: 1,
+      status: 'paused',
+      mode,
+      quarter: quarterIndex + 1,
+      time_left: totalSeconds,
+      team_a: teamAName,
+      team_b: teamBName,
+      score_a: scoreA,
+      score_b: scoreB
+    }).catch(() => {});
   }
 
   function addPoint(team, value) {
@@ -221,6 +265,19 @@ export function GameProvider({ children }) {
         return next;
       });
     }
+    setTimeout(() => {
+      upsertLiveGame({
+        id: 1,
+        status: running ? 'running' : 'paused',
+        mode,
+        quarter: quarterIndex + 1,
+        time_left: totalSeconds,
+        team_a: teamAName,
+        team_b: teamBName,
+        score_a: team === 'A' ? Math.max(0, scoreA + delta) : scoreA,
+        score_b: team === 'B' ? Math.max(0, scoreB + delta) : scoreB
+      }).catch(() => {});
+    }, 0);
   }
 
   async function handleTimerEnd() {
@@ -237,6 +294,17 @@ export function GameProvider({ children }) {
       else {
         setAjusteFinalAtivo(true);
         showAlert('Cronômetro ficou em 00:00. Ajuste o placar se precisar e clique em ENCERRAR PARTIDA.');
+        upsertLiveGame({
+          id: 1,
+          status: 'paused',
+          mode,
+          quarter: quarterIndex + 1,
+          time_left: totalSeconds,
+          team_a: teamAName,
+          team_b: teamBName,
+          score_a: scoreA,
+          score_b: scoreB
+        }).catch(() => {});
       }
     }
   }
@@ -250,6 +318,17 @@ export function GameProvider({ children }) {
     try {
       await saveQuickMatch();
       showAlert('Partida (rápida) salva!');
+      upsertLiveGame({
+        id: 1,
+        status: 'ended',
+        mode: 'quick',
+        quarter: 1,
+        time_left: 0,
+        team_a: teamAName,
+        team_b: teamBName,
+        score_a: scoreA,
+        score_b: scoreB
+      }).catch(() => {});
       prepareNextQuick();
     } catch (err) {
       setLastError(err);
@@ -315,12 +394,34 @@ export function GameProvider({ children }) {
     setCurrentDurationSeconds(nextDur);
     setTotalSeconds(nextDur);
     setAjusteFinalAtivo(false);
+    upsertLiveGame({
+      id: 1,
+      status: 'paused',
+      mode,
+      quarter: nextIndex + 1,
+      time_left: nextDur,
+      team_a: teamAName,
+      team_b: teamBName,
+      score_a: scoreA,
+      score_b: scoreB
+    }).catch(() => {});
   }
 
   function resetTimer() {
     setRunning(false);
     setAjusteFinalAtivo(false);
     setTotalSeconds(currentDurationSeconds);
+    upsertLiveGame({
+      id: 1,
+      status: 'paused',
+      mode,
+      quarter: quarterIndex + 1,
+      time_left: currentDurationSeconds,
+      team_a: teamAName,
+      team_b: teamBName,
+      score_a: scoreA,
+      score_b: scoreB
+    }).catch(() => {});
   }
 
   async function finishTournamentMatch(silent = false) {
@@ -342,6 +443,18 @@ export function GameProvider({ children }) {
         baskets3: totalC3,
         finished_at: new Date().toISOString()
       });
+
+      upsertLiveGame({
+        id: 1,
+        status: 'ended',
+        mode,
+        quarter: quarterIndex + 1,
+        time_left: 0,
+        team_a: teamAName,
+        team_b: teamBName,
+        score_a: scoreA,
+        score_b: scoreB
+      }).catch(() => {});
 
       if (!silent) {
         showAlert('Partida salva no Torneio!');

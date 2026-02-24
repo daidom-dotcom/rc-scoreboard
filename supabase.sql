@@ -40,6 +40,20 @@ create table if not exists public.match_results (
   finished_at timestamptz not null default now()
 );
 
+-- Live game (single row)
+create table if not exists public.live_game (
+  id int primary key,
+  status text not null check (status in ('running','paused','ended')),
+  mode text not null check (mode in ('quick','tournament')),
+  quarter int not null default 1,
+  time_left int not null default 0,
+  team_a text not null,
+  team_b text not null,
+  score_a int not null default 0,
+  score_b int not null default 0,
+  updated_at timestamptz not null default now()
+);
+
 -- Pending invites for master role
 create table if not exists public.pending_invites (
   email text primary key,
@@ -74,6 +88,7 @@ for each row execute function public.set_updated_at();
 alter table public.teams enable row level security;
 alter table public.matches enable row level security;
 alter table public.match_results enable row level security;
+alter table public.live_game enable row level security;
 alter table public.profiles enable row level security;
 alter table public.pending_invites enable row level security;
 
@@ -85,6 +100,9 @@ create policy "public read matches" on public.matches
   for select using (true);
 
 create policy "public read results" on public.match_results
+  for select using (true);
+
+create policy "public read live" on public.live_game
   for select using (true);
 
 create policy "read profiles for authenticated" on public.profiles
@@ -113,6 +131,12 @@ create policy "auth insert results" on public.match_results
   for insert with check (auth.uid() is not null);
 
 create policy "auth update results" on public.match_results
+  for update using (auth.uid() is not null);
+
+create policy "auth upsert live" on public.live_game
+  for insert with check (auth.uid() is not null);
+
+create policy "auth update live" on public.live_game
   for update using (auth.uid() is not null);
 
 create policy "master manage invites" on public.pending_invites

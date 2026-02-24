@@ -126,3 +126,23 @@ export async function upsertMatchResult(payload) {
   if (error) throw error;
   return data;
 }
+
+export async function upsertLiveGame(payload) {
+  const { data, error } = await supabase
+    .from('live_game')
+    .upsert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchLiveGame() {
+  const { data, error } = await supabase
+    .from('live_game')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
