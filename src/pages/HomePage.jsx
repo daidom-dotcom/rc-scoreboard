@@ -116,7 +116,8 @@ export default function HomePage() {
   const liveActive = live && (live.status === 'running' || live.status === 'paused');
   const liveHasMovement = live && (live.time_left > 0 || live.score_a > 0 || live.score_b > 0);
   const localHasMovement = totalSeconds > 0 || scoreA > 0 || scoreB > 0;
-  const showNow = (running && localHasMovement) || (liveActive && liveHasMovement);
+  const showNow = running || liveActive;
+  const isLive = running ? localHasMovement : liveHasMovement;
   const matchLabel = mode === 'tournament'
     ? `Quarter ${quarterIndex + 1}`
     : `Partida ${quickMatchNumber}`;
@@ -161,7 +162,7 @@ export default function HomePage() {
       {showNow ? (
         <div className="home-bottom">
           <div className="now-panel">
-            <div className="label">🔥 Ao Vivo 🔥</div>
+            <div className="label">{isLive ? '🔥 Ao Vivo 🔥' : 'Em breve'}</div>
           <div className="now-row">
             <div className="now-team">{running ? teamAName : live?.team_a}</div>
             <div className="now-score">{running ? scoreA : live?.score_a}</div>
