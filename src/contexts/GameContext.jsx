@@ -182,17 +182,20 @@ export function GameProvider({ children }) {
 
   async function refreshQuickNumber() {
     try {
-      const next = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
+      const next = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick', status: 'done' });
       setQuickMatchNumber(next);
+      return next;
     } catch {
       setQuickMatchNumber(1);
+      return 1;
     }
   }
 
-  async function ensureQuickMatch() {
+  async function ensureQuickMatch(desiredNo) {
     try {
       if (matchId) return;
-      const existing = await findPendingQuickMatch(dateISO || todayISO(), quickMatchNumber);
+      const targetNo = desiredNo || quickMatchNumber;
+      const existing = await findPendingQuickMatch(dateISO || todayISO(), targetNo);
       if (existing) {
         setMatchId(existing.id);
         currentMatchRef.current = existing;
@@ -201,12 +204,12 @@ export function GameProvider({ children }) {
       }
       const latest = await findLatestPendingQuick(dateISO || todayISO());
       if (latest) {
-        await updateMatch(latest.id, { match_no: quickMatchNumber });
+        await updateMatch(latest.id, { match_no: targetNo });
         setMatchId(latest.id);
-        currentMatchRef.current = { ...latest, match_no: quickMatchNumber };
+        currentMatchRef.current = { ...latest, match_no: targetNo };
         return;
       }
-      const nextNo = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
+      const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick', status: 'done' }));
       const match = await createMatch({
         date_iso: dateISO || todayISO(),
         mode: 'quick',
@@ -249,8 +252,9 @@ export function GameProvider({ children }) {
     setTotalSeconds(settings.quickDurationSeconds);
     setAjusteFinalAtivo(false);
     setRunning(false);
-    refreshQuickNumber();
-    ensureQuickMatch();
+    refreshQuickNumber().then((nextNo) => {
+      ensureQuickMatch(nextNo);
+    });
   }
 
   function startTournamentMatch(match) {
@@ -454,25 +458,40 @@ export function GameProvider({ children }) {
     setTotalSeconds(settings.quickDurationSeconds);
     resetCounters();
     if (resetDay) {
-      refreshQuickNumber();
+      refreshQuickNumber().then((nextNo) => {
+        upsertLiveGame({
+          id: 1,
+          status: 'paused',
+          mode: 'quick',
+          match_id: null,
+          match_no: nextNo,
+          quarter: 1,
+          time_left: settings.quickDurationSeconds,
+          team_a: QUICK_TEAM_A,
+          team_b: QUICK_TEAM_B,
+          score_a: 0,
+          score_b: 0
+        }).catch(() => {});
+      });
     } else {
       setQuickMatchNumber((prev) => prev + 1);
+      const next = quickMatchNumber + 1;
+      upsertLiveGame({
+        id: 1,
+        status: 'paused',
+        mode: 'quick',
+        match_id: null,
+        match_no: next,
+        quarter: 1,
+        time_left: settings.quickDurationSeconds,
+        team_a: QUICK_TEAM_A,
+        team_b: QUICK_TEAM_B,
+        score_a: 0,
+        score_b: 0
+      }).catch(() => {});
     }
     setMatchId(null);
     currentMatchRef.current = null;
-    upsertLiveGame({
-      id: 1,
-      status: 'paused',
-      mode: 'quick',
-      match_id: null,
-      match_no: resetDay ? null : (quickMatchNumber + 1),
-      quarter: 1,
-      time_left: settings.quickDurationSeconds,
-      team_a: QUICK_TEAM_A,
-      team_b: QUICK_TEAM_B,
-      score_a: 0,
-      score_b: 0
-    }).catch(() => {});
   }
 
   async function saveQuickMatch() {

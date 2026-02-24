@@ -79,8 +79,6 @@ export default function SettingsPage() {
 
           <div className="actions" style={{ marginTop: 14 }}>
             <button className="btn-controle" onClick={save}>Salvar</button>
-          </div>
-          <div className="actions" style={{ marginTop: 8 }}>
             <button className="btn-outline" onClick={resetToday}>Resetar dia atual</button>
           </div>
         </div>
