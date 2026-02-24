@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchMatchesByDate } from '../lib/api';
+import { fetchLiveGame, fetchMatchesByDate } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatDateBR, todayISO } from '../utils/time';
 import SelectField from '../components/SelectField';
@@ -69,9 +69,16 @@ export default function CheckInPage() {
     setLoading(true);
     try {
       const targetDate = onlyToday ? (dateISO || todayISO()) : dateISO;
-      const data = await fetchMatchesByDate(targetDate);
-      setMatches(data);
-      if (data.length && !matchId) setMatchId(data[0].id);
+      const [data, live] = await Promise.all([
+        fetchMatchesByDate(targetDate),
+        fetchLiveGame().catch(() => null)
+      ]);
+      let filtered = data;
+      if (live?.mode === 'quick' && live?.match_no) {
+        filtered = data.filter((m) => m.mode !== 'quick' || (m.match_no && m.match_no <= live.match_no));
+      }
+      setMatches(filtered);
+      if (filtered.length && !matchId) setMatchId(filtered[0].id);
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar partidas');
     } finally {

@@ -114,9 +114,10 @@ export default function HomePage() {
   }, [live?.match_id]);
 
   const liveActive = live && (live.status === 'running' || live.status === 'paused');
+  const liveReset = live?.reset_at ? new Date(live.reset_at).getTime() : null;
   const liveHasMovement = live && (live.time_left > 0 || live.score_a > 0 || live.score_b > 0);
   const localHasMovement = totalSeconds > 0 || scoreA > 0 || scoreB > 0;
-  const showNow = running || liveActive;
+  const showNow = running || (liveActive && !liveReset);
   const isLive = running ? localHasMovement : liveHasMovement;
   const matchLabel = mode === 'tournament'
     ? `Quarter ${quarterIndex + 1}`

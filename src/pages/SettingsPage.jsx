@@ -4,7 +4,7 @@ import ManageUsersPage from './ManageUsersPage';
 import { supabase } from '../lib/supabase';
 
 export default function SettingsPage() {
-  const { settings, setSettings, showAlert, askConfirm, dateISO, resetQuickNumberLocal } = useGame();
+  const { settings, setSettings, showAlert, askConfirm, dateISO, applyRemoteReset } = useGame();
   const [tab, setTab] = useState('quick');
   const [quickMinutes, setQuickMinutes] = useState(Math.floor(settings.quickDurationSeconds / 60));
   const [quickSeconds, setQuickSeconds] = useState(settings.quickDurationSeconds % 60);
@@ -37,8 +37,21 @@ export default function SettingsPage() {
         await supabase.from('match_results').delete().in('match_id', ids);
       }
       await supabase.from('matches').delete().eq('date_iso', dateISO);
-      await supabase.from('live_game').delete();
-      resetQuickNumberLocal();
+      await supabase.from('live_game').upsert({
+        id: 1,
+        status: 'ended',
+        mode: 'quick',
+        match_id: null,
+        match_no: 1,
+        quarter: 1,
+        time_left: 0,
+        team_a: '',
+        team_b: '',
+        score_a: 0,
+        score_b: 0,
+        reset_at: new Date().toISOString()
+      });
+      applyRemoteReset();
       showAlert('Dia resetado.');
     } catch (err) {
       showAlert(err.message || 'Erro ao resetar o dia.');

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, deleteMatch, deletePendingQuickMatch, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
 
@@ -43,6 +43,14 @@ export function GameProvider({ children }) {
   const currentMatchRef = useRef(null);
   const beepIntervalRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const lastResetRef = useRef(null);
+  const remoteResetRef = useRef(false);
+  const resettingRef = useRef(false);
+
+  function pushLiveGame(payload) {
+    if (remoteResetRef.current) return;
+    return upsertLiveGame(payload);
+  }
 
   useEffect(() => {
     saveSettings(settings);
@@ -80,7 +88,7 @@ export function GameProvider({ children }) {
   useEffect(() => {
     if (!running) return;
     const liveTick = setInterval(() => {
-      upsertLiveGame({
+      pushLiveGame({
         id: 1,
         status: 'running',
         mode,
@@ -91,16 +99,39 @@ export function GameProvider({ children }) {
         team_a: teamAName,
         team_b: teamBName,
         score_a: scoreA,
-        score_b: scoreB
+        score_b: scoreB,
+        reset_at: null
       }).catch(() => {});
     }, 1000);
     return () => clearInterval(liveTick);
   }, [running, totalSeconds, mode, quarterIndex, teamAName, teamBName, scoreA, scoreB, matchId, quickMatchNumber]);
 
   useEffect(() => {
+    let active = true;
+    async function pollReset() {
+      try {
+        const live = await fetchLiveGame();
+        const resetAt = live?.reset_at ? new Date(live.reset_at).getTime() : null;
+        if (resetAt && (!lastResetRef.current || resetAt > lastResetRef.current)) {
+          lastResetRef.current = resetAt;
+          applyRemoteReset();
+        }
+      } catch {
+        // ignore
+      }
+    }
+    pollReset();
+    const t = setInterval(pollReset, 3000);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [settings.quickDurationSeconds]);
+
+  useEffect(() => {
     if (mode !== 'quick') return;
     if (!matchId) return;
-    upsertLiveGame({
+    pushLiveGame({
       id: 1,
       status: running ? 'running' : 'paused',
       mode: 'quick',
@@ -111,7 +142,8 @@ export function GameProvider({ children }) {
       team_a: teamAName,
       team_b: teamBName,
       score_a: scoreA,
-      score_b: scoreB
+      score_b: scoreB,
+      reset_at: null
     }).catch(() => {});
   }, [mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
 
@@ -182,6 +214,11 @@ export function GameProvider({ children }) {
 
   async function refreshQuickNumber() {
     try {
+      const pending = await findLatestPendingQuick(dateISO || todayISO());
+      if (pending?.match_no) {
+        setQuickMatchNumber(pending.match_no);
+        return pending.match_no;
+      }
       const next = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick', status: 'done' });
       setQuickMatchNumber(next);
       return next;
@@ -191,14 +228,30 @@ export function GameProvider({ children }) {
     }
   }
 
-  function resetQuickNumberLocal() {
-    setQuickMatchNumber(1);
+  function applyRemoteReset() {
+    if (resettingRef.current) return;
+    resettingRef.current = true;
+    remoteResetRef.current = true;
+    setRunning(false);
+    setAjusteFinalAtivo(false);
+    setMode('quick');
+    setQuarterIndex(0);
+    setTeamAName(QUICK_TEAM_A);
+    setTeamBName(QUICK_TEAM_B);
+    resetCounters();
+    setCurrentDurationSeconds(settings.quickDurationSeconds);
+    setTotalSeconds(settings.quickDurationSeconds);
     setMatchId(null);
     currentMatchRef.current = null;
+    setQuickMatchNumber(1);
+    setTimeout(() => {
+      resettingRef.current = false;
+    }, 1000);
   }
 
   async function ensureQuickMatch(desiredNo) {
     try {
+      if (remoteResetRef.current) return;
       if (matchId) return;
       const targetNo = desiredNo || quickMatchNumber;
       const existing = await findPendingQuickMatch(dateISO || todayISO(), targetNo);
@@ -229,7 +282,7 @@ export function GameProvider({ children }) {
       setQuickMatchNumber(nextNo);
       setMatchId(match.id);
       currentMatchRef.current = match;
-      upsertLiveGame({
+      pushLiveGame({
         id: 1,
         status: running ? 'running' : 'paused',
         mode: 'quick',
@@ -240,7 +293,8 @@ export function GameProvider({ children }) {
         team_a: QUICK_TEAM_A,
         team_b: QUICK_TEAM_B,
         score_a: scoreA,
-        score_b: scoreB
+        score_b: scoreB,
+        reset_at: null
       }).catch(() => {});
     } catch {
       // ignore
@@ -258,6 +312,7 @@ export function GameProvider({ children }) {
     setTotalSeconds(settings.quickDurationSeconds);
     setAjusteFinalAtivo(false);
     setRunning(false);
+    remoteResetRef.current = false;
     refreshQuickNumber().then((nextNo) => {
       ensureQuickMatch(nextNo);
     });
@@ -276,7 +331,8 @@ export function GameProvider({ children }) {
     setTotalSeconds(initial);
     setAjusteFinalAtivo(false);
     setRunning(false);
-    upsertLiveGame({
+    remoteResetRef.current = false;
+    pushLiveGame({
       id: 1,
       status: 'paused',
       mode: 'tournament',
@@ -287,16 +343,18 @@ export function GameProvider({ children }) {
       team_a: match.team_a_name || match.teamA || 'TIME 1',
       team_b: match.team_b_name || match.teamB || 'TIME 2',
       score_a: 0,
-      score_b: 0
+      score_b: 0,
+      reset_at: null
     }).catch(() => {});
   }
 
   function play() {
     if (totalSeconds === 0 && ajusteFinalAtivo) return;
+    if (remoteResetRef.current) return;
     setAjusteFinalAtivo(false);
     setRunning(true);
     if (mode === 'quick') ensureQuickMatch();
-    upsertLiveGame({
+    pushLiveGame({
       id: 1,
       status: 'running',
       mode,
@@ -307,13 +365,15 @@ export function GameProvider({ children }) {
       team_a: teamAName,
       team_b: teamBName,
       score_a: scoreA,
-      score_b: scoreB
+      score_b: scoreB,
+      reset_at: null
     }).catch(() => {});
   }
 
   function pause() {
+    if (remoteResetRef.current) return;
     setRunning(false);
-    upsertLiveGame({
+    pushLiveGame({
       id: 1,
       status: 'paused',
       mode,
@@ -324,13 +384,15 @@ export function GameProvider({ children }) {
       team_a: teamAName,
       team_b: teamBName,
       score_a: scoreA,
-      score_b: scoreB
+      score_b: scoreB,
+      reset_at: null
     }).catch(() => {});
   }
 
   function addPoint(team, value) {
     const canEdit = running || ajusteFinalAtivo;
     if (!canEdit) return;
+    if (remoteResetRef.current) return;
     const delta = Number(value) || 0;
 
     if (team === 'A') {
@@ -365,7 +427,7 @@ export function GameProvider({ children }) {
       });
     }
     setTimeout(() => {
-      upsertLiveGame({
+      pushLiveGame({
         id: 1,
         status: running ? 'running' : 'paused',
         mode,
@@ -376,7 +438,8 @@ export function GameProvider({ children }) {
         team_a: teamAName,
         team_b: teamBName,
         score_a: team === 'A' ? Math.max(0, scoreA + delta) : scoreA,
-        score_b: team === 'B' ? Math.max(0, scoreB + delta) : scoreB
+        score_b: team === 'B' ? Math.max(0, scoreB + delta) : scoreB,
+        reset_at: null
       }).catch(() => {});
     }, 0);
   }
@@ -395,7 +458,7 @@ export function GameProvider({ children }) {
       else {
         setAjusteFinalAtivo(true);
         showAlert('Cronômetro ficou em 00:00. Ajuste o placar se precisar e clique em ENCERRAR PARTIDA.');
-        upsertLiveGame({
+        pushLiveGame({
           id: 1,
           status: 'paused',
           mode,
@@ -406,7 +469,8 @@ export function GameProvider({ children }) {
           team_a: teamAName,
           team_b: teamBName,
           score_a: scoreA,
-          score_b: scoreB
+          score_b: scoreB,
+          reset_at: null
         }).catch(() => {});
       }
     }
@@ -419,7 +483,7 @@ export function GameProvider({ children }) {
           await deleteMatch(matchId);
         }
         await deletePendingQuickMatch(dateISO || todayISO(), quickMatchNumber).catch(() => {});
-        upsertLiveGame({
+        pushLiveGame({
           id: 1,
           status: 'ended',
           mode: 'quick',
@@ -430,14 +494,15 @@ export function GameProvider({ children }) {
           team_a: teamAName,
           team_b: teamBName,
           score_a: scoreA,
-          score_b: scoreB
+          score_b: scoreB,
+          reset_at: null
         }).catch(() => {});
-        prepareNextQuick();
+        await prepareNextQuick();
         return;
       }
       await saveQuickMatch();
       showAlert('Partida (rápida) salva!');
-      upsertLiveGame({
+      pushLiveGame({
         id: 1,
         status: 'ended',
         mode: 'quick',
@@ -448,54 +513,37 @@ export function GameProvider({ children }) {
         team_a: teamAName,
         team_b: teamBName,
         score_a: scoreA,
-        score_b: scoreB
+        score_b: scoreB,
+        reset_at: null
       }).catch(() => {});
-      prepareNextQuick();
+      await prepareNextQuick();
     } catch (err) {
       setLastError(err);
       showAlert(err.message || 'Erro ao salvar partida rápida.');
     }
   }
 
-  function prepareNextQuick(resetDay = false) {
+  async function prepareNextQuick(resetDay = false) {
     setAjusteFinalAtivo(false);
     setRunning(false);
     setCurrentDurationSeconds(settings.quickDurationSeconds);
     setTotalSeconds(settings.quickDurationSeconds);
     resetCounters();
-    if (resetDay) {
-      refreshQuickNumber().then((nextNo) => {
-        upsertLiveGame({
-          id: 1,
-          status: 'paused',
-          mode: 'quick',
-          match_id: null,
-          match_no: nextNo,
-          quarter: 1,
-          time_left: settings.quickDurationSeconds,
-          team_a: QUICK_TEAM_A,
-          team_b: QUICK_TEAM_B,
-          score_a: 0,
-          score_b: 0
-        }).catch(() => {});
-      });
-    } else {
-      setQuickMatchNumber((prev) => prev + 1);
-      const next = quickMatchNumber + 1;
-      upsertLiveGame({
-        id: 1,
-        status: 'paused',
-        mode: 'quick',
-        match_id: null,
-        match_no: next,
-        quarter: 1,
-        time_left: settings.quickDurationSeconds,
-        team_a: QUICK_TEAM_A,
-        team_b: QUICK_TEAM_B,
-        score_a: 0,
-        score_b: 0
-      }).catch(() => {});
-    }
+    const nextNo = await refreshQuickNumber();
+    pushLiveGame({
+      id: 1,
+      status: 'paused',
+      mode: 'quick',
+      match_id: null,
+      match_no: nextNo,
+      quarter: 1,
+      time_left: settings.quickDurationSeconds,
+      team_a: QUICK_TEAM_A,
+      team_b: QUICK_TEAM_B,
+      score_a: 0,
+      score_b: 0,
+      reset_at: null
+    }).catch(() => {});
     setMatchId(null);
     currentMatchRef.current = null;
   }
@@ -554,7 +602,7 @@ export function GameProvider({ children }) {
     setCurrentDurationSeconds(nextDur);
     setTotalSeconds(nextDur);
     setAjusteFinalAtivo(false);
-    upsertLiveGame({
+    pushLiveGame({
       id: 1,
       status: 'paused',
       mode,
@@ -565,7 +613,8 @@ export function GameProvider({ children }) {
       team_a: teamAName,
       team_b: teamBName,
       score_a: scoreA,
-      score_b: scoreB
+      score_b: scoreB,
+      reset_at: null
     }).catch(() => {});
   }
 
@@ -573,7 +622,7 @@ export function GameProvider({ children }) {
     setRunning(false);
     setAjusteFinalAtivo(false);
     setTotalSeconds(currentDurationSeconds);
-    upsertLiveGame({
+    pushLiveGame({
       id: 1,
       status: 'paused',
       mode,
@@ -584,12 +633,13 @@ export function GameProvider({ children }) {
       team_a: teamAName,
       team_b: teamBName,
       score_a: scoreA,
-      score_b: scoreB
+      score_b: scoreB,
+      reset_at: null
     }).catch(() => {});
   }
 
   function endLiveGame() {
-    upsertLiveGame({
+    pushLiveGame({
       id: 1,
       status: 'ended',
       mode,
@@ -600,7 +650,8 @@ export function GameProvider({ children }) {
       team_a: teamAName,
       team_b: teamBName,
       score_a: scoreA,
-      score_b: scoreB
+      score_b: scoreB,
+      reset_at: null
     }).catch(() => {});
   }
 
@@ -611,7 +662,7 @@ export function GameProvider({ children }) {
     if (scoreA === 0 && scoreB === 0) {
       try {
         await deleteMatch(match.id);
-        upsertLiveGame({
+        pushLiveGame({
           id: 1,
           status: 'ended',
           mode,
@@ -622,7 +673,8 @@ export function GameProvider({ children }) {
           team_a: teamAName,
           team_b: teamBName,
           score_a: scoreA,
-          score_b: scoreB
+          score_b: scoreB,
+          reset_at: null
         }).catch(() => {});
         if (!silent) showAlert('Partida 0x0 removida.');
       } catch (err) {
@@ -648,7 +700,7 @@ export function GameProvider({ children }) {
         finished_at: new Date().toISOString()
       });
 
-      upsertLiveGame({
+      pushLiveGame({
         id: 1,
         status: 'ended',
         mode,
@@ -659,7 +711,8 @@ export function GameProvider({ children }) {
         team_a: teamAName,
         team_b: teamBName,
         score_a: scoreA,
-        score_b: scoreB
+        score_b: scoreB,
+        reset_at: null
       }).catch(() => {});
 
       if (!silent) {
@@ -676,7 +729,7 @@ export function GameProvider({ children }) {
     if (mode === 'quick') {
       try {
         await saveQuickMatch();
-        prepareNextQuick(true);
+        await prepareNextQuick(true);
       } catch (err) {
         setLastError(err);
         showAlert(err.message || 'Erro ao salvar partida.');
@@ -723,7 +776,7 @@ export function GameProvider({ children }) {
     advanceQuarterOrFinish,
     endLiveGame,
     clearGameState,
-    resetQuickNumberLocal,
+    applyRemoteReset,
     saveCurrentIfNeeded,
     confirmState,
     askConfirm,
@@ -751,7 +804,8 @@ export function GameProvider({ children }) {
     currentDurationSeconds,
     confirmState,
     alertState,
-    lastError
+    lastError,
+    applyRemoteReset
   ]);
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

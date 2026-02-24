@@ -48,6 +48,7 @@ create table if not exists public.live_game (
   mode text not null check (mode in ('quick','tournament')),
   match_id uuid null references public.matches(id) on delete set null,
   match_no int null,
+  reset_at timestamptz,
   quarter int not null default 1,
   time_left int not null default 0,
   team_a text not null,
