@@ -120,7 +120,7 @@ export default function HomePage() {
     : `Partida ${quickMatchNumber}`;
   const liveLabel = live?.mode === 'tournament'
     ? `Quarter ${live.quarter}`
-    : `Partida ${live?.match_no || live?.quarter || 1}`;
+    : `Partida ${live?.match_no || 1}`;
 
   return (
     <div className="center home-wrapper">

@@ -98,6 +98,21 @@ export async function createMatch(payload) {
   return data;
 }
 
+export async function findPendingQuickMatch(dateISO, matchNo) {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('date_iso', dateISO)
+    .eq('mode', 'quick')
+    .eq('status', 'pending')
+    .eq('match_no', matchNo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
 export async function updateMatch(id, payload) {
   const { data, error } = await supabase
     .from('matches')

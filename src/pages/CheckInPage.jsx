@@ -17,16 +17,18 @@ export default function CheckInPage() {
   const [teamSide, setTeamSide] = useState('A');
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState([]);
+  const [onlyToday, setOnlyToday] = useState(true);
 
   useEffect(() => {
     if (!dateISO) return;
     loadMatches();
     loadEntries();
-  }, [dateISO]);
+  }, [dateISO, onlyToday]);
 
   const orderedMatches = useMemo(() => {
     const list = [...matches];
     list.sort((a, b) => {
+      if (a.match_no && b.match_no) return a.match_no - b.match_no;
       const aTime = a.match_results?.[0]?.finished_at || a.created_at;
       const bTime = b.match_results?.[0]?.finished_at || b.created_at;
       return new Date(aTime).getTime() - new Date(bTime).getTime();
@@ -57,7 +59,8 @@ export default function CheckInPage() {
   async function loadMatches() {
     setLoading(true);
     try {
-      const data = await fetchMatchesByDate(dateISO);
+      const targetDate = onlyToday ? (dateISO || todayISO()) : dateISO;
+      const data = await fetchMatchesByDate(targetDate);
       setMatches(data);
       if (data.length && !matchId) setMatchId(data[0].id);
     } catch (err) {
@@ -69,11 +72,12 @@ export default function CheckInPage() {
 
   async function loadEntries() {
     if (!user?.id || !dateISO) return;
+    const targetDate = onlyToday ? (dateISO || todayISO()) : dateISO;
     const { data, error } = await supabase
       .from('player_entries')
       .select('id, team_side, match_id, matches(id, team_a_name, team_b_name, date_iso)')
       .eq('user_id', user.id)
-      .eq('date_iso', dateISO)
+      .eq('date_iso', targetDate)
       .order('created_at', { ascending: false });
     if (error) return;
     setEntries(data || []);
@@ -98,13 +102,13 @@ export default function CheckInPage() {
 
       const { error } = await supabase
         .from('player_entries')
-        .insert({
+        .upsert({
           match_id: matchId,
           user_id: user.id,
           player_name: profile?.full_name || user.email,
           team_side: teamSide,
           date_iso: dateISO
-        });
+        }, { onConflict: 'user_id,match_id' });
       if (error) throw error;
       showAlert('Check-in registrado!');
       await loadEntries();
@@ -141,13 +145,19 @@ export default function CheckInPage() {
 
       <div className="panel">
         <div className="label">Partida</div>
+        <div className="users-filters">
+          <label>
+            <input type="checkbox" checked={onlyToday} onChange={(e) => setOnlyToday(e.target.checked)} />
+            Apenas partidas do dia atual
+          </label>
+        </div>
         <SelectField value={matchId} onChange={(e) => setMatchId(e.target.value)}>
           {orderedMatches.length === 0 ? (
             <option value="">Nenhuma partida registrada</option>
           ) : null}
           {orderedMatches.map((m, idx) => (
             <option key={m.id} value={m.id}>
-              Partida {idx + 1} · {m.team_a_name} vs {m.team_b_name}
+              Partida {m.match_no || (idx + 1)} · {m.team_a_name} vs {m.team_b_name}
             </option>
           ))}
         </SelectField>

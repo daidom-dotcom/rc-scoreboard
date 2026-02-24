@@ -20,6 +20,7 @@ create table if not exists public.matches (
   team_b_name text not null,
   quarters int not null,
   durations int[] not null,
+  match_no int,
   status text not null check (status in ('pending', 'done')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

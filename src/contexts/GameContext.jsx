@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, findPendingQuickMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
 import { clearQuickCounter, loadAppDate, loadQuickCounter, loadSettings, saveAppDate, saveQuickCounter, saveSettings } from '../utils/storage';
 
@@ -188,6 +188,12 @@ export function GameProvider({ children }) {
   async function ensureQuickMatch() {
     try {
       if (matchId) return;
+      const existing = await findPendingQuickMatch(dateISO || todayISO(), quickMatchNumber);
+      if (existing) {
+        setMatchId(existing.id);
+        currentMatchRef.current = existing;
+        return;
+      }
       const match = await createMatch({
         date_iso: dateISO || todayISO(),
         mode: 'quick',
@@ -195,6 +201,7 @@ export function GameProvider({ children }) {
         team_b_name: QUICK_TEAM_B,
         quarters: 1,
         durations: [settings.quickDurationSeconds],
+        match_no: quickMatchNumber,
         status: 'pending'
       });
       setMatchId(match.id);
@@ -461,12 +468,13 @@ export function GameProvider({ children }) {
           team_b_name: QUICK_TEAM_B,
           quarters: 1,
           durations: [settings.quickDurationSeconds],
+          match_no: quickMatchNumber,
           status: 'done'
         });
         id = match.id;
         setMatchId(id);
       } else {
-        await updateMatch(id, { status: 'done' });
+        await updateMatch(id, { status: 'done', match_no: quickMatchNumber });
       }
 
       await upsertMatchResult({
