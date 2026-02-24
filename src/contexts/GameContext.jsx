@@ -103,6 +103,24 @@ export function GameProvider({ children }) {
   }, [running, totalSeconds, mode, quarterIndex, teamAName, teamBName, scoreA, scoreB, matchId, quickMatchNumber]);
 
   useEffect(() => {
+    if (mode !== 'quick') return;
+    if (!matchId) return;
+    upsertLiveGame({
+      id: 1,
+      status: running ? 'running' : 'paused',
+      mode: 'quick',
+      match_id: matchId,
+      match_no: quickMatchNumber,
+      quarter: 1,
+      time_left: totalSeconds,
+      team_a: teamAName,
+      team_b: teamBName,
+      score_a: scoreA,
+      score_b: scoreB
+    }).catch(() => {});
+  }, [mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
+
+  useEffect(() => {
     const shouldBeep = running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
     if (!shouldBeep) {
       if (beepIntervalRef.current) {
