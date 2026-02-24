@@ -28,8 +28,7 @@ export default function GamePage() {
     saveCurrentIfNeeded,
     endLiveGame,
     dateISO,
-    clearGameState,
-    pause
+    clearGameState
   } = useGame();
 
   const navigate = useNavigate();
