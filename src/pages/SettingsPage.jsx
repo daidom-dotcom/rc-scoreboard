@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
 import ManageUsersPage from './ManageUsersPage';
+import { supabase } from '../lib/supabase';
 
 export default function SettingsPage() {
-  const { settings, setSettings, showAlert } = useGame();
+  const { settings, setSettings, showAlert, askConfirm, dateISO } = useGame();
   const [tab, setTab] = useState('quick');
   const [quickMinutes, setQuickMinutes] = useState(Math.floor(settings.quickDurationSeconds / 60));
   const [quickSeconds, setQuickSeconds] = useState(settings.quickDurationSeconds % 60);
@@ -23,6 +24,24 @@ export default function SettingsPage() {
       defaultTeamB: defaultTeamB || 'Sem Colete'
     });
     showAlert('Configurações salvas.');
+  }
+
+  async function resetToday() {
+    const ok = await askConfirm('Deseja apagar todas as partidas e check-ins de hoje?');
+    if (!ok) return;
+    try {
+      await supabase.from('player_entries').delete().eq('date_iso', dateISO);
+      const { data: matchRows } = await supabase.from('matches').select('id').eq('date_iso', dateISO);
+      const ids = (matchRows || []).map((m) => m.id);
+      if (ids.length) {
+        await supabase.from('match_results').delete().in('match_id', ids);
+      }
+      await supabase.from('matches').delete().eq('date_iso', dateISO);
+      await supabase.from('live_game').delete();
+      showAlert('Dia resetado.');
+    } catch (err) {
+      showAlert(err.message || 'Erro ao resetar o dia.');
+    }
   }
 
   return (
@@ -60,6 +79,9 @@ export default function SettingsPage() {
 
           <div className="actions" style={{ marginTop: 14 }}>
             <button className="btn-controle" onClick={save}>Salvar</button>
+          </div>
+          <div className="actions" style={{ marginTop: 8 }}>
+            <button className="btn-outline" onClick={resetToday}>Resetar dia atual</button>
           </div>
         </div>
       ) : (

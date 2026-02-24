@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, deleteMatch, findPendingQuickMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, deleteMatch, deletePendingQuickMatch, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
-import { clearQuickCounter, loadAppDate, loadQuickCounter, loadSettings, saveAppDate, saveQuickCounter, saveSettings } from '../utils/storage';
+import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
 
 const GameContext = createContext(null);
 
@@ -53,12 +53,7 @@ export function GameProvider({ children }) {
   }, [dateISO]);
 
   useEffect(() => {
-    const payload = loadQuickCounter();
-    if (payload && payload.dateISO === dateISO) {
-      setQuickMatchNumber(payload.counter || 1);
-    } else {
-      setQuickMatchNumber(1);
-    }
+    refreshQuickNumber();
   }, [dateISO]);
 
   useEffect(() => {
@@ -90,7 +85,7 @@ export function GameProvider({ children }) {
         status: 'running',
         mode,
         match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-        match_no: mode === 'quick' ? quickMatchNumber : null,
+        match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
         quarter: quarterIndex + 1,
         time_left: totalSeconds,
         team_a: teamAName,
@@ -185,6 +180,15 @@ export function GameProvider({ children }) {
     setBasketsB({ one: 0, two: 0, three: 0 });
   }
 
+  async function refreshQuickNumber() {
+    try {
+      const next = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
+      setQuickMatchNumber(next);
+    } catch {
+      setQuickMatchNumber(1);
+    }
+  }
+
   async function ensureQuickMatch() {
     try {
       if (matchId) return;
@@ -192,8 +196,17 @@ export function GameProvider({ children }) {
       if (existing) {
         setMatchId(existing.id);
         currentMatchRef.current = existing;
+        if (existing.match_no) setQuickMatchNumber(existing.match_no);
         return;
       }
+      const latest = await findLatestPendingQuick(dateISO || todayISO());
+      if (latest) {
+        await updateMatch(latest.id, { match_no: quickMatchNumber });
+        setMatchId(latest.id);
+        currentMatchRef.current = { ...latest, match_no: quickMatchNumber };
+        return;
+      }
+      const nextNo = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
       const match = await createMatch({
         date_iso: dateISO || todayISO(),
         mode: 'quick',
@@ -201,9 +214,10 @@ export function GameProvider({ children }) {
         team_b_name: QUICK_TEAM_B,
         quarters: 1,
         durations: [settings.quickDurationSeconds],
-        match_no: quickMatchNumber,
+        match_no: nextNo,
         status: 'pending'
       });
+      setQuickMatchNumber(nextNo);
       setMatchId(match.id);
       currentMatchRef.current = match;
       upsertLiveGame({
@@ -211,7 +225,7 @@ export function GameProvider({ children }) {
         status: running ? 'running' : 'paused',
         mode: 'quick',
         match_id: match.id,
-        match_no: quickMatchNumber,
+        match_no: nextNo,
         quarter: 1,
         time_left: totalSeconds,
         team_a: QUICK_TEAM_A,
@@ -235,19 +249,7 @@ export function GameProvider({ children }) {
     setTotalSeconds(settings.quickDurationSeconds);
     setAjusteFinalAtivo(false);
     setRunning(false);
-    upsertLiveGame({
-      id: 1,
-      status: 'paused',
-      mode: 'quick',
-      match_id: null,
-      match_no: quickMatchNumber,
-      quarter: 1,
-      time_left: settings.quickDurationSeconds,
-      team_a: QUICK_TEAM_A,
-      team_b: QUICK_TEAM_B,
-      score_a: 0,
-      score_b: 0
-    }).catch(() => {});
+    refreshQuickNumber();
     ensureQuickMatch();
   }
 
@@ -269,7 +271,7 @@ export function GameProvider({ children }) {
       status: 'paused',
       mode: 'tournament',
       match_id: match.id,
-      match_no: null,
+      match_no: match.match_no || null,
       quarter: 1,
       time_left: initial,
       team_a: match.team_a_name || match.teamA || 'TIME 1',
@@ -289,7 +291,7 @@ export function GameProvider({ children }) {
       status: 'running',
       mode,
       match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-      match_no: mode === 'quick' ? quickMatchNumber : null,
+      match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
       quarter: quarterIndex + 1,
       time_left: totalSeconds,
       team_a: teamAName,
@@ -306,7 +308,7 @@ export function GameProvider({ children }) {
       status: 'paused',
       mode,
       match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-      match_no: mode === 'quick' ? quickMatchNumber : null,
+      match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
       quarter: quarterIndex + 1,
       time_left: totalSeconds,
       team_a: teamAName,
@@ -358,7 +360,7 @@ export function GameProvider({ children }) {
         status: running ? 'running' : 'paused',
         mode,
         match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-        match_no: mode === 'quick' ? quickMatchNumber : null,
+        match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
         quarter: quarterIndex + 1,
         time_left: totalSeconds,
         team_a: teamAName,
@@ -388,7 +390,7 @@ export function GameProvider({ children }) {
           status: 'paused',
           mode,
           match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-          match_no: mode === 'quick' ? quickMatchNumber : null,
+          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
           quarter: quarterIndex + 1,
           time_left: totalSeconds,
           team_a: teamAName,
@@ -406,6 +408,7 @@ export function GameProvider({ children }) {
         if (matchId) {
           await deleteMatch(matchId);
         }
+        await deletePendingQuickMatch(dateISO || todayISO(), quickMatchNumber).catch(() => {});
         upsertLiveGame({
           id: 1,
           status: 'ended',
@@ -450,21 +453,19 @@ export function GameProvider({ children }) {
     setCurrentDurationSeconds(settings.quickDurationSeconds);
     setTotalSeconds(settings.quickDurationSeconds);
     resetCounters();
-    const next = resetDay ? 1 : (quickMatchNumber + 1);
-    setQuickMatchNumber(next);
+    if (resetDay) {
+      refreshQuickNumber();
+    } else {
+      setQuickMatchNumber((prev) => prev + 1);
+    }
     setMatchId(null);
     currentMatchRef.current = null;
-    if (resetDay) {
-      clearQuickCounter();
-    } else {
-      saveQuickCounter({ dateISO, counter: next });
-    }
     upsertLiveGame({
       id: 1,
       status: 'paused',
       mode: 'quick',
       match_id: null,
-      match_no: next,
+      match_no: resetDay ? null : (quickMatchNumber + 1),
       quarter: 1,
       time_left: settings.quickDurationSeconds,
       team_a: QUICK_TEAM_A,
@@ -533,7 +534,7 @@ export function GameProvider({ children }) {
       status: 'paused',
       mode,
       match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-      match_no: mode === 'quick' ? quickMatchNumber : null,
+      match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
       quarter: nextIndex + 1,
       time_left: nextDur,
       team_a: teamAName,
@@ -552,7 +553,7 @@ export function GameProvider({ children }) {
       status: 'paused',
       mode,
       match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-      match_no: mode === 'quick' ? quickMatchNumber : null,
+      match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
       quarter: quarterIndex + 1,
       time_left: currentDurationSeconds,
       team_a: teamAName,
@@ -568,7 +569,7 @@ export function GameProvider({ children }) {
       status: 'ended',
       mode,
       match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-      match_no: mode === 'quick' ? quickMatchNumber : null,
+      match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
       quarter: quarterIndex + 1,
       time_left: 0,
       team_a: teamAName,
@@ -590,7 +591,7 @@ export function GameProvider({ children }) {
           status: 'ended',
           mode,
           match_id: null,
-          match_no: mode === 'quick' ? quickMatchNumber : null,
+          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
           quarter: quarterIndex + 1,
           time_left: 0,
           team_a: teamAName,
@@ -627,7 +628,7 @@ export function GameProvider({ children }) {
         status: 'ended',
         mode,
         match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-        match_no: mode === 'quick' ? quickMatchNumber : null,
+        match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
         quarter: quarterIndex + 1,
         time_left: 0,
         team_a: teamAName,

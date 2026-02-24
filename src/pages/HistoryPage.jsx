@@ -231,7 +231,15 @@ export default function HistoryPage() {
     return sortedRows.filter((m) => userEntriesMap.has(m.id));
   }, [sortedRows, showMine, user?.id, userEntriesMap]);
 
-  const doneMatches = useMemo(() => filteredRows
+  const visibleRows = useMemo(() => {
+    return filteredRows.filter((m) => {
+      const res = m.match_results?.[0];
+      if (!res) return true;
+      return !(Number(res.score_a) === 0 && Number(res.score_b) === 0);
+    });
+  }, [filteredRows]);
+
+  const doneMatches = useMemo(() => visibleRows
     .filter((m) => m.status === 'done' && m.match_results?.length)
     .map((m) => ({
       mode: m.mode,
@@ -242,7 +250,7 @@ export default function HistoryPage() {
       baskets1: m.match_results[0].baskets1,
       baskets2: m.match_results[0].baskets2,
       baskets3: m.match_results[0].baskets3
-    })), [filteredRows]);
+    })), [visibleRows]);
 
   const userStats = useMemo(() => {
     if (!showMine || !user?.id) return null;
@@ -339,7 +347,7 @@ export default function HistoryPage() {
 
       {!showSummary ? (
         <div className="panel">
-          <div className="label">Partidas ({filteredRows.length})</div>
+          <div className="label">Partidas ({visibleRows.length})</div>
           {loading ? (
             <div>Carregando...</div>
           ) : (
@@ -359,7 +367,7 @@ export default function HistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.map((m, idx) => {
+                {visibleRows.map((m, idx) => {
                   const res = m.match_results?.[0];
                   const leftScore = res ? res.score_a : '-';
                   const rightScore = res ? res.score_b : '-';

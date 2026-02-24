@@ -113,6 +113,20 @@ export async function findPendingQuickMatch(dateISO, matchNo) {
   return data || null;
 }
 
+export async function findLatestPendingQuick(dateISO) {
+  const { data, error } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('date_iso', dateISO)
+    .eq('mode', 'quick')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
 export async function updateMatch(id, payload) {
   const { data, error } = await supabase
     .from('matches')
@@ -130,6 +144,31 @@ export async function deleteMatch(id) {
     .delete()
     .eq('id', id);
   if (error) throw error;
+}
+
+export async function deletePendingQuickMatch(dateISO, matchNo) {
+  const { error } = await supabase
+    .from('matches')
+    .delete()
+    .eq('date_iso', dateISO)
+    .eq('mode', 'quick')
+    .eq('status', 'pending')
+    .eq('match_no', matchNo);
+  if (error) throw error;
+}
+
+export async function fetchNextMatchNo({ dateISO, mode, tournamentId }) {
+  let query = supabase
+    .from('matches')
+    .select('id', { count: 'exact', head: true })
+    .eq('date_iso', dateISO)
+    .eq('mode', mode);
+
+  if (tournamentId) query = query.eq('tournament_id', tournamentId);
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return (count || 0) + 1;
 }
 
 export async function upsertMatchResult(payload) {

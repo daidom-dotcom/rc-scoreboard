@@ -4,7 +4,7 @@ import Modal from '../components/Modal';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import ObserverOnlyNote from '../components/ObserverOnlyNote';
-import { createMatch, createTeam, deleteMatch, deleteTeam, fetchTeams } from '../lib/api';
+import { createMatch, createTeam, deleteMatch, deleteTeam, fetchNextMatchNo, fetchTeams } from '../lib/api';
 import { formatDateBR, formatTime } from '../utils/time';
 import { createTournament, updateTournament, fetchMatchesByTournament } from '../lib/tournaments';
 import { loadCurrentTournamentId, saveCurrentTournamentId, clearCurrentTournamentId } from '../utils/tournament';
@@ -150,8 +150,10 @@ export default function TournamentPage() {
     }
 
     try {
+      const matchDate = tournamentDate || dateISO || new Date().toISOString().slice(0, 10);
+      const nextNo = await fetchNextMatchNo({ dateISO: matchDate, mode: 'tournament', tournamentId });
       await createMatch({
-        date_iso: tournamentDate || dateISO || new Date().toISOString().slice(0, 10),
+        date_iso: matchDate,
         mode: 'tournament',
         tournament_id: tournamentId,
         team_a_id: teamA.id,
@@ -160,6 +162,7 @@ export default function TournamentPage() {
         team_b_name: teamB.name,
         quarters,
         durations: finalDurations,
+        match_no: nextNo,
         status: 'pending'
       });
       closeModal();

@@ -36,6 +36,15 @@ export default function CheckInPage() {
     return list;
   }, [matches]);
 
+  const displayMatches = useMemo(() => {
+    const map = new Map();
+    orderedMatches.forEach((m) => {
+      const key = m.match_no ? `n-${m.match_no}` : `id-${m.id}`;
+      if (!map.has(key)) map.set(key, m);
+    });
+    return Array.from(map.values());
+  }, [orderedMatches]);
+
   const currentMatch = useMemo(() => orderedMatches.find((m) => m.id === matchId), [orderedMatches, matchId]);
   const orderMap = useMemo(() => new Map(orderedMatches.map((m, idx) => [m.id, idx + 1])), [orderedMatches]);
 
@@ -152,10 +161,10 @@ export default function CheckInPage() {
           </label>
         </div>
         <SelectField value={matchId} onChange={(e) => setMatchId(e.target.value)}>
-          {orderedMatches.length === 0 ? (
+          {displayMatches.length === 0 ? (
             <option value="">Nenhuma partida registrada</option>
           ) : null}
-          {orderedMatches.map((m, idx) => (
+          {displayMatches.map((m, idx) => (
             <option key={m.id} value={m.id}>
               Partida {m.match_no || (idx + 1)} · {m.team_a_name} vs {m.team_b_name}
             </option>
