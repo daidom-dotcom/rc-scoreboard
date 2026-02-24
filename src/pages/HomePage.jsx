@@ -106,7 +106,7 @@ export default function HomePage() {
       </div>
 
       {showNow ? (
-        <div className="panel now-panel">
+        <div className="now-panel">
           <div className="label">Acontecendo agora...</div>
           <div className="now-row">
             <div className="now-team">{running ? teamAName : live?.team_a}</div>
