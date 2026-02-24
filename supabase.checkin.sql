@@ -24,5 +24,8 @@ create policy "master read all entries" on public.player_entries
     )
   );
 
+create policy "public read entries" on public.player_entries
+  for select using (true);
+
 create policy "insert own entries" on public.player_entries
   for insert with check (auth.uid() is not null and user_id = auth.uid());

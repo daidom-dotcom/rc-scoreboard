@@ -199,6 +199,9 @@ select {
 .now-score { font-size: 26px; }
 .now-vs { opacity: .8; font-weight: 900; text-align: center; }
 .now-meta { display: flex; justify-content: space-between; margin-top: 8px; font-weight: 900; font-size: 12px; opacity: .9; }
+.now-checkins { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; font-size: 9px; opacity: .75; }
+.now-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; }
+.now-list.right { justify-content: flex-end; text-align: right; }
 .date-wheel .btn-outline { width: 100%; height: 46px; }
 .field-unified .date-wheel .btn-outline { height: 46px; }
 .select-unified { height: 46px; }
