@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, findPendingQuickMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, deleteMatch, findPendingQuickMatch, updateMatch, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
 import { clearQuickCounter, loadAppDate, loadQuickCounter, loadSettings, saveAppDate, saveQuickCounter, saveSettings } from '../utils/storage';
 
@@ -402,6 +402,26 @@ export function GameProvider({ children }) {
 
   async function finishQuick() {
     try {
+      if (scoreA === 0 && scoreB === 0) {
+        if (matchId) {
+          await deleteMatch(matchId);
+        }
+        upsertLiveGame({
+          id: 1,
+          status: 'ended',
+          mode: 'quick',
+          match_id: null,
+          match_no: quickMatchNumber,
+          quarter: 1,
+          time_left: 0,
+          team_a: teamAName,
+          team_b: teamBName,
+          score_a: scoreA,
+          score_b: scoreB
+        }).catch(() => {});
+        prepareNextQuick();
+        return;
+      }
       await saveQuickMatch();
       showAlert('Partida (rápida) salva!');
       upsertLiveGame({
@@ -561,6 +581,30 @@ export function GameProvider({ children }) {
   async function finishTournamentMatch(silent = false) {
     const match = currentMatchRef.current;
     if (!match) return;
+
+    if (scoreA === 0 && scoreB === 0) {
+      try {
+        await deleteMatch(match.id);
+        upsertLiveGame({
+          id: 1,
+          status: 'ended',
+          mode,
+          match_id: null,
+          match_no: mode === 'quick' ? quickMatchNumber : null,
+          quarter: quarterIndex + 1,
+          time_left: 0,
+          team_a: teamAName,
+          team_b: teamBName,
+          score_a: scoreA,
+          score_b: scoreB
+        }).catch(() => {});
+        if (!silent) showAlert('Partida 0x0 removida.');
+      } catch (err) {
+        setLastError(err);
+        showAlert(err.message || 'Erro ao remover partida 0x0.');
+      }
+      return;
+    }
 
     const totalC1 = basketsA.one + basketsB.one;
     const totalC2 = basketsA.two + basketsB.two;
