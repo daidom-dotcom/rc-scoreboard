@@ -6,38 +6,43 @@ import { formatDateBR } from '../utils/time';
 
 export default function ManageUsersPage() {
   const [email, setEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('observer');
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [entries, setEntries] = useState([]);
   const [invites, setInvites] = useState([]);
   const { showAlert, askConfirm } = useGame();
-  const { isMaster } = useAuth();
+  const { isMaster, user } = useAuth();
   const [showInactive, setShowInactive] = useState(false);
   const [showMaster, setShowMaster] = useState(true);
   const [showCommon, setShowCommon] = useState(true);
 
-  async function inviteMaster() {
+  async function inviteUser() {
     const target = email.trim().toLowerCase();
     if (!target) return;
     setLoading(true);
     try {
-      const { error } = await supabase.rpc('invite_master', { email_input: target });
+      const { error } = await supabase.functions.invoke('send-invite', {
+        body: { email: target, role: inviteRole }
+      });
       if (error) throw error;
-      showAlert('Convite criado. O usuário deve definir a senha no primeiro login.');
+      showAlert('Convite enviado. O usuário deve definir a senha no primeiro login.');
       setEmail('');
       await loadInvites();
     } catch (err) {
-      showAlert(err.message || 'Falha ao criar convite');
+      showAlert(err.message || 'Falha ao enviar convite');
     } finally {
       setLoading(false);
     }
   }
 
-  async function resendInvite(targetEmail) {
+  async function resendInvite(targetEmail, role) {
     if (!targetEmail) return;
     setLoading(true);
     try {
-      const { error } = await supabase.rpc('invite_master', { email_input: targetEmail });
+      const { error } = await supabase.functions.invoke('send-invite', {
+        body: { email: targetEmail, role: role || 'observer' }
+      });
       if (error) throw error;
       showAlert('Convite reenviado.');
       await loadInvites();
@@ -48,12 +53,26 @@ export default function ManageUsersPage() {
     }
   }
 
+  async function removeInvite(targetEmail) {
+    if (!targetEmail) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.rpc('remove_invite', { email_input: targetEmail });
+      if (error) throw error;
+      await loadInvites();
+    } catch (err) {
+      showAlert(err.message || 'Falha ao remover convite');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function loadInvites(profileList = []) {
     try {
       const existing = new Set((profileList || []).map((p) => String(p.email || '').toLowerCase()));
       const { data, error } = await supabase
         .from('master_invites')
-        .select('id,email,created_at')
+        .select('id,email,role,created_at')
         .order('created_at', { ascending: false });
       if (error) throw error;
       const filtered = (data || []).filter((inv) => !existing.has(String(inv.email || '').toLowerCase()));
@@ -124,9 +143,25 @@ export default function ManageUsersPage() {
     }
   }
 
+  async function setUserRole(userId, nextRole) {
+    if (!userId) return;
+    const ok = await askConfirm(nextRole === 'master' ? 'Promover este usuário a Master?' : 'Rebaixar este usuário para Comum?');
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.rpc('set_user_role', { user_id_input: userId, role_input: nextRole });
+      if (error) throw error;
+      await loadUsers();
+    } catch (err) {
+      showAlert(err.message || 'Erro ao atualizar papel do usuário');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="panel">
-      <div className="label">Convidar Master</div>
+      <div className="label">Convidar Usuário</div>
       <div className="inline-field">
         <input
           type="email"
@@ -134,27 +169,41 @@ export default function ManageUsersPage() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="email@exemplo.com"
         />
-        <button className="btn-controle" onClick={inviteMaster} disabled={loading}>Convidar</button>
+        <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+          <option value="observer">Comum</option>
+          <option value="master">Master</option>
+        </select>
+        <button className="btn-controle" onClick={inviteUser} disabled={loading}>Convidar</button>
       </div>
 
       {invites.length ? (
         <div className="users-table" style={{ marginTop: 14 }}>
           <div className="users-row users-head">
             <div>Pendentes</div>
+            <div>Papel</div>
             <div>Criado em</div>
             <div></div>
           </div>
           {invites.map((inv) => (
             <div className="users-row" key={inv.id}>
               <div>{inv.email}</div>
+              <div>{inv.role === 'master' ? 'Master' : 'Comum'}</div>
               <div>{inv.created_at ? formatDateBR(inv.created_at.slice(0, 10)) : '-'}</div>
               <div>
                 <button
                   className="btn-outline btn-small"
-                  onClick={() => resendInvite(inv.email)}
+                  onClick={() => resendInvite(inv.email, inv.role)}
                   disabled={loading}
                 >
-                  Reenviar convite
+                  Reenviar
+                </button>
+                <button
+                  className="btn-outline btn-small"
+                  onClick={() => removeInvite(inv.email)}
+                  disabled={loading}
+                  style={{ marginLeft: 8 }}
+                >
+                  Remover
                 </button>
               </div>
             </div>
@@ -195,13 +244,37 @@ export default function ManageUsersPage() {
           .filter((u) => (u.role === 'master' ? showMaster : showCommon))
           .map((u) => {
           const stats = statsByUser.get(u.id) || { count: 0, last: null };
+          const canToggleRole = isMaster && String(u.email || '').toLowerCase() !== String(user?.email || '').toLowerCase();
           return (
             <div className={`users-row ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
-              <div>{u.full_name || '-'}</div>
+              <div className="user-name-row">
+                <span>{u.full_name || '-'}</span>
+                {isMaster ? (
+                  <div
+                    className={`toggle ${u.role === 'master' ? 'on' : ''} ${canToggleRole ? '' : 'disabled'}`}
+                    onClick={() => {
+                      if (!canToggleRole) return;
+                      setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (!canToggleRole) return;
+                        setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
+                      }
+                    }}
+                  >
+                    <div className="toggleKnob" />
+                  </div>
+                ) : null}
+                <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
+              </div>
               <div>{stats.count}</div>
               <div>{stats.last ? formatDateBR(stats.last) : '-'}</div>
               <div>{u.email}</div>
-              <div>{u.role === 'master' ? 'Master' : 'Comum'}</div>
+              <div></div>
               <div>
                 {isMaster ? (
                   <button

@@ -214,3 +214,49 @@ begin
   on conflict (email) do update set role = 'master';
 end;
 $$ language plpgsql security definer;
+
+-- Remove pending invite (only masters can call)
+create or replace function public.remove_invite(email_input text)
+returns void as $$
+begin
+  if not exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'master'
+  ) then
+    raise exception 'Not authorized';
+  end if;
+
+  delete from public.pending_invites where email = lower(email_input);
+end;
+$$ language plpgsql security definer;
+
+-- Promote an existing user to master (only masters can call)
+create or replace function public.promote_user(user_id_input uuid)
+returns void as $$
+begin
+  if not exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'master'
+  ) then
+    raise exception 'Not authorized';
+  end if;
+
+  update public.profiles
+  set role = 'master'
+  where id = user_id_input;
+end;
+$$ language plpgsql security definer;
+
+-- Set user role (only masters can call)
+create or replace function public.set_user_role(user_id_input uuid, role_input text)
+returns void as $$
+begin
+  if not exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'master'
+  ) then
+    raise exception 'Not authorized';
+  end if;
+
+  update public.profiles
+  set role = case when role_input = 'master' then 'master' else 'observer' end
+  where id = user_id_input;
+end;
+$$ language plpgsql security definer;
