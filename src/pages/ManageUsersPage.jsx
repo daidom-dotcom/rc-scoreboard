@@ -160,7 +160,7 @@ export default function ManageUsersPage() {
   }
 
   return (
-    <div className="panel">
+    <div className="panel manage-users-panel">
       <div className="label">Convidar Usuário</div>
       <div className="inline-field">
         <input
@@ -169,7 +169,7 @@ export default function ManageUsersPage() {
           onChange={(e) => setEmail(e.target.value)}
           placeholder="email@exemplo.com"
         />
-        <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
+        <select className="invite-select" value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
           <option value="observer">Comum</option>
           <option value="master">Master</option>
         </select>
@@ -249,6 +249,12 @@ export default function ManageUsersPage() {
             <div className={`users-row ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
               <div className="user-name-row">
                 <span>{u.full_name || '-'}</span>
+              </div>
+              <div>{stats.count}</div>
+              <div>{stats.last ? formatDateBR(stats.last) : '-'}</div>
+              <div>{u.email}</div>
+              <div className="user-role-col">
+                <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
                 {isMaster ? (
                   <div
                     className={`toggle ${u.role === 'master' ? 'on' : ''} ${canToggleRole ? '' : 'disabled'}`}
@@ -269,12 +275,7 @@ export default function ManageUsersPage() {
                     <div className="toggleKnob" />
                   </div>
                 ) : null}
-                <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
               </div>
-              <div>{stats.count}</div>
-              <div>{stats.last ? formatDateBR(stats.last) : '-'}</div>
-              <div>{u.email}</div>
-              <div></div>
               <div>
                 {isMaster ? (
                   <button

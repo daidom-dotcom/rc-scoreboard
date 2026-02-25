@@ -222,6 +222,8 @@ select {
 .inline-field { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .inline-field input { flex: 1 1 260px; height: 46px; }
 .inline-field .btn-controle { flex: 0 0 auto; min-width: 120px; height: 46px; }
+.invite-select { height: 46px; width: 120px; }
+.manage-users-panel { max-width: 80%; margin: 0 auto; }
 .users-table { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; font-size: 12px; }
 .users-row { display: grid; grid-template-columns: 1.2fr 90px 140px 1.6fr 100px 90px; gap: 10px; align-items: center; border: 2px solid rgba(180,240,0,.30); border-radius: 10px; padding: 6px 10px; }
 .users-head { background: rgba(180,240,0,.08); font-weight: 900; }
@@ -229,6 +231,7 @@ select {
 .user-name-row { display: flex; align-items: center; gap: 10px; }
 .role-label { font-size: 10px; opacity: .7; text-transform: uppercase; letter-spacing: 1px; }
 .toggle.disabled { opacity: .4; pointer-events: none; }
+.user-role-col { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
 .users-empty { opacity: .75; padding: 8px 4px; }
 .users-filters { display: flex; gap: 14px; align-items: center; margin: 8px 0 6px; }
 .users-filters label { display: flex; gap: 8px; align-items: center; font-weight: 900; }
