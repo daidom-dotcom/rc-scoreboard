@@ -186,10 +186,19 @@ export default function ManageUsersPage() {
           </div>
           {invites.map((inv) => (
             <div className="users-row" key={inv.id}>
-              <div>{inv.email}</div>
-              <div>{inv.role === 'master' ? 'Master' : 'Comum'}</div>
-              <div>{inv.created_at ? formatDateBR(inv.created_at.slice(0, 10)) : '-'}</div>
-              <div>
+              <div className="cell">
+                <span className="cell-label">Email</span>
+                <span>{inv.email}</span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">Papel</span>
+                <span>{inv.role === 'master' ? 'Master' : 'Comum'}</span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">Criado em</span>
+                <span>{inv.created_at ? formatDateBR(inv.created_at.slice(0, 10)) : '-'}</span>
+              </div>
+              <div className="cell">
                 <button
                   className="btn-outline btn-small"
                   onClick={() => resendInvite(inv.email, inv.role)}
@@ -247,36 +256,52 @@ export default function ManageUsersPage() {
           const canToggleRole = isMaster && String(u.email || '').toLowerCase() !== String(user?.email || '').toLowerCase();
           return (
             <div className={`users-row ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
-              <div className="user-name-row">
-                <span>{u.full_name || '-'}</span>
+              <div className="cell">
+                <span className="cell-label">Nome</span>
+                <div className="user-name-row">
+                  <span>{u.full_name || '-'}</span>
+                </div>
               </div>
-              <div>{stats.count}</div>
-              <div>{stats.last ? formatDateBR(stats.last) : '-'}</div>
-              <div>{u.email}</div>
-              <div className="user-role-col">
-                <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
-                {isMaster ? (
-                  <div
-                    className={`toggle ${u.role === 'master' ? 'on' : ''} ${canToggleRole ? '' : 'disabled'}`}
-                    onClick={() => {
-                      if (!canToggleRole) return;
-                      setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
+              <div className="cell">
+                <span className="cell-label">Partidas</span>
+                <span>{stats.count}</span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">Último jogo</span>
+                <span>{stats.last ? formatDateBR(stats.last) : '-'}</span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">Email</span>
+                <span>{u.email}</span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">Papel</span>
+                <div className="user-role-col">
+                  <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
+                  {isMaster ? (
+                    <div
+                      className={`toggle ${u.role === 'master' ? 'on' : ''} ${canToggleRole ? '' : 'disabled'}`}
+                      onClick={() => {
                         if (!canToggleRole) return;
                         setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
-                      }
-                    }}
-                  >
-                    <div className="toggleKnob" />
-                  </div>
-                ) : null}
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          if (!canToggleRole) return;
+                          setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
+                        }
+                      }}
+                    >
+                      <div className="toggleKnob" />
+                    </div>
+                  ) : null}
+                </div>
               </div>
-              <div>
+              <div className="cell">
+                <span className="cell-label">Ações</span>
                 {isMaster ? (
                   <button
                     className="btn-outline btn-small"
