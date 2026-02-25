@@ -1,0 +1,51 @@
+Resumo da conversa (2026-02-24)
+
+Objetivo
+- Garantir reset efetivo (sem depender de fechar apps), alinhamento entre Quick, Ao Vivo/Em Breve e Check-in.
+- Check-in deve mostrar somente partidas já criadas no dia escolhido; Quick não pode aparecer com número maior que o real.
+
+Principais decisões
+- Reset global via Supabase usando coluna reset_at em live_game.
+- Ao Vivo ignora live_game quando reset_at está preenchido.
+- Quick match number calculado no banco (não mais por cache/local).
+- Check-in limita partidas Quick até o match_no atual do live_game.
+
+Mudanças implementadas
+1) Supabase
+- Nova coluna em live_game:
+  alter table public.live_game add column if not exists reset_at timestamptz;
+
+2) Frontend (Vite + React)
+- GameContext (src/contexts/GameContext.jsx)
+  - Função pushLiveGame agora bloqueia atualizações quando remoteResetRef está ativo.
+  - applyRemoteReset: interrompe cronômetro, zera placar, limpa match, volta para Quick, e reinicia estado local.
+  - poll de live_game a cada 3s para detectar reset_at e aplicar reset remoto.
+  - refreshQuickNumber busca pending do dia e/ou conta de partidas finalizadas no DB.
+  - prepareNextQuick agora busca próximo número do DB, não soma local.
+  - Todas as chamadas de live_game incluem reset_at: null (para reabrir após reset).
+
+- SettingsPage (src/pages/SettingsPage.jsx)
+  - Reset do dia grava live_game com reset_at e status ended.
+  - Chama applyRemoteReset() localmente.
+
+- HomePage (src/pages/HomePage.jsx)
+  - Ao Vivo só aparece se live_game sem reset_at.
+
+- CheckInPage (src/pages/CheckInPage.jsx)
+  - loadMatches busca live_game e filtra partidas Quick com match_no > live.match_no.
+  - Match list agora sempre respeita dia atual.
+
+Pendências / passos após isso
+- Rodar no Supabase:
+  alter table public.live_game add column if not exists reset_at timestamptz;
+
+- Rebuild/deploy se necessário (Vercel/Hostinger).
+
+Arquivos tocados hoje
+- src/contexts/GameContext.jsx
+- src/pages/SettingsPage.jsx
+- src/pages/HomePage.jsx
+- src/pages/CheckInPage.jsx
+
+Arquivo salvo
+- RESUMO_CONVERSA_2026-02-24.txt

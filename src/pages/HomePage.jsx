@@ -113,12 +113,13 @@ export default function HomePage() {
     };
   }, [live?.match_id]);
 
-  const liveActive = live && (live.status === 'running' || live.status === 'paused');
+  const liveActive = live && live.status !== 'ended';
   const liveReset = live?.reset_at ? new Date(live.reset_at).getTime() : null;
-  const liveHasMovement = live && (live.time_left > 0 || live.score_a > 0 || live.score_b > 0);
   const localHasMovement = totalSeconds > 0 || scoreA > 0 || scoreB > 0;
   const showNow = running || (liveActive && !liveReset);
-  const isLive = running ? localHasMovement : liveHasMovement;
+  const isLive = running
+    ? localHasMovement
+    : (live && (live.status === 'running' || live.score_a > 0 || live.score_b > 0));
   const matchLabel = mode === 'tournament'
     ? `Quarter ${quarterIndex + 1}`
     : `Partida ${quickMatchNumber}`;
