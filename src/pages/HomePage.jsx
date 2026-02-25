@@ -164,7 +164,7 @@ export default function HomePage() {
       {showNow ? (
         <div className="home-bottom">
           <div className="now-panel">
-            <div className="label">{isLive ? '🔥 Ao Vivo 🔥' : 'Em breve'}</div>
+            <div className="label now-status">{isLive ? '🔥 Ao Vivo 🔥' : '⏳ Em Breve ⏳'}</div>
           <div className="now-row">
             <div className="now-team">{running ? teamAName : live?.team_a}</div>
             <div className="now-score">{running ? scoreA : live?.score_a}</div>
