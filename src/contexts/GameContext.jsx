@@ -781,6 +781,23 @@ export function GameProvider({ children }) {
     resetCounters();
   }
 
+  function applyLiveSnapshot(live) {
+    if (!live) return;
+    if (live.reset_at) return;
+    setMode(live.mode || 'quick');
+    setQuarterIndex(Math.max(0, Number(live.quarter || 1) - 1));
+    setTeamAName(live.team_a || QUICK_TEAM_A);
+    setTeamBName(live.team_b || QUICK_TEAM_B);
+    setScoreA(Number(live.score_a || 0));
+    setScoreB(Number(live.score_b || 0));
+    setTotalSeconds(Number(live.time_left || settings.quickDurationSeconds));
+    setCurrentDurationSeconds(Number(live.time_left || settings.quickDurationSeconds));
+    setMatchId(live.match_id || null);
+    if (live.match_no) setQuickMatchNumber(live.match_no);
+    setAjusteFinalAtivo(false);
+    setRunning(live.status === 'running');
+  }
+
   const value = useMemo(() => ({
     settings,
     setSettings,
@@ -812,6 +829,7 @@ export function GameProvider({ children }) {
     endLiveGame,
     clearGameState,
     applyRemoteReset,
+    applyLiveSnapshot,
     saveCurrentIfNeeded,
     confirmState,
     askConfirm,
@@ -840,7 +858,8 @@ export function GameProvider({ children }) {
     confirmState,
     alertState,
     lastError,
-    applyRemoteReset
+    applyRemoteReset,
+    applyLiveSnapshot
   ]);
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;

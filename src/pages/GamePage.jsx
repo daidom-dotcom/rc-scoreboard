@@ -32,7 +32,8 @@ export default function GamePage() {
     saveCurrentIfNeeded,
     endLiveGame,
     dateISO,
-    clearGameState
+    clearGameState,
+    applyLiveSnapshot
   } = useGame();
 
   const navigate = useNavigate();
@@ -81,6 +82,23 @@ export default function GamePage() {
       }
     })();
   }, [canEdit, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
+
+  useEffect(() => {
+    if (!canEdit) return;
+    let active = true;
+    async function syncFromLive() {
+      try {
+        const live = await fetchLiveGame();
+        if (active && live) applyLiveSnapshot(live);
+      } catch {
+        // ignore
+      }
+    }
+    syncFromLive();
+    return () => {
+      active = false;
+    };
+  }, [canEdit]);
 
   useEffect(() => {
     if (canEdit) return;
