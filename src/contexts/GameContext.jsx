@@ -35,7 +35,7 @@ export function GameProvider({ children }) {
   const [basketsA, setBasketsA] = useState({ one: 0, two: 0, three: 0 });
   const [basketsB, setBasketsB] = useState({ one: 0, two: 0, three: 0 });
   const [quickMatchNumber, setQuickMatchNumber] = useState(1);
-  const [confirmState, setConfirmState] = useState({ open: false, message: '', resolve: null });
+  const [confirmState, setConfirmState] = useState({ open: false, message: '', resolve: null, countdown: false });
   const [alertState, setAlertState] = useState({ open: false, message: '' });
   const [lastError, setLastError] = useState(null);
 
@@ -186,15 +186,15 @@ export function GameProvider({ children }) {
     };
   }, [running, totalSeconds, settings.soundEnabled, settings.alertSeconds]);
 
-  function askConfirm(message) {
+  function askConfirm(message, options = {}) {
     return new Promise((resolve) => {
-      setConfirmState({ open: true, message, resolve });
+      setConfirmState({ open: true, message, resolve, countdown: !!options.countdown });
     });
   }
 
   function resolveConfirm(result) {
     if (confirmState.resolve) confirmState.resolve(result);
-    setConfirmState({ open: false, message: '', resolve: null });
+    setConfirmState({ open: false, message: '', resolve: null, countdown: false });
   }
 
   function showAlert(message) {
@@ -446,14 +446,14 @@ export function GameProvider({ children }) {
 
   async function handleTimerEnd() {
     if (mode === 'tournament') {
-      const ok = await askConfirm(`Tempo encerrado! Encerrar o Quarter ${quarterIndex + 1}?`);
+      const ok = await askConfirm(`Tempo encerrado! Encerrar o Quarter ${quarterIndex + 1}?`, { countdown: true });
       if (ok) await advanceQuarterOrFinish();
       else {
         setAjusteFinalAtivo(true);
         showAlert('Quarter ficou em 00:00. Ajuste o placar se precisar e depois continue.');
       }
     } else {
-      const ok = await askConfirm('Tempo encerrado! Deseja encerrar a partida?');
+      const ok = await askConfirm('Tempo encerrado! Deseja encerrar a partida?', { countdown: true });
       if (ok) await finishQuick();
       else {
         setAjusteFinalAtivo(true);

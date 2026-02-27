@@ -7,6 +7,7 @@ export default function ConfirmModal() {
   const [secondsLeft, setSecondsLeft] = useState(30);
 
   useEffect(() => {
+    if (!confirmState?.countdown) return;
     setSecondsLeft(30);
     const t = setInterval(() => {
       setSecondsLeft((prev) => {
@@ -19,14 +20,16 @@ export default function ConfirmModal() {
       });
     }, 1000);
     return () => clearInterval(t);
-  }, [confirmState?.open]);
+  }, [confirmState?.open, confirmState?.countdown]);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
       <div className="modal">
         <div className="modal-title">Aviso</div>
         <div className="confirm-message">{confirmState.message}</div>
-        <div className="confirm-countdown">Nova partida em {secondsLeft}s</div>
+        {confirmState?.countdown ? (
+          <div className="confirm-countdown">Nova partida em {secondsLeft}s</div>
+        ) : null}
         <div className="actions">
           <button className="btn-outline" onClick={() => resolveConfirm(false)}>Não</button>
           <button className="btn-controle" onClick={() => resolveConfirm(true)}>Sim</button>

@@ -125,7 +125,7 @@ export default function ManageUsersPage() {
   }, [entries]);
 
   async function setUserActive(userId, active) {
-    const ok = await askConfirm(active ? 'Ativar este usuário?' : 'Excluir este usuário?');
+    const ok = await askConfirm(active ? 'Ativar este usuário?' : 'Excluir este usuário?', { countdown: false });
     if (!ok) return;
     setLoading(true);
     try {

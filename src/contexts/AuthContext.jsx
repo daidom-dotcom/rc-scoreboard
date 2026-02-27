@@ -3,11 +3,6 @@ import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
-const MASTER_EMAILS = [
-  'daiane.esteves@outlook.com',
-  'claudioemerenciano@hotmail.com'
-];
-
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,9 +45,6 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const isMaster = (session?.user?.email || '').toLowerCase();
-  const masterByEmail = MASTER_EMAILS.includes(isMaster);
-
   useEffect(() => {
     if (profile?.is_active === false) {
       supabase.auth.signOut();
@@ -67,7 +59,7 @@ export function AuthProvider({ children }) {
     user: session?.user || null,
     profile,
     role: profile?.role || 'observer',
-    isMaster: (profile?.role === 'master' && profile?.is_active !== false) || masterByEmail,
+    isMaster: profile?.role === 'master' && profile?.is_active !== false,
     signIn: async (email, password) => {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -97,7 +89,7 @@ export function AuthProvider({ children }) {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     }
-  }), [session, loading, profile, masterByEmail]);
+  }), [session, loading, profile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
