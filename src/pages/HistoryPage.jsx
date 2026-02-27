@@ -240,7 +240,7 @@ export default function HistoryPage() {
   }, [filteredRows]);
 
   const doneMatches = useMemo(() => visibleRows
-    .filter((m) => m.status === 'done' && m.match_results?.length)
+    .filter((m) => m.match_results?.length)
     .map((m) => ({
       mode: m.mode,
       team_a_name: m.team_a_name,
