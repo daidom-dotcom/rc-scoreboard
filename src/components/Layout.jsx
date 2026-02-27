@@ -52,7 +52,7 @@ export default function Layout() {
           {user ? (
             <NavLink to="/checkin" className="nav-link">Check-in</NavLink>
           ) : null}
-          {user ? (
+          {user && !isMaster ? (
             <NavLink to="/game" className="nav-link">🔥 Ao Vivo</NavLink>
           ) : null}
           {user && isMaster ? (

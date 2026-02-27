@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import { todayISO } from '../utils/time';
+import { fetchLiveGame } from '../lib/api';
 
 export default function GamePage() {
   const { user, isMaster } = useAuth();
@@ -41,12 +42,32 @@ export default function GamePage() {
   const canEdit = !!user && isMaster;
   const controlsDisabled = !canEdit;
   const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
+  const [liveView, setLiveView] = useState(null);
 
   useEffect(() => {
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
       startQuick();
     }
   }, [mode, teamAName, teamBName, startQuick]);
+
+  useEffect(() => {
+    if (canEdit) return;
+    let active = true;
+    async function loadLive() {
+      try {
+        const data = await fetchLiveGame();
+        if (active) setLiveView(data || null);
+      } catch {
+        if (active) setLiveView(null);
+      }
+    }
+    loadLive();
+    const t = setInterval(loadLive, 1000);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [canEdit]);
 
   useEffect(() => {
     let active = true;
@@ -86,6 +107,17 @@ export default function GamePage() {
       clearInterval(t);
     };
   }, [matchId, mode, quickMatchNumber, dateISO]);
+
+  const viewTeamA = canEdit ? teamAName : (liveView?.team_a || teamAName);
+  const viewTeamB = canEdit ? teamBName : (liveView?.team_b || teamBName);
+  const viewScoreA = canEdit ? scoreA : (liveView?.score_a ?? scoreA);
+  const viewScoreB = canEdit ? scoreB : (liveView?.score_b ?? scoreB);
+  const viewTime = canEdit ? totalSeconds : (liveView?.time_left ?? totalSeconds);
+  const viewLabel = canEdit
+    ? label
+    : (liveView?.mode === 'tournament'
+      ? `Quarter ${liveView?.quarter || 1}`
+      : `Partida ${liveView?.match_no || 1}`);
 
   async function handleEndMatch() {
     pause();
@@ -129,18 +161,20 @@ export default function GamePage() {
     <div className="game">
       <div className="center" style={{ position: 'relative' }}>
         <div className="topBar">
-          <div id="partidaLabel">{label}</div>
-          <div id="timer" className={timerAlert ? 'timer-alert' : ''}>{formatTime(totalSeconds)}</div>
-          <div id="controlesJogos">
-            <button className="btn-controle" onClick={play} disabled={!canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo)}>PLAY</button>
-            <button className="btn-controle" onClick={pause} disabled={!canEdit || !running}>STOP</button>
-          </div>
+          <div id="partidaLabel">{viewLabel}</div>
+          <div id="timer" className={timerAlert ? 'timer-alert' : ''}>{formatTime(viewTime)}</div>
+          {canEdit ? (
+            <div id="controlesJogos">
+              <button className="btn-controle" onClick={play} disabled={!canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo)}>PLAY</button>
+              <button className="btn-controle" onClick={pause} disabled={!canEdit || !running}>STOP</button>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="placar">
         <div className="frame">
-          <div className="nome">{teamAName}</div>
+          <div className="nome">{viewTeamA}</div>
           <div className="team-checkins">
             {(teamEntries.A || []).map((n) => <span key={`ga-${n}`}>{n}</span>)}
           </div>
@@ -150,15 +184,15 @@ export default function GamePage() {
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 3)}>+3</button>
               <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', -1)}>-1</button>
           </div>
-          <div className="pontos">{scoreA}</div>
+          <div className="pontos">{viewScoreA}</div>
         </div>
 
         <div className="frame">
-          <div className="nome">{teamBName}</div>
+          <div className="nome">{viewTeamB}</div>
           <div className="team-checkins right">
             {(teamEntries.B || []).map((n) => <span key={`gb-${n}`}>{n}</span>)}
           </div>
-          <div className="pontos">{scoreB}</div>
+          <div className="pontos">{viewScoreB}</div>
           <div className="botoes-direita">
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 1)}>+1</button>
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 2)}>+2</button>
@@ -168,12 +202,14 @@ export default function GamePage() {
         </div>
       </div>
 
-      <div className="encerrarRow">
-        <button className="btn-controle" onClick={handleEndMatch} disabled={!canEdit}>ENCERRAR PARTIDA</button>
-        <button className="btn-controle" onClick={handleSecondAction}>
-          {mode === 'tournament' ? 'VER TORNEIO' : 'ENCERRAR DIA'}
-        </button>
-      </div>
+      {canEdit ? (
+        <div className="encerrarRow">
+          <button className="btn-controle" onClick={handleEndMatch} disabled={!canEdit}>ENCERRAR PARTIDA</button>
+          <button className="btn-controle" onClick={handleSecondAction}>
+            {mode === 'tournament' ? 'VER TORNEIO' : 'ENCERRAR DIA'}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
