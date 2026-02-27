@@ -110,12 +110,6 @@ export default function CheckInPage() {
     }
 
     try {
-      await supabase
-        .from('player_entries')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('match_id', matchId);
-
       const { error } = await supabase
         .from('player_entries')
         .upsert({

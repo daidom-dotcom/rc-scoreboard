@@ -87,14 +87,28 @@ export default function HomePage() {
   useEffect(() => {
     let active = true;
     async function loadEntries() {
-      if (!live?.match_id) {
+      if (!live) {
         if (active) setLiveEntries({ A: [], B: [] });
         return;
       }
-      const { data, error } = await supabase
-        .from('player_entries')
-        .select('player_name, team_side')
-        .eq('match_id', live.match_id);
+
+      let query = supabase.from('player_entries').select('player_name, team_side');
+
+      if (live.match_id) {
+        query = query.eq('match_id', live.match_id);
+      } else if (live.mode === 'quick' && live.match_no) {
+        query = supabase
+          .from('player_entries')
+          .select('player_name, team_side, matches!inner(match_no,date_iso,mode)')
+          .eq('matches.match_no', live.match_no)
+          .eq('matches.date_iso', todayISO())
+          .eq('matches.mode', 'quick');
+      } else {
+        if (active) setLiveEntries({ A: [], B: [] });
+        return;
+      }
+
+      const { data, error } = await query;
       if (error) return;
       const a = [];
       const b = [];
