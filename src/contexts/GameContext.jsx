@@ -46,6 +46,7 @@ export function GameProvider({ children }) {
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
+  const lastLiveAtRef = useRef(null);
   function pushLiveGame(payload) {
     if (remoteResetRef.current) return;
     return upsertLiveGame(payload).catch(() => {});
@@ -98,6 +99,29 @@ export function GameProvider({ children }) {
       intervalRef.current = null;
     };
   }, [running]);
+
+  useEffect(() => {
+    let active = true;
+    async function pollLive() {
+      try {
+        const live = await fetchLiveGame();
+        if (!active || !live) return;
+        const updatedAt = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
+        if (!lastLiveAtRef.current || updatedAt > lastLiveAtRef.current) {
+          lastLiveAtRef.current = updatedAt;
+          applyLiveSnapshot(live);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    pollLive();
+    const t = setInterval(pollLive, 1000);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, []);
 
   useEffect(() => {
     if (!running) return;
