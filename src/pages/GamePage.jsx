@@ -1,7 +1,9 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
+import { supabase } from '../lib/supabase';
+import { todayISO } from '../utils/time';
 
 export default function GamePage() {
   const { user, isMaster } = useAuth();
@@ -15,6 +17,7 @@ export default function GamePage() {
     teamBName,
     scoreA,
     scoreB,
+    matchId,
     quickMatchNumber,
     settings,
     formatTime,
@@ -37,12 +40,52 @@ export default function GamePage() {
 
   const canEdit = !!user && isMaster;
   const controlsDisabled = !canEdit;
+  const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
 
   useEffect(() => {
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
       startQuick();
     }
   }, [mode, teamAName, teamBName, startQuick]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadEntries() {
+      const date = dateISO || todayISO();
+      let query = supabase.from('player_entries').select('player_name, team_side');
+
+      if (matchId) {
+        query = query.eq('match_id', matchId);
+      } else if (mode === 'quick' && quickMatchNumber) {
+        query = supabase
+          .from('player_entries')
+          .select('player_name, team_side, matches!inner(match_no,date_iso,mode)')
+          .eq('matches.match_no', quickMatchNumber)
+          .eq('matches.date_iso', date)
+          .eq('matches.mode', 'quick');
+      } else {
+        if (active) setTeamEntries({ A: [], B: [] });
+        return;
+      }
+
+      const { data, error } = await query;
+      if (error) return;
+      const a = [];
+      const b = [];
+      (data || []).forEach((e) => {
+        const first = String(e.player_name || '').trim().split(' ')[0] || e.player_name;
+        if (e.team_side === 'A') a.push(first);
+        if (e.team_side === 'B') b.push(first);
+      });
+      if (active) setTeamEntries({ A: a, B: b });
+    }
+    loadEntries();
+    const t = setInterval(loadEntries, 3000);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [matchId, mode, quickMatchNumber, dateISO]);
 
   async function handleEndMatch() {
     pause();
@@ -98,6 +141,9 @@ export default function GamePage() {
       <div className="placar">
         <div className="frame">
           <div className="nome">{teamAName}</div>
+          <div className="team-checkins">
+            {(teamEntries.A || []).map((n) => <span key={`ga-${n}`}>{n}</span>)}
+          </div>
           <div className="botoes-esquerda">
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 1)}>+1</button>
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 2)}>+2</button>
@@ -109,6 +155,9 @@ export default function GamePage() {
 
         <div className="frame">
           <div className="nome">{teamBName}</div>
+          <div className="team-checkins right">
+            {(teamEntries.B || []).map((n) => <span key={`gb-${n}`}>{n}</span>)}
+          </div>
           <div className="pontos">{scoreB}</div>
           <div className="botoes-direita">
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 1)}>+1</button>
