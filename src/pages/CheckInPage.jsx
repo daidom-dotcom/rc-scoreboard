@@ -218,7 +218,7 @@ export default function CheckInPage() {
           onClick={() => navigate(`/history?scope=mine&date=${dateISO}&dateTo=${dateISO}`)}
           style={{ textAlign: 'center' }}
         >
-          Aproveitamento
+          Resultados
         </button>
       </div>
     </div>
