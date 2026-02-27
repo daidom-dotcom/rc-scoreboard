@@ -150,7 +150,7 @@ export default function CheckInPage() {
       <h1 className="hTitle">Check‑in</h1>
       <div className="panel">
         <div className="label">Olá, {profile?.full_name || user?.email}.</div>
-        <div>Informe em quais partidas você jogou ou jogará no dia {formatDateBR(dateISO)} e obtenha resultados personalizados.</div>
+        <div>Informe em quais partidas você jogou no dia {formatDateBR(dateISO)} e obtenha resultados personalizados.</div>
       </div>
 
       <div className="panel">

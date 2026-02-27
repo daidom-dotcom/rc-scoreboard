@@ -350,7 +350,9 @@ export function GameProvider({ children }) {
 
   function play() {
     if (totalSeconds === 0 && ajusteFinalAtivo) return;
-    if (remoteResetRef.current) return;
+    if (remoteResetRef.current) {
+      remoteResetRef.current = false;
+    }
     setAjusteFinalAtivo(false);
     setRunning(true);
     if (mode === 'quick') ensureQuickMatch();
