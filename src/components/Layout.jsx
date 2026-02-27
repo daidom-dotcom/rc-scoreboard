@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 export default function Layout() {
   const { user, isMaster, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isGameRoute = location.pathname === '/game';
   const [showNav, setShowNav] = useState(true);
   const [timerScale, setTimerScale] = useState(1);
@@ -36,6 +37,11 @@ export default function Layout() {
     } else if (document.exitFullscreen) {
       document.exitFullscreen();
     }
+  }
+
+  async function handleLogout() {
+    await signOut();
+    navigate('/');
   }
 
   return (
@@ -105,7 +111,7 @@ export default function Layout() {
             ⛶
           </button>
           {user ? (
-            <button className="btn-outline topbar-btn" onClick={signOut}>Sair</button>
+            <button className="btn-outline topbar-btn" onClick={handleLogout}>Sair</button>
           ) : (
             <NavLink to="/login" className="btn-outline topbar-btn">Login</NavLink>
           )}
