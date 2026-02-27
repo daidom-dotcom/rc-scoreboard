@@ -66,7 +66,13 @@ export default function GamePage() {
       score_b: scoreB,
       reset_at: null
     };
-    supabase.from('live_game').upsert(payload).catch(() => {});
+    (async () => {
+      try {
+        await supabase.from('live_game').upsert(payload);
+      } catch {
+        // ignore
+      }
+    })();
   }, [canEdit, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
 
   useEffect(() => {
