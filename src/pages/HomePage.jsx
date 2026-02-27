@@ -8,7 +8,7 @@ import { fetchLiveGame } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 export default function HomePage() {
-  const { user, isMaster } = useAuth();
+  const { user, isMaster, profile } = useAuth();
   const {
     dateISO,
     setDateISO,
@@ -150,7 +150,14 @@ export default function HomePage() {
       <h1 className="title-big">Scoreboard</h1>
 
       {user ? (
-        <div className="welcome-text">Bem-vindo, {user.email}</div>
+        <div className="welcome-text">
+          Bem-vindo, {(() => {
+            const name = (profile?.full_name || '').trim();
+            if (name) return name.split(' ')[0];
+            if (user.email) return user.email.split('@')[0];
+            return '';
+          })()}
+        </div>
       ) : null}
 
       <div className="home-date">

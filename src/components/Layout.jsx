@@ -52,6 +52,9 @@ export default function Layout() {
           {user ? (
             <NavLink to="/checkin" className="nav-link">Check-in</NavLink>
           ) : null}
+          {user ? (
+            <NavLink to="/game" className="nav-link">🔥 Ao Vivo</NavLink>
+          ) : null}
           {user && isMaster ? (
             <>
               <NavLink to="/tournament" className="nav-link">Torneio</NavLink>
