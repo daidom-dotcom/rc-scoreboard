@@ -88,10 +88,10 @@ export default function GamePage() {
     async function loadLive() {
       try {
         const data = await fetchLiveGame();
-        if (active) setLiveView(data || null);
+        if (active && data) setLiveView(data);
         if (active) setDebugInfo((d) => ({ ...d, lastRead: new Date().toISOString() }));
       } catch {
-        if (active) setLiveView(null);
+        // mantém o último valor para não piscar
       }
     }
     loadLive();

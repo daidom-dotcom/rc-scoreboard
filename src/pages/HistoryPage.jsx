@@ -332,7 +332,7 @@ export default function HistoryPage() {
         <SummaryTable
           title={
             showMine
-              ? `Aproveitamento de ${profile?.full_name || user?.email} em ${formatDateBR(dateISO)}`
+              ? `Resultados de ${profile?.full_name || user?.email} em ${formatDateBR(dateISO)}`
               : `Resumo de ${formatDateBR(dateISO)}`
           }
           subtitle={
