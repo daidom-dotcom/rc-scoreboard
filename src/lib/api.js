@@ -173,7 +173,18 @@ export async function fetchNextMatchNo({ dateISO, mode, tournamentId, status }) 
   const { data, error } = await query;
   if (error) throw error;
   const last = data?.match_no || 0;
-  return last + 1;
+  if (last > 0) return last + 1;
+
+  let countQuery = supabase
+    .from('matches')
+    .select('id', { count: 'exact', head: true })
+    .eq('date_iso', dateISO)
+    .eq('mode', mode);
+  if (tournamentId) countQuery = countQuery.eq('tournament_id', tournamentId);
+  if (status) countQuery = countQuery.eq('status', status);
+  const { count, error: countError } = await countQuery;
+  if (countError) throw countError;
+  return (count || 0) + 1;
 }
 
 export async function upsertMatchResult(payload) {
