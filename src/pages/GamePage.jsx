@@ -51,6 +51,25 @@ export default function GamePage() {
   }, [mode, teamAName, teamBName, startQuick]);
 
   useEffect(() => {
+    if (!canEdit) return;
+    const payload = {
+      id: 1,
+      status: running ? 'running' : 'paused',
+      mode,
+      match_id: matchId,
+      match_no: mode === 'quick' ? quickMatchNumber : null,
+      quarter: quarterIndex + 1,
+      time_left: totalSeconds,
+      team_a: teamAName,
+      team_b: teamBName,
+      score_a: scoreA,
+      score_b: scoreB,
+      reset_at: null
+    };
+    supabase.from('live_game').upsert(payload).catch(() => {});
+  }, [canEdit, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
+
+  useEffect(() => {
     if (canEdit) return;
     let active = true;
     async function loadLive() {

@@ -74,7 +74,22 @@ export function GameProvider({ children }) {
           setTimeout(() => handleTimerEnd(), 0);
           return 0;
         }
-        return prev - 1;
+        const next = prev - 1;
+        pushLiveGame({
+          id: 1,
+          status: 'running',
+          mode,
+          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
+          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
+          quarter: quarterIndex + 1,
+          time_left: next,
+          team_a: teamAName,
+          team_b: teamBName,
+          score_a: scoreA,
+          score_b: scoreB,
+          reset_at: null
+        }).catch(() => {});
+        return next;
       });
     }, 1000);
 
@@ -395,9 +410,27 @@ export function GameProvider({ children }) {
     if (!canEdit) return;
     if (remoteResetRef.current) return;
     const delta = Number(value) || 0;
+    if (mode === 'quick') ensureQuickMatch();
 
     if (team === 'A') {
-      setScoreA((prev) => Math.max(0, prev + delta));
+      setScoreA((prev) => {
+        const nextScore = Math.max(0, prev + delta);
+        pushLiveGame({
+          id: 1,
+          status: running ? 'running' : 'paused',
+          mode,
+          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
+          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
+          quarter: quarterIndex + 1,
+          time_left: totalSeconds,
+          team_a: teamAName,
+          team_b: teamBName,
+          score_a: nextScore,
+          score_b: scoreB,
+          reset_at: null
+        }).catch(() => {});
+        return nextScore;
+      });
       setBasketsA((prev) => {
         const next = { ...prev };
         if (delta === 1) next.one += 1;
@@ -413,7 +446,24 @@ export function GameProvider({ children }) {
     }
 
     if (team === 'B') {
-      setScoreB((prev) => Math.max(0, prev + delta));
+      setScoreB((prev) => {
+        const nextScore = Math.max(0, prev + delta);
+        pushLiveGame({
+          id: 1,
+          status: running ? 'running' : 'paused',
+          mode,
+          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
+          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
+          quarter: quarterIndex + 1,
+          time_left: totalSeconds,
+          team_a: teamAName,
+          team_b: teamBName,
+          score_a: scoreA,
+          score_b: nextScore,
+          reset_at: null
+        }).catch(() => {});
+        return nextScore;
+      });
       setBasketsB((prev) => {
         const next = { ...prev };
         if (delta === 1) next.one += 1;
@@ -427,22 +477,6 @@ export function GameProvider({ children }) {
         return next;
       });
     }
-    setTimeout(() => {
-      pushLiveGame({
-        id: 1,
-        status: running ? 'running' : 'paused',
-        mode,
-        match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-        match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
-        quarter: quarterIndex + 1,
-        time_left: totalSeconds,
-        team_a: teamAName,
-        team_b: teamBName,
-        score_a: team === 'A' ? Math.max(0, scoreA + delta) : scoreA,
-        score_b: team === 'B' ? Math.max(0, scoreB + delta) : scoreB,
-        reset_at: null
-      }).catch(() => {});
-    }, 0);
   }
 
   async function handleTimerEnd() {
