@@ -160,16 +160,20 @@ export async function deletePendingQuickMatch(dateISO, matchNo) {
 export async function fetchNextMatchNo({ dateISO, mode, tournamentId, status }) {
   let query = supabase
     .from('matches')
-    .select('id', { count: 'exact', head: true })
+    .select('match_no')
     .eq('date_iso', dateISO)
-    .eq('mode', mode);
+    .eq('mode', mode)
+    .order('match_no', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
 
   if (tournamentId) query = query.eq('tournament_id', tournamentId);
   if (status) query = query.eq('status', status);
 
-  const { count, error } = await query;
+  const { data, error } = await query;
   if (error) throw error;
-  return (count || 0) + 1;
+  const last = data?.match_no || 0;
+  return last + 1;
 }
 
 export async function upsertMatchResult(payload) {

@@ -219,7 +219,7 @@ export function GameProvider({ children }) {
         setQuickMatchNumber(pending.match_no);
         return pending.match_no;
       }
-      const next = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick', status: 'done' });
+      const next = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
       setQuickMatchNumber(next);
       return next;
     } catch {
@@ -268,7 +268,7 @@ export function GameProvider({ children }) {
         currentMatchRef.current = { ...latest, match_no: targetNo };
         return;
       }
-      const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick', status: 'done' }));
+      const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' }));
       const match = await createMatch({
         date_iso: dateISO || todayISO(),
         mode: 'quick',
