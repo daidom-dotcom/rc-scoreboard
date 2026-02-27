@@ -43,6 +43,8 @@ export default function GamePage() {
   const controlsDisabled = !canEdit;
   const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
+  const [debugInfo, setDebugInfo] = useState({ lastWrite: null, lastRead: null, writeError: null });
+  const debugEnabled = true;
 
   useEffect(() => {
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
@@ -68,9 +70,14 @@ export default function GamePage() {
     };
     (async () => {
       try {
-        await supabase.from('live_game').upsert(payload);
-      } catch {
-        // ignore
+        const { error } = await supabase.from('live_game').upsert(payload);
+        if (!error) {
+          setDebugInfo((d) => ({ ...d, lastWrite: new Date().toISOString(), writeError: null }));
+        } else {
+          setDebugInfo((d) => ({ ...d, lastWrite: new Date().toISOString(), writeError: error.message }));
+        }
+      } catch (err) {
+        setDebugInfo((d) => ({ ...d, lastWrite: new Date().toISOString(), writeError: err?.message || String(err) }));
       }
     })();
   }, [canEdit, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
@@ -82,6 +89,7 @@ export default function GamePage() {
       try {
         const data = await fetchLiveGame();
         if (active) setLiveView(data || null);
+        if (active) setDebugInfo((d) => ({ ...d, lastRead: new Date().toISOString() }));
       } catch {
         if (active) setLiveView(null);
       }
@@ -233,6 +241,16 @@ export default function GamePage() {
           <button className="btn-controle" onClick={handleSecondAction}>
             {mode === 'tournament' ? 'VER TORNEIO' : 'ENCERRAR DIA'}
           </button>
+        </div>
+      ) : null}
+
+      {debugEnabled ? (
+        <div className="debug-panel">
+          <div>Game debug</div>
+          <div>writeAt: {debugInfo.lastWrite || '-'}</div>
+          <div>writeError: {debugInfo.writeError || '-'}</div>
+          <div>readAt: {debugInfo.lastRead || '-'}</div>
+          <div>liveView: {JSON.stringify(liveView)}</div>
         </div>
       ) : null}
     </div>
