@@ -177,34 +177,7 @@ export default function HomePage() {
       </div>
       </div>
 
-      {showNow ? (
-        <div className="home-bottom">
-          <div className="now-panel">
-            <div className="label now-status">{isLive ? '🔥 Ao Vivo 🔥' : '⏳ Em Breve ⏳'}</div>
-          <div className="now-row">
-            <div className="now-team">{running ? teamAName : live?.team_a}</div>
-            <div className="now-score">{running ? scoreA : live?.score_a}</div>
-            <div className="now-vs">x</div>
-            <div className="now-score">{running ? scoreB : live?.score_b}</div>
-            <div className="now-team">{running ? teamBName : live?.team_b}</div>
-          </div>
-          {live?.match_id ? (
-            <div className="now-checkins">
-              <div className="now-list">
-                {(liveEntries.A || []).map((n) => <span key={`a-${n}`}>{n}</span>)}
-              </div>
-              <div className="now-list right">
-                {(liveEntries.B || []).map((n) => <span key={`b-${n}`}>{n}</span>)}
-              </div>
-            </div>
-          ) : null}
-          <div className="now-meta">
-              <span>{running ? matchLabel : liveLabel}</span>
-              <span>Tempo restante: {formatTime(running ? totalSeconds : (live?.time_left || 0))}</span>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* Ao Vivo removido da Home */}
     </div>
   );
 }
