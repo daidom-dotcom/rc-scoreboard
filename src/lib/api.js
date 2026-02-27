@@ -207,6 +207,17 @@ export async function upsertLiveGame(payload) {
   return data;
 }
 
+export async function updateLiveGame(payload) {
+  const { data, error } = await supabase
+    .from('live_game')
+    .update(payload)
+    .eq('id', 1)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function fetchLiveGame() {
   const { data, error } = await supabase
     .from('live_game')
