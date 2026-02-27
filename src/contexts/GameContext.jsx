@@ -46,18 +46,9 @@ export function GameProvider({ children }) {
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
-  const liveErrorRef = useRef(0);
-
   function pushLiveGame(payload) {
     if (remoteResetRef.current) return;
-    return upsertLiveGame(payload).catch((err) => {
-      const now = Date.now();
-      if (now - liveErrorRef.current > 30000) {
-        liveErrorRef.current = now;
-        showAlert('Não foi possível sincronizar o Ao Vivo. Verifique o login do dispositivo do placar.');
-      }
-      throw err;
-    });
+    return upsertLiveGame(payload).catch(() => {});
   }
 
   useEffect(() => {
