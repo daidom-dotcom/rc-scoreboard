@@ -401,7 +401,7 @@ select {
   position: relative;
   align-items: center;
   gap: 20px;
-  height: 304px;
+  height: calc(304px + (var(--score-scale) - 1) * 140px);
 }
 
 .nome { font-size: 26px; position: absolute; top: 10px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
