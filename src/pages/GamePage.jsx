@@ -44,8 +44,6 @@ export default function GamePage() {
   const controlsDisabled = !canEdit;
   const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
-  const [debugInfo, setDebugInfo] = useState({ lastWrite: null, lastRead: null, writeError: null });
-  const debugEnabled = true;
 
   useEffect(() => {
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
@@ -71,14 +69,9 @@ export default function GamePage() {
     };
     (async () => {
       try {
-        const { error } = await supabase.from('live_game').upsert(payload);
-        if (!error) {
-          setDebugInfo((d) => ({ ...d, lastWrite: new Date().toISOString(), writeError: null }));
-        } else {
-          setDebugInfo((d) => ({ ...d, lastWrite: new Date().toISOString(), writeError: error.message }));
-        }
-      } catch (err) {
-        setDebugInfo((d) => ({ ...d, lastWrite: new Date().toISOString(), writeError: err?.message || String(err) }));
+        await supabase.from('live_game').upsert(payload);
+      } catch {
+        // ignore
       }
     })();
   }, [canEdit, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
@@ -107,7 +100,6 @@ export default function GamePage() {
       try {
         const data = await fetchLiveGame();
         if (active && data) setLiveView(data);
-        if (active) setDebugInfo((d) => ({ ...d, lastRead: new Date().toISOString() }));
       } catch {
         // mantém o último valor para não piscar
       }
@@ -262,15 +254,6 @@ export default function GamePage() {
         </div>
       ) : null}
 
-      {debugEnabled ? (
-        <div className="debug-panel">
-          <div>Game debug</div>
-          <div>writeAt: {debugInfo.lastWrite || '-'}</div>
-          <div>writeError: {debugInfo.writeError || '-'}</div>
-          <div>readAt: {debugInfo.lastRead || '-'}</div>
-          <div>liveView: {JSON.stringify(liveView)}</div>
-        </div>
-      ) : null}
     </div>
   );
 }

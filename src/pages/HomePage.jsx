@@ -66,8 +66,6 @@ export default function HomePage() {
 
   const [live, setLive] = useState(null);
   const [liveEntries, setLiveEntries] = useState({ A: [], B: [] });
-  const [debugInfo, setDebugInfo] = useState({ lastFetch: null, error: null });
-  const debugEnabled = true;
 
   useEffect(() => {
     let active = true;
@@ -75,9 +73,8 @@ export default function HomePage() {
       try {
         const data = await fetchLiveGame();
         if (active) setLive(data);
-        if (active) setDebugInfo({ lastFetch: new Date().toISOString(), error: null });
-      } catch (err) {
-        if (active) setDebugInfo({ lastFetch: new Date().toISOString(), error: err?.message || String(err) });
+      } catch {
+        // ignore
       }
     }
     loadLive();
@@ -187,14 +184,6 @@ export default function HomePage() {
       </div>
       </div>
 
-      {debugEnabled ? (
-        <div className="debug-panel">
-          <div>Home debug</div>
-          <div>lastFetch: {debugInfo.lastFetch || '-'}</div>
-          <div>error: {debugInfo.error || '-'}</div>
-          <div>live: {JSON.stringify(live)}</div>
-        </div>
-      ) : null}
     </div>
   );
 }

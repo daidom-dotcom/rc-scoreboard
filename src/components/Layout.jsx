@@ -27,8 +27,8 @@ export default function Layout() {
   }, [timerScale, scoreScale]);
 
   function adjustFont(delta) {
-    setTimerScale((v) => Math.max(0.7, Math.min(1.5, Number((v + delta).toFixed(2)))));
-    setScoreScale((v) => Math.max(0.7, Math.min(1.5, Number((v + delta).toFixed(2)))));
+    setTimerScale((v) => Number((v + delta).toFixed(2)));
+    setScoreScale((v) => Number((v + delta).toFixed(2)));
   }
 
   function toggleFullScreen() {
@@ -49,7 +49,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.0.16</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`}>
           {location.pathname !== '/' ? (

@@ -514,39 +514,13 @@ export function GameProvider({ children }) {
           await deleteMatch(matchId);
         }
         await deletePendingQuickMatch(dateISO || todayISO(), quickMatchNumber).catch(() => {});
-        pushLiveGame({
-          id: 1,
-          status: 'ended',
-          mode: 'quick',
-          match_id: null,
-          match_no: quickMatchNumber,
-          quarter: 1,
-          time_left: 0,
-          team_a: teamAName,
-          team_b: teamBName,
-          score_a: scoreA,
-          score_b: scoreB,
-          reset_at: null
-        }).catch(() => {});
+        updateLiveGame({ status: 'ended', match_no: quickMatchNumber, time_left: 0, score_a: scoreA, score_b: scoreB }).catch(() => {});
         await prepareNextQuick();
         return;
       }
       await saveQuickMatch();
       showAlert('Partida (rápida) salva!');
-      pushLiveGame({
-        id: 1,
-        status: 'ended',
-        mode: 'quick',
-        match_id: matchId,
-        match_no: quickMatchNumber,
-        quarter: 1,
-        time_left: 0,
-        team_a: teamAName,
-        team_b: teamBName,
-        score_a: scoreA,
-        score_b: scoreB,
-        reset_at: null
-      }).catch(() => {});
+      updateLiveGame({ status: 'ended', match_no: quickMatchNumber, time_left: 0, score_a: scoreA, score_b: scoreB }).catch(() => {});
       await prepareNextQuick();
     } catch (err) {
       setLastError(err);
@@ -561,19 +535,13 @@ export function GameProvider({ children }) {
     setTotalSeconds(settings.quickDurationSeconds);
     resetCounters();
     const nextNo = await refreshQuickNumber();
-    pushLiveGame({
-      id: 1,
+    updateLiveGame({
       status: 'paused',
-      mode: 'quick',
       match_id: null,
       match_no: nextNo,
-      quarter: 1,
       time_left: settings.quickDurationSeconds,
-      team_a: QUICK_TEAM_A,
-      team_b: QUICK_TEAM_B,
       score_a: 0,
-      score_b: 0,
-      reset_at: null
+      score_b: 0
     }).catch(() => {});
     setMatchId(null);
     currentMatchRef.current = null;
