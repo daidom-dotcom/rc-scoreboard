@@ -535,9 +535,10 @@ export function GameProvider({ children }) {
     setCurrentDurationSeconds(settings.quickDurationSeconds);
     setTotalSeconds(settings.quickDurationSeconds);
     resetCounters();
-    const nextNo = resetDay
+    const dbNext = resetDay
       ? 1
       : await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
+    const nextNo = resetDay ? 1 : Math.max(quickMatchNumber + 1, dbNext);
     setQuickMatchNumber(nextNo);
     updateLiveGame({
       status: 'paused',
