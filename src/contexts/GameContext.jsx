@@ -510,6 +510,9 @@ export function GameProvider({ children }) {
 
   async function finishQuick() {
     try {
+      if (mode === 'quick' && !matchId) {
+        await ensureQuickMatch(quickMatchNumber);
+      }
       if (scoreA === 0 && scoreB === 0) {
         if (matchId) {
           await deleteMatch(matchId);
