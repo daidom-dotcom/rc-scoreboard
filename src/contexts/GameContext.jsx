@@ -342,6 +342,7 @@ export function GameProvider({ children }) {
     setRunning(false);
     remoteResetRef.current = false;
     refreshQuickNumber().then((nextNo) => {
+      setQuickMatchNumber(nextNo);
       ensureQuickMatch(nextNo);
     });
   }
@@ -534,7 +535,10 @@ export function GameProvider({ children }) {
     setCurrentDurationSeconds(settings.quickDurationSeconds);
     setTotalSeconds(settings.quickDurationSeconds);
     resetCounters();
-    const nextNo = await refreshQuickNumber();
+    const nextNo = resetDay
+      ? 1
+      : await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
+    setQuickMatchNumber(nextNo);
     updateLiveGame({
       status: 'paused',
       match_id: null,
