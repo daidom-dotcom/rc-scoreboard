@@ -5,6 +5,7 @@ import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import { todayISO } from '../utils/time';
 import { fetchLiveGame } from '../lib/api';
+import PasswordModal from '../components/PasswordModal';
 
 export default function GamePage() {
   const { user, isMaster } = useAuth();
@@ -44,6 +45,23 @@ export default function GamePage() {
   const controlsDisabled = !canEdit;
   const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
+  const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
+
+  function askPassword(message) {
+    return new Promise((resolve) => {
+      setPasswordState({ open: true, message, resolve });
+    });
+  }
+
+  function closePasswordModal() {
+    if (passwordState.resolve) passwordState.resolve(null);
+    setPasswordState({ open: false, message: '', resolve: null });
+  }
+
+  function confirmPassword(value) {
+    if (passwordState.resolve) passwordState.resolve(value);
+    setPasswordState({ open: false, message: '', resolve: null });
+  }
 
   useEffect(() => {
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
@@ -163,6 +181,8 @@ export default function GamePage() {
       : `Partida ${liveView?.match_no || 1}`);
 
   async function handleEndMatch() {
+    const senha = await askPassword('Digite a senha para encerrar a partida.');
+    if (senha !== '834856') return;
     pause();
     if (mode === 'tournament') {
       const ok = await askConfirm('Deseja encerrar a partida inteira agora?');
@@ -177,6 +197,8 @@ export default function GamePage() {
   }
 
   async function handleSecondAction() {
+    const senha = await askPassword('Digite a senha para encerrar o dia.');
+    if (senha !== '834856') return;
     if (mode === 'tournament') {
       navigate('/tournament');
       return;
@@ -253,6 +275,14 @@ export default function GamePage() {
           </button>
         </div>
       ) : null}
+
+      <PasswordModal
+        open={passwordState.open}
+        title="Senha"
+        message={passwordState.message}
+        onClose={closePasswordModal}
+        onConfirm={confirmPassword}
+      />
 
     </div>
   );
