@@ -12,6 +12,7 @@ import HistoryPage from './pages/HistoryPage';
 import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import CheckInPage from './pages/CheckInPage';
+import BoardPage from './pages/BoardPage';
 import './styles/global.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -27,6 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/tournament" element={<TournamentPage />} />
               <Route path="/game" element={<GamePage />} />
               <Route path="/history" element={<HistoryPage />} />
+              <Route path="/tabuleiro" element={<BoardPage />} />
               <Route
                 path="/settings"
                 element={
