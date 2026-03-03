@@ -588,6 +588,7 @@ select {
 .time-left { display: flex; align-items: center; gap: 4px; min-width: 0; }
 .time-nome { font-size: 12px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .time-pontos { font-size: 12px; font-weight: 900; }
+.arrow-marker { color: #fff; }
 .trofeu { font-size: 12px; }
 
 .cell-cestas { display: flex; flex-direction: column; align-items: center; gap: 2px; }

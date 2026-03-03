@@ -283,6 +283,12 @@ export default function HistoryPage() {
     return Array.from(names).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [teams, sortedRows]);
 
+  const firstName = useMemo(() => {
+    const full = String(profile?.full_name || '').trim();
+    if (!full) return '';
+    return full.split(/\s+/)[0] || '';
+  }, [profile?.full_name]);
+
   return (
     <div className="container">
       <div className="history-header">
@@ -337,7 +343,7 @@ export default function HistoryPage() {
         <SummaryTable
           title={
             showMine
-              ? `Resultados de ${profile?.full_name || user?.email} em ${formatDateBR(dateISO)}`
+              ? `Resultados de ${firstName || user?.email} em ${formatDateBR(dateISO)}`
               : `Resumo de ${formatDateBR(dateISO)}`
           }
           subtitle={
