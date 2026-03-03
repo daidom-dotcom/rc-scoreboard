@@ -256,6 +256,7 @@ export default function HistoryPage() {
   const userStats = useMemo(() => {
     if (!showMine || !user?.id) return null;
     let wins = 0;
+    let losses = 0;
     let total = 0;
     filteredRows.forEach((m) => {
       const res = m.match_results?.[0];
@@ -264,9 +265,11 @@ export default function HistoryPage() {
       const winner = res.score_a > res.score_b ? 'A' : (res.score_b > res.score_a ? 'B' : 'draw');
       total += 1;
       if (winner !== 'draw' && side === winner) wins += 1;
+      if (winner !== 'draw' && side && side !== winner) losses += 1;
     });
-    const pct = total ? Math.round((wins / total) * 100) : 0;
-    return { wins, total, pct };
+    const winPct = total ? Math.round((wins / total) * 100) : 0;
+    const lossPct = total ? Math.round((losses / total) * 100) : 0;
+    return { wins, losses, total, winPct, lossPct };
   }, [filteredRows, showMine, user?.id, userEntriesMap]);
 
   const teamOptions = useMemo(() => {
@@ -338,7 +341,7 @@ export default function HistoryPage() {
           }
           subtitle={
             showMine
-              ? `Você participou de ${userStats?.wins || 0} (${userStats?.pct || 0}%) dos times vencedores.\nRachão dos Crias`
+              ? `Você participou de ${userStats?.total || 0} partidas: venceu ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdeu ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
               : 'Rachão dos Crias'
           }
           dateISO={dateISO}
