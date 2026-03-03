@@ -89,6 +89,40 @@ export default function CheckInPage() {
           };
         }
       }
+      // Legacy safety: live_game may have match_no but null match_id.
+      if (!liveMatch && live?.mode === 'quick' && live?.match_no) {
+        const preferredDate = gameDateISO || dateISO || todayISO();
+        let fallbackMatch = null;
+        const { data: byDate } = await supabase
+          .from('matches')
+          .select('*, match_results(*)')
+          .eq('mode', 'quick')
+          .eq('match_no', Number(live.match_no))
+          .eq('date_iso', preferredDate)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        fallbackMatch = byDate || null;
+        if (!fallbackMatch) {
+          const { data: byNo } = await supabase
+            .from('matches')
+            .select('*, match_results(*)')
+            .eq('mode', 'quick')
+            .eq('match_no', Number(live.match_no))
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          fallbackMatch = byNo || null;
+        }
+        if (fallbackMatch) {
+          liveMatch = {
+            ...fallbackMatch,
+            match_results: fallbackMatch.match_results && !Array.isArray(fallbackMatch.match_results)
+              ? [fallbackMatch.match_results]
+              : (fallbackMatch.match_results || [])
+          };
+        }
+      }
 
       const targetDate = onlyToday
         ? (liveMatch?.date_iso || gameDateISO || dateISO || todayISO())

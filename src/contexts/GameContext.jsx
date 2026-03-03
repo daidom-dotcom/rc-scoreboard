@@ -53,6 +53,7 @@ export function GameProvider({ children }) {
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
+  const repairingMatchIdRef = useRef(false);
   function pushLiveGame(payload) {
     if (!canControlLive) return Promise.resolve(null);
     if (remoteResetRef.current) return Promise.resolve(null);
@@ -131,6 +132,52 @@ export function GameProvider({ children }) {
       reset_at: null
     });
   }, [canControlLive, mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
+
+  useEffect(() => {
+    if (!canControlLive) return;
+    if (mode !== 'quick') return;
+    if (matchId) return;
+    if (!quickMatchNumber) return;
+    if (repairingMatchIdRef.current) return;
+    let active = true;
+    repairingMatchIdRef.current = true;
+    async function repairQuickMatchId() {
+      try {
+        const date = dateISO || todayISO();
+        let found = await findPendingQuickMatch(date, quickMatchNumber);
+        if (!found) {
+          found = await findLatestPendingQuick(date);
+        }
+        if (!active || !found?.id) return;
+        setMatchId(found.id);
+        currentMatchRef.current = found;
+        if (found.match_no) setQuickMatchNumber(found.match_no);
+        await updateLiveGame({
+          id: 1,
+          mode: 'quick',
+          match_id: found.id,
+          match_no: found.match_no || quickMatchNumber,
+          status: running ? 'running' : 'paused',
+          quarter: 1,
+          time_left: totalSeconds,
+          team_a: quickTeamA,
+          team_b: quickTeamB,
+          score_a: scoreARef.current,
+          score_b: scoreBRef.current,
+          reset_at: null
+        });
+      } catch {
+        // ignore repair noise
+      } finally {
+        repairingMatchIdRef.current = false;
+      }
+    }
+    repairQuickMatchId();
+    return () => {
+      active = false;
+      repairingMatchIdRef.current = false;
+    };
+  }, [canControlLive, mode, matchId, quickMatchNumber, dateISO, running, totalSeconds, quickTeamA, quickTeamB]);
 
   useEffect(() => {
     const shouldBeep = running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
