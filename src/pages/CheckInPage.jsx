@@ -73,9 +73,38 @@ export default function CheckInPage() {
     setLoading(true);
     try {
       const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
-      const data = await fetchMatchesByDate(targetDate);
-      setMatches(data || []);
-      if ((data || []).length && !matchId) setMatchId(data[0].id);
+      const [data, live] = await Promise.all([
+        fetchMatchesByDate(targetDate),
+        fetchLiveGame().catch(() => null)
+      ]);
+      let merged = [...(data || [])];
+
+      // Guarantee that the currently active live match is selectable for check-in.
+      if (live?.match_id && live?.mode === 'quick') {
+        const exists = merged.some((m) => m.id === live.match_id);
+        if (!exists) {
+          const { data: liveMatch } = await supabase
+            .from('matches')
+            .select('*, match_results(*)')
+            .eq('id', live.match_id)
+            .maybeSingle();
+          if (liveMatch && (!onlyToday || liveMatch.date_iso === targetDate)) {
+            merged.unshift({
+              ...liveMatch,
+              match_results: liveMatch.match_results && !Array.isArray(liveMatch.match_results)
+                ? [liveMatch.match_results]
+                : (liveMatch.match_results || [])
+            });
+          }
+        }
+      }
+
+      setMatches(merged);
+      if (live?.match_id) {
+        setMatchId(live.match_id);
+      } else if (merged.length && !matchId) {
+        setMatchId(merged[0].id);
+      }
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar partidas');
     } finally {
