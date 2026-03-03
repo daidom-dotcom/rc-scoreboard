@@ -131,6 +131,28 @@ export default function GamePage() {
   }, [canEdit]);
 
   useEffect(() => {
+    const channel = supabase
+      .channel('game-live-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'live_game' },
+        (payload) => {
+          const live = payload?.new;
+          if (!live || live.id !== 1) return;
+          setLiveView(live);
+          if (canEdit) {
+            applyLiveSnapshot(live);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [canEdit, applyLiveSnapshot]);
+
+  useEffect(() => {
     let active = true;
     async function loadEntries() {
       const date = dateISO || todayISO();
