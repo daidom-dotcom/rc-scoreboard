@@ -48,6 +48,7 @@ export default function GamePage() {
   const lastLiveAtRef = useRef(0);
   const lastGoodLiveRef = useRef(null);
   const [editorHydrated, setEditorHydrated] = useState(!canEdit);
+  const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
 
   function askPassword(message) {
@@ -78,30 +79,6 @@ export default function GamePage() {
   }, [mode, teamAName, teamBName, startQuick, canEdit, editorHydrated]);
 
   useEffect(() => {
-    if (!canEdit || !editorHydrated) return;
-    const payload = {
-      id: 1,
-      status: running ? 'running' : 'paused',
-      mode,
-      match_id: matchId,
-      match_no: mode === 'quick' ? quickMatchNumber : null,
-      quarter: quarterIndex + 1,
-      time_left: totalSeconds,
-      team_a: teamAName,
-      team_b: teamBName,
-      score_a: scoreA,
-      score_b: scoreB
-    };
-    (async () => {
-      try {
-        await supabase.from('live_game').upsert(payload);
-      } catch {
-        // ignore
-      }
-    })();
-  }, [canEdit, editorHydrated, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
-
-  useEffect(() => {
     if (!canEdit) return;
     let active = true;
     async function syncFromLive() {
@@ -124,6 +101,12 @@ export default function GamePage() {
       active = false;
     };
   }, [canEdit, applyLiveSnapshot]);
+
+  useEffect(() => {
+    if (canEdit) return;
+    const t = setInterval(() => setObserverNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [canEdit]);
 
   useEffect(() => {
     if (canEdit) return;
@@ -163,10 +146,13 @@ export default function GamePage() {
           const live = payload?.new;
           if (!live || live.id !== 1) return;
           const ts = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
-          if (ts > lastLiveAtRef.current) {
+          if (ts >= lastLiveAtRef.current) {
             lastLiveAtRef.current = ts;
             lastGoodLiveRef.current = live;
             setLiveView(live);
+            if (canEdit) {
+              applyLiveSnapshot(live);
+            }
           }
         }
       )
@@ -175,7 +161,7 @@ export default function GamePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [canEdit, applyLiveSnapshot]);
 
   useEffect(() => {
     let active = true;
@@ -221,7 +207,16 @@ export default function GamePage() {
   const viewTeamB = canEdit ? teamBName : (safeLive?.team_b || teamBName);
   const viewScoreA = canEdit ? scoreA : (safeLive?.score_a ?? scoreA);
   const viewScoreB = canEdit ? scoreB : (safeLive?.score_b ?? scoreB);
-  const viewTime = canEdit ? totalSeconds : (safeLive?.time_left ?? totalSeconds);
+  const syncedObserverTime = useMemo(() => {
+    if (!safeLive) return totalSeconds;
+    const base = Number(safeLive.time_left ?? totalSeconds);
+    if (safeLive.status !== 'running') return base;
+    const updatedAtMs = safeLive.updated_at ? new Date(safeLive.updated_at).getTime() : 0;
+    if (!updatedAtMs) return base;
+    const elapsed = Math.max(0, Math.floor((observerNowMs - updatedAtMs) / 1000));
+    return Math.max(0, base - elapsed);
+  }, [safeLive, totalSeconds, observerNowMs]);
+  const viewTime = canEdit ? totalSeconds : syncedObserverTime;
   const viewLabel = canEdit
     ? label
     : (safeLive?.mode === 'tournament'

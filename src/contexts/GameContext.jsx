@@ -384,10 +384,19 @@ export function GameProvider({ children }) {
     if (team === 'A') {
       setScoreA((prev) => {
         const nextScore = Math.max(0, prev + delta);
-        updateLiveGame({
+        pushLiveGame({
+          id: 1,
           status: running ? 'running' : 'paused',
+          mode,
+          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
+          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
+          quarter: quarterIndex + 1,
+          time_left: totalSeconds,
+          team_a: teamAName,
+          team_b: teamBName,
           score_a: nextScore,
-          score_b: scoreB
+          score_b: scoreB,
+          reset_at: null
         }).catch(() => {});
         return nextScore;
       });
@@ -408,10 +417,19 @@ export function GameProvider({ children }) {
     if (team === 'B') {
       setScoreB((prev) => {
         const nextScore = Math.max(0, prev + delta);
-        updateLiveGame({
+        pushLiveGame({
+          id: 1,
           status: running ? 'running' : 'paused',
+          mode,
+          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
+          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
+          quarter: quarterIndex + 1,
+          time_left: totalSeconds,
+          team_a: teamAName,
+          team_b: teamBName,
           score_a: scoreA,
-          score_b: nextScore
+          score_b: nextScore,
+          reset_at: null
         }).catch(() => {});
         return nextScore;
       });
