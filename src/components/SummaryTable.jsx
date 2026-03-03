@@ -24,6 +24,15 @@ function nameWithTrophy(name, winner) {
   );
 }
 
+function scoreWithMarker(score, marked) {
+  if (!marked) return <>{score}</>;
+  return (
+    <>
+      <span className="arrow-marker">➤</span> {score}
+    </>
+  );
+}
+
 export default function SummaryTable({ title, subtitle, dateISO, partidas }) {
   return (
     <div className="summary">
@@ -75,11 +84,11 @@ export default function SummaryTable({ title, subtitle, dateISO, partidas }) {
                     <div className="jogos-card">
                       <div className="time-row">
                         {nameWithTrophy(n1, t1Venceu)}
-                        <div className="time-pontos">{playedA ? `➤ ${s1}` : s1}</div>
+                        <div className="time-pontos">{scoreWithMarker(s1, playedA)}</div>
                       </div>
                       <div className="time-row">
                         {nameWithTrophy(n2, t2Venceu)}
-                        <div className="time-pontos">{playedB ? `➤ ${s2}` : s2}</div>
+                        <div className="time-pontos">{scoreWithMarker(s2, playedB)}</div>
                       </div>
                     </div>
                   </td>
