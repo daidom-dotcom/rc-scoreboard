@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import { todayISO } from '../utils/time';
-import { fetchLiveGame } from '../lib/api';
 import PasswordModal from '../components/PasswordModal';
 
 export default function GamePage() {
@@ -34,8 +33,7 @@ export default function GamePage() {
     saveCurrentIfNeeded,
     endLiveGame,
     dateISO,
-    clearGameState,
-    applyLiveSnapshot
+    clearGameState
   } = useGame();
 
   const navigate = useNavigate();
@@ -49,7 +47,6 @@ export default function GamePage() {
   const lastLiveAtRef = useRef(0);
   const lastGoodLiveRef = useRef(null);
   const initializedScoreboardRef = useRef(false);
-  const [editorHydrated, setEditorHydrated] = useState(!canEdit);
   const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
 
@@ -81,39 +78,10 @@ export default function GamePage() {
   }, [isScoreboard, dateISO, setDateISO, startQuick]);
 
   useEffect(() => {
-    setEditorHydrated(!canEdit);
-  }, [canEdit]);
-
-  useEffect(() => {
-    if (canEdit && !editorHydrated) return;
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
       startQuick();
     }
-  }, [mode, teamAName, teamBName, startQuick, canEdit, editorHydrated]);
-
-  useEffect(() => {
-    if (!canEdit) return;
-    let active = true;
-    async function syncFromLive() {
-      try {
-        const live = await fetchLiveGame();
-        if (active && live) {
-          const ts = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
-          lastLiveAtRef.current = ts;
-          lastGoodLiveRef.current = live;
-          applyLiveSnapshot(live);
-        }
-      } catch {
-        // ignore
-      } finally {
-        if (active) setEditorHydrated(true);
-      }
-    }
-    syncFromLive();
-    return () => {
-      active = false;
-    };
-  }, [canEdit, applyLiveSnapshot]);
+  }, [mode, teamAName, teamBName, startQuick]);
 
   useEffect(() => {
     if (canEdit) return;
@@ -150,6 +118,7 @@ export default function GamePage() {
   }, [canEdit]);
 
   useEffect(() => {
+    if (canEdit) return;
     const channel = supabase
       .channel('game-live-sync')
       .on(
@@ -163,9 +132,6 @@ export default function GamePage() {
             lastLiveAtRef.current = ts;
             lastGoodLiveRef.current = live;
             setLiveView(live);
-            if (canEdit) {
-              applyLiveSnapshot(live);
-            }
           }
         }
       )
@@ -174,10 +140,11 @@ export default function GamePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [canEdit, applyLiveSnapshot]);
+  }, [canEdit]);
 
   useEffect(() => {
     let active = true;
+    setTeamEntries({ A: [], B: [] });
     async function loadEntries() {
       const date = dateISO || todayISO();
       let query = supabase.from('player_entries').select('player_name, team_side');
@@ -197,7 +164,10 @@ export default function GamePage() {
       }
 
       const { data, error } = await query;
-      if (error) return;
+      if (error) {
+        if (active) setTeamEntries({ A: [], B: [] });
+        return;
+      }
       const a = [];
       const b = [];
       (data || []).forEach((e) => {

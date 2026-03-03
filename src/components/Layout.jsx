@@ -68,7 +68,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.0.39</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.0.41</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
@@ -111,7 +111,7 @@ export default function Layout() {
               </button>
             </>
           ) : null}
-          {isGameRoute ? (
+          {isGameRoute && !isScoreboard ? (
             <button
               className="btn-outline btn-ghost topbar-btn"
               onClick={() => setShowNav((v) => !v)}
