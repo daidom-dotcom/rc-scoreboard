@@ -50,6 +50,7 @@ export default function GamePage() {
   const initializedScoreboardRef = useRef(false);
   const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -252,8 +253,6 @@ export default function GamePage() {
       : `Partida ${safeLive?.match_no || 1}`);
 
   async function handleEndMatch() {
-    const senha = await askPassword('Digite a senha para encerrar a partida.');
-    if (senha !== '834856') return;
     pause();
     if (mode === 'tournament') {
       const ok = await askConfirm('Deseja encerrar a partida inteira agora?');
@@ -268,8 +267,6 @@ export default function GamePage() {
   }
 
   async function handleSecondAction() {
-    const senha = await askPassword('Digite a senha para encerrar o dia.');
-    if (senha !== '834856') return;
     if (mode === 'tournament') {
       navigate('/tournament');
       return;
@@ -288,6 +285,12 @@ export default function GamePage() {
     clearGameState();
     endLiveGame();
     navigate(`/history?summary=1&date=${dateISO}&dateTo=${dateISO}`);
+  }
+
+  async function openActionsMenuWithPassword() {
+    const senha = await askPassword('Digite a senha para abrir as opções.');
+    if (senha !== '834856') return;
+    setActionsMenuOpen(true);
   }
 
 
@@ -343,10 +346,15 @@ export default function GamePage() {
       </div>
 
       {canEdit ? (
-        <div className="encerrarRow">
-          <button className="btn-controle" onClick={handleEndMatch} disabled={!canEdit}>ENCERRAR PARTIDA</button>
-          <button className="btn-controle" onClick={handleSecondAction}>
-            {mode === 'tournament' ? 'VER TORNEIO' : 'ENCERRAR DIA'}
+        <div className="game-key-row">
+          <button
+            type="button"
+            className="btn-icon game-key-btn"
+            title="Opções"
+            aria-label="Abrir opções"
+            onClick={openActionsMenuWithPassword}
+          >
+            🔑
           </button>
         </div>
       ) : null}
@@ -358,6 +366,35 @@ export default function GamePage() {
         onClose={closePasswordModal}
         onConfirm={confirmPassword}
       />
+
+      {actionsMenuOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="modal-title">Opções</div>
+            <div className="actions">
+              <button
+                className="btn-controle"
+                onClick={async () => {
+                  setActionsMenuOpen(false);
+                  await handleEndMatch();
+                }}
+              >
+                Encerrar Partida
+              </button>
+              <button
+                className="btn-controle"
+                onClick={async () => {
+                  setActionsMenuOpen(false);
+                  await handleSecondAction();
+                }}
+              >
+                Encerrar Dia
+              </button>
+              <button className="btn-outline" onClick={() => setActionsMenuOpen(false)}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
     </div>
   );

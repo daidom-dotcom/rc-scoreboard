@@ -193,6 +193,9 @@ select {
 .home-date-spacer { height: 10px; }
 .home-date-row { display: flex; gap: 8px; align-items: center; justify-content: center; }
 .btn-icon { border: none; background: transparent; color: var(--verde); font-size: 20px; padding: 4px 6px; cursor: pointer; }
+.game-key-row { display: flex; justify-content: center; margin-top: 10px; }
+.game-key-btn { font-size: 16px; opacity: .8; padding: 2px 6px; }
+.game-key-btn:hover { opacity: 1; }
 .now-panel { max-width: 520px; margin: 6px auto 18px; border: none; background: transparent; padding: 0; }
 .now-status { opacity: .7; letter-spacing: 1px; font-size: 12px; }
 .now-row { display: grid; grid-template-columns: 1fr auto 30px auto 1fr; align-items: center; gap: 8px; font-weight: 900; }
