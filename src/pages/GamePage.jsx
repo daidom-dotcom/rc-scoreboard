@@ -470,15 +470,19 @@ export default function GamePage() {
   async function handlePointButton(team, value) {
     if (!canEdit) return;
     if (value > 0) {
-      const ok = await registerBasketEvent(team, value);
-      if (!ok) return;
       addPoint(team, value);
+      const ok = await registerBasketEvent(team, value);
+      if (!ok) {
+        showAlert('Ponto marcado, mas não foi possível vincular a cesta ao jogador.');
+      }
       return;
     }
     if (value < 0) {
-      const ok = await removeLastBasketEvent(team);
-      if (!ok) return;
       addPoint(team, value);
+      const ok = await removeLastBasketEvent(team);
+      if (!ok) {
+        showAlert('Ponto removido, mas não foi possível ajustar o histórico de cestas.');
+      }
     }
   }
 

@@ -50,6 +50,7 @@ export function GameProvider({ children }) {
   const basketsBRef = useRef({ one: 0, two: 0, three: 0 });
   const beepIntervalRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const lastAlertSecondRef = useRef(null);
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
@@ -180,50 +181,59 @@ export function GameProvider({ children }) {
   }, [canControlLive, mode, matchId, quickMatchNumber, dateISO, running, totalSeconds, quickTeamA, quickTeamB]);
 
   useEffect(() => {
-    const shouldBeep = running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
+    const shouldBeep = canControlLive && running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
     if (!shouldBeep) {
       if (beepIntervalRef.current) {
         clearInterval(beepIntervalRef.current);
         beepIntervalRef.current = null;
       }
+      lastAlertSecondRef.current = null;
       return;
     }
 
-    if (!beepIntervalRef.current) {
-      const playAlarmPulse = () => {
-        try {
-          if (!audioCtxRef.current) {
-            audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-          }
-          const ctx = audioCtxRef.current;
-          const now = ctx.currentTime;
-          const makeHorn = (start, freq, duration, gainValue) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(freq, start);
-            gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
-            gain.gain.exponentialRampToValueAtTime(gainValue * 0.75, start + (duration * 0.5));
-            gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(start);
-            osc.stop(start + duration + 0.01);
-          };
-          // Loud trumpet-like burst with layered frequencies.
-          makeHorn(now, 460, 0.45, 0.55);
-          makeHorn(now, 690, 0.45, 0.42);
-          makeHorn(now + 0.06, 920, 0.32, 0.25);
-        } catch {
-          // ignore audio errors
+    const playAlarmPulse = async () => {
+      try {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
         }
-      };
+        const ctx = audioCtxRef.current;
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+        const now = ctx.currentTime;
+        const makeHorn = (start, freq, duration, gainValue) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(gainValue * 0.8, start + (duration * 0.5));
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + duration + 0.01);
+        };
+        // Louder layered horn.
+        makeHorn(now, 460, 0.50, 0.85);
+        makeHorn(now, 690, 0.50, 0.62);
+        makeHorn(now + 0.06, 920, 0.38, 0.36);
+      } catch {
+        // ignore audio errors
+      }
+    };
 
+    // Ensure immediate trigger exactly when entering alert window.
+    if (lastAlertSecondRef.current !== totalSeconds) {
+      lastAlertSecondRef.current = totalSeconds;
       playAlarmPulse();
+    }
+
+    if (!beepIntervalRef.current) {
       beepIntervalRef.current = setInterval(() => {
         playAlarmPulse();
-      }, 1200);
+      }, 1000);
     }
 
     return () => {
@@ -232,7 +242,7 @@ export function GameProvider({ children }) {
         beepIntervalRef.current = null;
       }
     };
-  }, [running, totalSeconds, settings.soundEnabled, settings.alertSeconds]);
+  }, [canControlLive, running, totalSeconds, settings.soundEnabled, settings.alertSeconds]);
 
   function askConfirm(message) {
     return new Promise((resolve) => {
@@ -466,6 +476,10 @@ export function GameProvider({ children }) {
     }
     setAjusteFinalAtivo(false);
     setRunning(true);
+    // iOS/macOS may suspend AudioContext between matches; resume on user gesture.
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume().catch(() => {});
+    }
     if (mode === 'quick') ensureQuickMatch();
     pushLiveGame({
       id: 1,
