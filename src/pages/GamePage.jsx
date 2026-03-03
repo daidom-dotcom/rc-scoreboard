@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import { todayISO } from '../utils/time';
-import { fetchLiveGame } from '../lib/api';
+import { acquireLiveControl, fetchLiveControlLock, fetchLiveGame, heartbeatLiveControl, releaseLiveControl } from '../lib/api';
 import PasswordModal from '../components/PasswordModal';
 
 export default function GamePage() {
@@ -41,7 +41,21 @@ export default function GamePage() {
   const label = mode === 'quick' ? `Partida ${quickMatchNumber}` : `Quarter ${quarterIndex + 1}`;
   const timerAlert = running && totalSeconds <= settings.alertSeconds && totalSeconds > 0;
 
-  const canEdit = !!user && isMaster;
+  const [hasControl, setHasControl] = useState(false);
+  const [controlInfo, setControlInfo] = useState(null);
+  const deviceIdRef = useRef(null);
+  if (!deviceIdRef.current) {
+    const key = 'rc_controller_device_id_v1';
+    const existing = localStorage.getItem(key);
+    if (existing) deviceIdRef.current = existing;
+    else {
+      const id = `dev_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+      localStorage.setItem(key, id);
+      deviceIdRef.current = id;
+    }
+  }
+
+  const canEdit = !!user && isMaster && hasControl;
   const controlsDisabled = !canEdit;
   const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
@@ -66,6 +80,56 @@ export default function GamePage() {
     if (passwordState.resolve) passwordState.resolve(value);
     setPasswordState({ open: false, message: '', resolve: null });
   }
+
+  useEffect(() => {
+    if (!user || !isMaster) {
+      setHasControl(false);
+      setControlInfo(null);
+      return;
+    }
+    let active = true;
+
+    async function syncControl() {
+      try {
+        const res = await acquireLiveControl({
+          userId: user.id,
+          email: user.email,
+          fullName: user.user_metadata?.full_name || null,
+          deviceId: deviceIdRef.current
+        });
+        if (!active) return;
+        setHasControl(!!res.acquired);
+        setControlInfo(res.lock || null);
+      } catch {
+        if (!active) return;
+        const lock = await fetchLiveControlLock().catch(() => null);
+        setHasControl(false);
+        setControlInfo(lock);
+      }
+    }
+
+    syncControl();
+    return () => {
+      active = false;
+      releaseLiveControl({ userId: user.id, deviceId: deviceIdRef.current }).catch(() => {});
+    };
+  }, [user, isMaster]);
+
+  useEffect(() => {
+    if (!user || !isMaster) return;
+    const hb = setInterval(async () => {
+      if (hasControl) {
+        const beat = await heartbeatLiveControl({ userId: user.id, deviceId: deviceIdRef.current }).catch(() => null);
+        if (!beat) {
+          setHasControl(false);
+        }
+      } else {
+        const lock = await fetchLiveControlLock().catch(() => null);
+        setControlInfo(lock);
+      }
+    }, 4000);
+    return () => clearInterval(hb);
+  }, [user, isMaster, hasControl]);
 
   useEffect(() => {
     setEditorHydrated(!canEdit);
@@ -267,6 +331,31 @@ export default function GamePage() {
 
   return (
     <div className="game">
+      {!!user && isMaster && !hasControl ? (
+        <div className="panel" style={{ maxWidth: 720, margin: '0 auto 12px' }}>
+          <div className="muted" style={{ marginBottom: 8 }}>
+            Controle ativo em outro aparelho
+            {controlInfo?.controller_email ? ` (${controlInfo.controller_email})` : ''}.
+          </div>
+          <button
+            className="btn-controle"
+            style={{ margin: 0 }}
+            onClick={async () => {
+              const res = await acquireLiveControl({
+                userId: user.id,
+                email: user.email,
+                fullName: user.user_metadata?.full_name || null,
+                deviceId: deviceIdRef.current
+              }).catch(() => null);
+              setHasControl(!!res?.acquired);
+              setControlInfo(res?.lock || null);
+            }}
+          >
+            Tentar assumir controle
+          </button>
+        </div>
+      ) : null}
+
       <div className="center" style={{ position: 'relative' }}>
         <div className="topBar">
           <div id="partidaLabel">{viewLabel}</div>

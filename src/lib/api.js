@@ -227,3 +227,77 @@ export async function fetchLiveGame() {
   if (error) throw error;
   return data || null;
 }
+
+export async function fetchLiveControlLock() {
+  const { data, error } = await supabase
+    .from('live_control_lock')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+export async function ensureLiveControlLockRow() {
+  const { error } = await supabase
+    .from('live_control_lock')
+    .upsert({ id: 1 });
+  if (error) throw error;
+}
+
+export async function acquireLiveControl({ userId, email, fullName, deviceId }) {
+  const staleIso = new Date(Date.now() - 30000).toISOString();
+  const nowIso = new Date().toISOString();
+  await ensureLiveControlLockRow();
+  const payload = {
+    controller_user_id: userId,
+    controller_email: email || null,
+    controller_name: fullName || null,
+    controller_device_id: deviceId,
+    heartbeat_at: nowIso
+  };
+  const filter = `controller_user_id.is.null,heartbeat_at.lt.${staleIso},and(controller_user_id.eq.${userId},controller_device_id.eq.${deviceId})`;
+  const { data, error } = await supabase
+    .from('live_control_lock')
+    .update(payload)
+    .eq('id', 1)
+    .or(filter)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  if (data) return { acquired: true, lock: data };
+  const current = await fetchLiveControlLock();
+  return { acquired: false, lock: current };
+}
+
+export async function heartbeatLiveControl({ userId, deviceId }) {
+  const { data, error } = await supabase
+    .from('live_control_lock')
+    .update({ heartbeat_at: new Date().toISOString() })
+    .eq('id', 1)
+    .eq('controller_user_id', userId)
+    .eq('controller_device_id', deviceId)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+export async function releaseLiveControl({ userId, deviceId }) {
+  const { data, error } = await supabase
+    .from('live_control_lock')
+    .update({
+      controller_user_id: null,
+      controller_email: null,
+      controller_name: null,
+      controller_device_id: null,
+      heartbeat_at: null
+    })
+    .eq('id', 1)
+    .eq('controller_user_id', userId)
+    .eq('controller_device_id', deviceId)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
