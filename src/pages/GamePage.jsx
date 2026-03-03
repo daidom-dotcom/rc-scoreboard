@@ -54,6 +54,7 @@ export default function GamePage() {
   const [ownTeamSide, setOwnTeamSide] = useState(null);
   const [basketEvents, setBasketEvents] = useState([]);
   const [entriesReloadKey, setEntriesReloadKey] = useState(0);
+  const [selectedScorer, setSelectedScorer] = useState({ A: '', B: '' });
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -203,6 +204,10 @@ export default function GamePage() {
       if (active) {
         setTeamEntries({ A: a, B: b });
         setOwnTeamSide(mine);
+        setSelectedScorer((prev) => ({
+          A: (prev.A && a.includes(prev.A)) ? prev.A : (a[0] || ''),
+          B: (prev.B && b.includes(prev.B)) ? prev.B : (b[0] || '')
+        }));
       }
     }
     loadEntries();
@@ -277,7 +282,17 @@ export default function GamePage() {
       if (e.points === 2) row.two += 1;
       if (e.points === 3) row.three += 1;
     });
-    return Array.from(map.entries()).map(([name, c]) => ({ name, ...c }));
+    return Array.from(map.entries())
+      .map(([name, c]) => ({
+        name,
+        ...c,
+        totalPoints: (c.one * 1) + (c.two * 2) + (c.three * 3),
+        totalBaskets: c.one + c.two + c.three
+      }))
+      .sort((a, b) => {
+        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+        return b.totalBaskets - a.totalBaskets;
+      });
   }, [basketEvents]);
 
   async function resolveActiveQuickMatchId() {
@@ -379,6 +394,99 @@ export default function GamePage() {
     setEntriesReloadKey((k) => k + 1);
   }
 
+  async function resolveCurrentMatchIdForEvents() {
+    if ((safeLive?.mode || mode) === 'tournament') {
+      return safeLive?.match_id || matchId || null;
+    }
+    return await resolveActiveQuickMatchId();
+  }
+
+  async function registerBasketEvent(team, points) {
+    if (!canEdit) return true;
+    if (![1, 2, 3].includes(points)) return true;
+    const side = team === 'A' ? 'A' : 'B';
+    const players = teamEntries[side] || [];
+    const scorer = selectedScorer[side] || players[0] || '';
+    if (!scorer) {
+      showAlert('Selecione um jogador com check-in para registrar a cesta.');
+      return false;
+    }
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
+    if (!currentMatchId) {
+      showAlert('Partida ativa não encontrada para registrar a cesta.');
+      return false;
+    }
+    const { error } = await supabase
+      .from('basket_events')
+      .insert({
+        match_id: currentMatchId,
+        date_iso: dateISO || todayISO(),
+        mode: (safeLive?.mode || mode || 'quick'),
+        match_no: Number(safeLive?.match_no || quickMatchNumber || null),
+        team_side: side,
+        player_name: scorer,
+        points,
+        created_by: user?.id || null
+      });
+    if (error) {
+      showAlert(error.message || 'Erro ao registrar cesta.');
+      return false;
+    }
+    setBasketEvents((prev) => ([
+      {
+        id: `tmp-${Date.now()}`,
+        player_name: scorer,
+        points,
+        created_at: new Date().toISOString(),
+        team_side: side
+      },
+      ...prev
+    ]));
+    return true;
+  }
+
+  async function removeLastBasketEvent(team) {
+    if (!canEdit) return true;
+    const side = team === 'A' ? 'A' : 'B';
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
+    if (!currentMatchId) return true;
+    const { data: latest, error } = await supabase
+      .from('basket_events')
+      .select('id, player_name, points, team_side, created_at')
+      .eq('match_id', currentMatchId)
+      .eq('team_side', side)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return true;
+    if (!latest?.id) return true;
+    const { error: delError } = await supabase
+      .from('basket_events')
+      .delete()
+      .eq('id', latest.id);
+    if (delError) {
+      showAlert(delError.message || 'Erro ao remover cesta.');
+      return false;
+    }
+    setBasketEvents((prev) => prev.filter((e) => e.id !== latest.id));
+    return true;
+  }
+
+  async function handlePointButton(team, value) {
+    if (!canEdit) return;
+    if (value > 0) {
+      const ok = await registerBasketEvent(team, value);
+      if (!ok) return;
+      addPoint(team, value);
+      return;
+    }
+    if (value < 0) {
+      const ok = await removeLastBasketEvent(team);
+      if (!ok) return;
+      addPoint(team, value);
+    }
+  }
+
   async function handleEndMatch() {
     pause();
     if (mode === 'tournament') {
@@ -450,14 +558,32 @@ export default function GamePage() {
           {canEdit ? (
             <div className="botoes-esquerda">
               <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 1)}>+1</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 2)}>+2</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 3)}>+3</button>
-              <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', -1)}>-1</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 1)}>+1</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 2)}>+2</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 3)}>+3</button>
+              <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', -1)}>-1</button>
             </div>
           ) : null}
           <div className="pontos">{viewScoreA}</div>
           <div className="placar-checkins">
-            {(teamEntries.A || []).length ? teamEntries.A.join(' / ') : 'Sem check-in registrado.'}
+            {(teamEntries.A || []).length ? (
+              canEdit ? (
+                teamEntries.A.map((name, idx) => (
+                  <span key={`A-${name}-${idx}`}>
+                    <button
+                      type="button"
+                      className={`checkin-player-btn ${selectedScorer.A === name ? 'active' : ''}`}
+                      onClick={() => setSelectedScorer((prev) => ({ ...prev, A: name }))}
+                    >
+                      {name}
+                    </button>
+                    {idx < teamEntries.A.length - 1 ? ' / ' : ''}
+                  </span>
+                ))
+              ) : (
+                teamEntries.A.join(' / ')
+              )
+            ) : 'Sem check-in registrado.'}
           </div>
         </div>
 
@@ -472,14 +598,31 @@ export default function GamePage() {
           <div className="pontos">{viewScoreB}</div>
           {canEdit ? (
             <div className="botoes-direita">
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 1)}>+1</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 2)}>+2</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 3)}>+3</button>
-              <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', -1)}>-1</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 1)}>+1</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 2)}>+2</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 3)}>+3</button>
+              <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', -1)}>-1</button>
             </div>
           ) : null}
           <div className="placar-checkins">
-            {(teamEntries.B || []).length ? teamEntries.B.join(' / ') : 'Sem check-in registrado.'}
+            {(teamEntries.B || []).length ? (
+              canEdit ? (
+                teamEntries.B.map((name, idx) => (
+                  <span key={`B-${name}-${idx}`}>
+                    <button
+                      type="button"
+                      className={`checkin-player-btn ${selectedScorer.B === name ? 'active' : ''}`}
+                      onClick={() => setSelectedScorer((prev) => ({ ...prev, B: name }))}
+                    >
+                      {name}
+                    </button>
+                    {idx < teamEntries.B.length - 1 ? ' / ' : ''}
+                  </span>
+                ))
+              ) : (
+                teamEntries.B.join(' / ')
+              )
+            ) : 'Sem check-in registrado.'}
           </div>
         </div>
       </div>
@@ -499,13 +642,13 @@ export default function GamePage() {
       ) : null}
 
       <details className="basket-stats-plain">
-        <summary className="basket-stats-title">Cestas por jogador</summary>
+        <summary className="basket-stats-title">Cestas por jogador | Maiores pontuadores</summary>
         {!basketStats.length ? (
           <div className="basket-stats-item muted">Sem cestas registradas.</div>
         ) : (
-          basketStats.map((s) => (
+          basketStats.map((s, idx) => (
             <div className="basket-stats-item" key={s.name}>
-              {s.name} ({s.one}) 1 ponto | ({s.two}) 2 pontos | ({s.three}) 3 pontos
+              {idx + 1}. {s.name} ({s.one}) 1 ponto | ({s.two}) 2 pontos | ({s.three}) 3 pontos | {s.totalPoints} pts
             </div>
           ))
         )}
