@@ -228,6 +228,33 @@ export function GameProvider({ children }) {
     return keep;
   }
 
+  async function settlePreviousPendingQuick(date, nextNo) {
+    const { data: pendings, error } = await supabase
+      .from('matches')
+      .select('id,match_no')
+      .eq('date_iso', date)
+      .eq('mode', 'quick')
+      .eq('status', 'pending')
+      .lt('match_no', Number(nextNo || 0));
+    if (error) return;
+    const list = pendings || [];
+    if (!list.length) return;
+    const ids = list.map((m) => m.id);
+    const { data: results } = await supabase
+      .from('match_results')
+      .select('match_id')
+      .in('match_id', ids);
+    const doneIds = new Set((results || []).map((r) => r.match_id));
+    const toDone = ids.filter((id) => doneIds.has(id));
+    const toDelete = ids.filter((id) => !doneIds.has(id));
+    if (toDone.length) {
+      await supabase.from('matches').update({ status: 'done' }).in('id', toDone);
+    }
+    if (toDelete.length) {
+      await supabase.from('matches').delete().in('id', toDelete);
+    }
+  }
+
   async function refreshQuickNumber() {
     try {
       const date = dateISO || todayISO();
@@ -275,10 +302,14 @@ export function GameProvider({ children }) {
       const date = dateISO || todayISO();
       const normalizedPending = await normalizePendingQuick(date);
       if (normalizedPending) {
-        setMatchId(normalizedPending.id);
-        currentMatchRef.current = normalizedPending;
-        if (normalizedPending.match_no) setQuickMatchNumber(normalizedPending.match_no);
-        return normalizedPending;
+        if (desiredNo && Number(normalizedPending.match_no || 0) < Number(desiredNo)) {
+          await deleteMatch(normalizedPending.id);
+        } else {
+          setMatchId(normalizedPending.id);
+          currentMatchRef.current = normalizedPending;
+          if (normalizedPending.match_no) setQuickMatchNumber(normalizedPending.match_no);
+          return normalizedPending;
+        }
       }
       const targetNo = desiredNo || quickMatchNumber;
       const existing = await findPendingQuickMatch(date, targetNo);
@@ -522,14 +553,15 @@ export function GameProvider({ children }) {
 
   async function finishQuick() {
     try {
+      let ensuredMatch = null;
       if (mode === 'quick' && !matchId) {
-        await ensureQuickMatch(quickMatchNumber);
+        ensuredMatch = await ensureQuickMatch(quickMatchNumber);
       }
       const hasNonZeroScore = Number(scoreA) !== 0 || Number(scoreB) !== 0;
       const closingMatchNo = quickMatchNumber;
 
       if (hasNonZeroScore) {
-        await saveQuickMatch();
+        await saveQuickMatch(ensuredMatch?.id || null);
         showAlert('Partida (rápida) salva!');
       } else if (matchId) {
         // 0x0 should not pollute history/results: discard the open quick match.
@@ -563,6 +595,10 @@ export function GameProvider({ children }) {
       : await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
     const localNext = forcedNextNo || (quickMatchNumber + 1);
     const nextNo = resetDay ? 1 : Math.max(localNext, dbNext);
+    const date = dateISO || todayISO();
+    if (!resetDay && nextNo > 1) {
+      await settlePreviousPendingQuick(date, nextNo);
+    }
     setQuickMatchNumber(nextNo);
     setMatchId(null);
     currentMatchRef.current = null;
@@ -577,12 +613,12 @@ export function GameProvider({ children }) {
     });
   }
 
-  async function saveQuickMatch() {
+  async function saveQuickMatch(forcedMatchId = null) {
     try {
       const totalC1 = basketsA.one + basketsB.one;
       const totalC2 = basketsA.two + basketsB.two;
       const totalC3 = basketsA.three + basketsB.three;
-      let id = matchId;
+      let id = forcedMatchId || matchId;
       if (!id) {
         const match = await createMatch({
           date_iso: dateISO || todayISO(),
@@ -757,7 +793,8 @@ export function GameProvider({ children }) {
     if (scoreA === 0 && scoreB === 0) return;
     if (mode === 'quick') {
       try {
-        await saveQuickMatch();
+        const ensuredMatch = matchId ? null : await ensureQuickMatch(quickMatchNumber);
+        await saveQuickMatch(ensuredMatch?.id || null);
       } catch (err) {
         setLastError(err);
         showAlert(err.message || 'Erro ao salvar partida.');
