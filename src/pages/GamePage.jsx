@@ -297,15 +297,48 @@ export default function GamePage() {
   }, [basketEvents]);
 
   async function toggleMyTeam(side) {
-    if (!canInteractionUser) return;
+    if (!user) {
+      showAlert('Faça login para fazer check-in.');
+      return;
+    }
+    if (isScoreboard) {
+      showAlert('Check-in por time não é permitido no usuário placar.');
+      return;
+    }
+    if (!isRapidMode) return;
     let currentMatchId = safeLive?.match_id || matchId;
+    if (!currentMatchId && safeLive?.match_no) {
+      const preferredDate = dateISO || todayISO();
+      const matchNo = Number(safeLive.match_no);
+      const { data: byNoDate } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('mode', 'quick')
+        .eq('match_no', matchNo)
+        .eq('date_iso', preferredDate)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      currentMatchId = byNoDate?.id || null;
+      if (!currentMatchId) {
+        const { data: byNoAnyDate } = await supabase
+          .from('matches')
+          .select('id')
+          .eq('mode', 'quick')
+          .eq('match_no', matchNo)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        currentMatchId = byNoAnyDate?.id || null;
+      }
+    }
     if (!currentMatchId) {
       const { data: latestQuick } = await supabase
         .from('matches')
         .select('id')
-        .eq('date_iso', dateISO || todayISO())
         .eq('mode', 'quick')
         .eq('status', 'pending')
+        .order('date_iso', { ascending: false })
         .order('match_no', { ascending: false, nullsFirst: false })
         .limit(1)
         .maybeSingle();
@@ -423,7 +456,7 @@ export default function GamePage() {
           <button
             type="button"
             className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${canInteractionUser && ownTeamSide === 'B' ? 'faded' : ''}`}
-            onClick={() => (canInteractionUser && isRapidMode ? toggleMyTeam('A') : null)}
+            onClick={() => toggleMyTeam('A')}
           >
             {viewTeamA}
           </button>
@@ -445,7 +478,7 @@ export default function GamePage() {
           <button
             type="button"
             className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${canInteractionUser && ownTeamSide === 'A' ? 'faded' : ''}`}
-            onClick={() => (canInteractionUser && isRapidMode ? toggleMyTeam('B') : null)}
+            onClick={() => toggleMyTeam('B')}
           >
             {viewTeamB}
           </button>
