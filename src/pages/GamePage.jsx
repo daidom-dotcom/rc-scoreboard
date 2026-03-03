@@ -222,10 +222,11 @@ export default function GamePage() {
   useEffect(() => {
     let active = true;
     async function loadBasketEvents() {
+      const liveModeForBasket = liveView?.mode || lastGoodLiveRef.current?.mode || mode;
       let currentMatchId = canEdit
         ? (matchId || liveView?.match_id || lastGoodLiveRef.current?.match_id)
         : (liveView?.match_id || lastGoodLiveRef.current?.match_id || matchId);
-      if (!currentMatchId && (safeLive?.mode || mode) === 'quick') {
+      if (!currentMatchId && liveModeForBasket === 'quick') {
         currentMatchId = await resolveActiveQuickMatchId();
       }
       if (!currentMatchId) {
@@ -251,7 +252,7 @@ export default function GamePage() {
       active = false;
       clearInterval(t);
     };
-  }, [canEdit, matchId, liveView?.match_id, liveView?.match_no, mode, safeLive?.mode]);
+  }, [canEdit, matchId, liveView?.match_id, liveView?.match_no, liveView?.mode, mode]);
 
   const safeLive = liveView || lastGoodLiveRef.current;
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';
