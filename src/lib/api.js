@@ -256,7 +256,7 @@ export async function acquireLiveControl({ userId, email, fullName, deviceId }) 
     controller_device_id: deviceId,
     heartbeat_at: nowIso
   };
-  const filter = `controller_user_id.is.null,heartbeat_at.lt.${staleIso},and(controller_user_id.eq.${userId},controller_device_id.eq.${deviceId})`;
+  const filter = `controller_user_id.is.null,heartbeat_at.lt.${staleIso},controller_user_id.eq.${userId}`;
   const { data, error } = await supabase
     .from('live_control_lock')
     .update(payload)
