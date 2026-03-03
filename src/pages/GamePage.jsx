@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
@@ -45,6 +45,8 @@ export default function GamePage() {
   const controlsDisabled = !canEdit;
   const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
+  const lastLiveAtRef = useRef(0);
+  const lastGoodLiveRef = useRef(null);
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
 
   function askPassword(message) {
@@ -114,10 +116,19 @@ export default function GamePage() {
   useEffect(() => {
     if (canEdit) return;
     let active = true;
+    function applyLiveIfNewer(data) {
+      if (!data) return;
+      const ts = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
+      if (ts >= lastLiveAtRef.current) {
+        lastLiveAtRef.current = ts;
+        lastGoodLiveRef.current = data;
+        setLiveView(data);
+      }
+    }
     async function loadLive() {
       try {
         const data = await fetchLiveGame();
-        if (active && data) setLiveView(data);
+        if (active && data) applyLiveIfNewer(data);
       } catch {
         // mantém o último valor para não piscar
       }
@@ -139,7 +150,12 @@ export default function GamePage() {
         (payload) => {
           const live = payload?.new;
           if (!live || live.id !== 1) return;
-          setLiveView(live);
+          const ts = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
+          if (ts >= lastLiveAtRef.current) {
+            lastLiveAtRef.current = ts;
+            lastGoodLiveRef.current = live;
+            setLiveView(live);
+          }
           if (canEdit) {
             applyLiveSnapshot(live);
           }
@@ -191,16 +207,17 @@ export default function GamePage() {
     };
   }, [matchId, mode, quickMatchNumber, dateISO]);
 
-  const viewTeamA = canEdit ? teamAName : (liveView?.team_a || teamAName);
-  const viewTeamB = canEdit ? teamBName : (liveView?.team_b || teamBName);
-  const viewScoreA = canEdit ? scoreA : (liveView?.score_a ?? scoreA);
-  const viewScoreB = canEdit ? scoreB : (liveView?.score_b ?? scoreB);
-  const viewTime = canEdit ? totalSeconds : (liveView?.time_left ?? totalSeconds);
+  const safeLive = liveView || lastGoodLiveRef.current;
+  const viewTeamA = canEdit ? teamAName : (safeLive?.team_a || teamAName);
+  const viewTeamB = canEdit ? teamBName : (safeLive?.team_b || teamBName);
+  const viewScoreA = canEdit ? scoreA : (safeLive?.score_a ?? scoreA);
+  const viewScoreB = canEdit ? scoreB : (safeLive?.score_b ?? scoreB);
+  const viewTime = canEdit ? totalSeconds : (safeLive?.time_left ?? totalSeconds);
   const viewLabel = canEdit
     ? label
-    : (liveView?.mode === 'tournament'
-      ? `Quarter ${liveView?.quarter || 1}`
-      : `Partida ${liveView?.match_no || 1}`);
+    : (safeLive?.mode === 'tournament'
+      ? `Quarter ${safeLive?.quarter || 1}`
+      : `Partida ${safeLive?.match_no || 1}`);
 
   async function handleEndMatch() {
     const senha = await askPassword('Digite a senha para encerrar a partida.');
