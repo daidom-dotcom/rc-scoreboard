@@ -479,9 +479,9 @@ select {
   user-select: none;
 }
 .basket-stats-item {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 800;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 .basket-del-btn {
   border: none;
