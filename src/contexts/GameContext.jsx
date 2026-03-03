@@ -108,12 +108,11 @@ export function GameProvider({ children }) {
 
   useEffect(() => {
     if (mode !== 'quick') return;
-    if (!matchId) return;
     pushLiveGame({
       id: 1,
       status: running ? 'running' : 'paused',
       mode: 'quick',
-      match_id: matchId,
+      match_id: matchId || null,
       match_no: quickMatchNumber,
       quarter: 1,
       time_left: totalSeconds,

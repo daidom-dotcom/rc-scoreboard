@@ -274,7 +274,7 @@ export default function GamePage() {
           </div>
           <div className="pontos">{viewScoreA}</div>
           <div className="placar-checkins">
-            Time: {(teamEntries.A || []).length ? teamEntries.A.join(' / ') : '-'}
+            Time: {(teamEntries.A || []).length ? teamEntries.A.join(' / ') : 'Sem check-in registrado.'}
           </div>
         </div>
 
@@ -288,7 +288,7 @@ export default function GamePage() {
             <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', -1)}>-1</button>
           </div>
           <div className="placar-checkins">
-            Time: {(teamEntries.B || []).length ? teamEntries.B.join(' / ') : '-'}
+            Time: {(teamEntries.B || []).length ? teamEntries.B.join(' / ') : 'Sem check-in registrado.'}
           </div>
         </div>
       </div>
