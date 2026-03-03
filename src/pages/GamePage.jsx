@@ -111,12 +111,6 @@ export default function GamePage() {
   }, [isScoreboard, dateISO, setDateISO, startQuick, applyLiveSnapshot]);
 
   useEffect(() => {
-    if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
-      startQuick();
-    }
-  }, [mode, teamAName, teamBName, startQuick]);
-
-  useEffect(() => {
     if (canEdit) return;
     const t = setInterval(() => setObserverNowMs(Date.now()), 1000);
     return () => clearInterval(t);
