@@ -53,7 +53,7 @@ export default function GamePage() {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [ownTeamSide, setOwnTeamSide] = useState(null);
   const [basketEvents, setBasketEvents] = useState([]);
-  const [basketEventsFallback, setBasketEventsFallback] = useState([]);
+  const [basketReloadKey, setBasketReloadKey] = useState(0);
   const [entriesReloadKey, setEntriesReloadKey] = useState(0);
   const [selectedScorer, setSelectedScorer] = useState({ A: '', B: '' });
 
@@ -250,9 +250,17 @@ export default function GamePage() {
           .order('created_at', { ascending: false });
         data = byNo.data || [];
       }
+      if ((!data || data.length === 0) && liveModeForBasket === 'quick' && quickNoForBasket > 0) {
+        const byNoAnyDate = await supabase
+          .from('basket_events')
+          .select('id, player_name, points, created_at')
+          .eq('mode', 'quick')
+          .eq('match_no', quickNoForBasket)
+          .order('created_at', { ascending: false });
+        data = byNoAnyDate.data || [];
+      }
       if (active) {
         setBasketEvents(data || []);
-        setBasketEventsFallback([]);
       }
     }
     loadBasketEvents();
@@ -261,7 +269,7 @@ export default function GamePage() {
       active = false;
       clearInterval(t);
     };
-  }, [canEdit, matchId, liveView?.match_id, liveView?.match_no, liveView?.mode, mode]);
+  }, [canEdit, matchId, liveView?.match_id, liveView?.match_no, liveView?.mode, mode, basketReloadKey]);
 
   const safeLive = liveView || lastGoodLiveRef.current;
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';
@@ -293,7 +301,7 @@ export default function GamePage() {
   const isRapidMode = (safeLive?.mode || mode) === 'quick';
   const canInteractionUser = !!user && !isScoreboard;
   const basketStats = useMemo(() => {
-    const mergedEvents = [...basketEvents, ...basketEventsFallback];
+    const mergedEvents = [...basketEvents];
     const map = new Map();
     mergedEvents.forEach((e) => {
       const name = String(e.player_name || 'Jogador').trim();
@@ -314,7 +322,7 @@ export default function GamePage() {
         if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
         return b.totalBaskets - a.totalBaskets;
       });
-  }, [basketEvents, basketEventsFallback]);
+  }, [basketEvents]);
 
   async function resolveActiveQuickMatchId() {
     let currentMatchId = safeLive?.match_id || matchId || null;
@@ -472,16 +480,8 @@ export default function GamePage() {
     const side = team === 'A' ? 'A' : 'B';
     const scorer = selectedScorer[side] || 'Outros';
     const currentMatchId = await ensureActiveQuickMatchId();
-    const fallbackEvent = {
-      id: `fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      player_name: scorer || 'Outros',
-      points,
-      created_at: new Date().toISOString(),
-      team_side: side
-    };
     if (!currentMatchId) {
-      setBasketEventsFallback((prev) => [fallbackEvent, ...prev]);
-      return true;
+      return false;
     }
     const { data, error } = await supabase
       .from('basket_events')
@@ -498,10 +498,12 @@ export default function GamePage() {
       .select('id, player_name, points, created_at, team_side')
       .single();
     if (error) {
-      setBasketEventsFallback((prev) => [fallbackEvent, ...prev]);
-      return true;
+      return false;
     }
-    if (data) setBasketEvents((prev) => [data, ...prev]);
+    if (data) {
+      setBasketEvents((prev) => [data, ...prev]);
+      setBasketReloadKey((k) => k + 1);
+    }
     return true;
   }
 
@@ -509,14 +511,7 @@ export default function GamePage() {
     if (!canEdit) return true;
     const side = team === 'A' ? 'A' : 'B';
     const currentMatchId = await ensureActiveQuickMatchId();
-    if (!currentMatchId) {
-      setBasketEventsFallback((prev) => {
-        const idx = prev.findIndex((e) => e.team_side === side);
-        if (idx < 0) return prev;
-        return prev.filter((_, i) => i !== idx);
-      });
-      return true;
-    }
+    if (!currentMatchId) return false;
     const { data: latest, error } = await supabase
       .from('basket_events')
       .select('id, player_name, points, team_side, created_at')
@@ -525,15 +520,8 @@ export default function GamePage() {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) return true;
-    if (!latest?.id) {
-      setBasketEventsFallback((prev) => {
-        const idx = prev.findIndex((e) => e.team_side === side);
-        if (idx < 0) return prev;
-        return prev.filter((_, i) => i !== idx);
-      });
-      return true;
-    }
+    if (error) return false;
+    if (!latest?.id) return false;
     const { error: delError } = await supabase
       .from('basket_events')
       .delete()
@@ -543,6 +531,7 @@ export default function GamePage() {
       return false;
     }
     setBasketEvents((prev) => prev.filter((e) => e.id !== latest.id));
+    setBasketReloadKey((k) => k + 1);
     return true;
   }
 
@@ -563,14 +552,7 @@ export default function GamePage() {
       showAlert(error.message || 'Erro ao buscar cesta para excluir.');
       return;
     }
-    if (!latest?.id) {
-      const idx = basketEventsFallback.findIndex((e) => e.player_name === playerName && Number(e.points) === Number(points));
-      if (idx < 0) return;
-      const target = basketEventsFallback[idx];
-      setBasketEventsFallback((prev) => prev.filter((_, i) => i !== idx));
-      if (target?.team_side) addPoint(target.team_side, -Number(points));
-      return;
-    }
+    if (!latest?.id) return;
     const { error: delErr } = await supabase
       .from('basket_events')
       .delete()
@@ -581,25 +563,32 @@ export default function GamePage() {
     }
     setBasketEvents((prev) => prev.filter((e) => e.id !== latest.id));
     addPoint(latest.team_side, -Number(points));
+    setBasketReloadKey((k) => k + 1);
   }
 
   async function handlePointButton(team, value) {
     if (!canEdit) return;
     if (value > 0) {
-      addPoint(team, value);
       const ok = await registerBasketEvent(team, value);
+      if (!ok) {
+        showAlert('Não foi possível salvar a cesta no banco.');
+        return;
+      }
+      addPoint(team, value);
       return;
     }
     if (value < 0) {
-      addPoint(team, value);
       const ok = await removeLastBasketEvent(team);
-      if (!ok) showAlert('Não foi possível ajustar o histórico de cestas.');
+      if (!ok) {
+        showAlert('Não foi possível ajustar o histórico de cestas.');
+        return;
+      }
+      addPoint(team, value);
     }
   }
 
   useEffect(() => {
     setBasketEvents([]);
-    setBasketEventsFallback([]);
   }, [safeLive?.match_id, safeLive?.match_no, mode, quickMatchNumber]);
 
   async function handleEndMatch() {
