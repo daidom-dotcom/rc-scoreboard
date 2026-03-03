@@ -310,7 +310,7 @@ export default function GamePage() {
   async function resolveActiveQuickMatchId() {
     let currentMatchId = safeLive?.match_id || matchId || null;
     if (currentMatchId) return currentMatchId;
-    const preferredDate = dateISO || todayISO();
+    const preferredDate = canEdit ? (dateISO || todayISO()) : todayISO();
     const liveNo = Number(safeLive?.match_no || quickMatchNumber || 0);
     if (liveNo > 0) {
       const { data: byNoDate } = await supabase
@@ -345,6 +345,50 @@ export default function GamePage() {
       .limit(1)
       .maybeSingle();
     return latestQuick?.id || null;
+  }
+
+  async function ensureActiveQuickMatchId() {
+    let currentMatchId = await resolveActiveQuickMatchId();
+    if (currentMatchId) return currentMatchId;
+    if (!canEdit) return null;
+    const no = Number(safeLive?.match_no || quickMatchNumber || 1);
+    const date = dateISO || todayISO();
+    const { data: existing } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('date_iso', date)
+      .eq('mode', 'quick')
+      .eq('status', 'pending')
+      .eq('match_no', no)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    currentMatchId = existing?.id || null;
+    if (!currentMatchId) {
+      const { data: created, error: createErr } = await supabase
+        .from('matches')
+        .insert({
+          date_iso: date,
+          mode: 'quick',
+          team_a_name: viewTeamA || 'Com Colete',
+          team_b_name: viewTeamB || 'Sem Colete',
+          quarters: 1,
+          durations: [settings.quickDurationSeconds || 420],
+          status: 'pending',
+          match_no: no
+        })
+        .select('id')
+        .single();
+      if (createErr) return null;
+      currentMatchId = created?.id || null;
+    }
+    if (currentMatchId) {
+      await supabase
+        .from('live_game')
+        .update({ match_id: currentMatchId, updated_at: new Date().toISOString() })
+        .eq('id', 1);
+    }
+    return currentMatchId;
   }
 
   async function toggleMyTeam(side) {
@@ -418,7 +462,7 @@ export default function GamePage() {
     if (![1, 2, 3].includes(points)) return true;
     const side = team === 'A' ? 'A' : 'B';
     const scorer = selectedScorer[side] || 'Outros';
-    const currentMatchId = await resolveCurrentMatchIdForEvents();
+    const currentMatchId = await ensureActiveQuickMatchId();
     const fallbackEvent = {
       id: `fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       player_name: scorer || 'Outros',
@@ -455,7 +499,7 @@ export default function GamePage() {
   async function removeLastBasketEvent(team) {
     if (!canEdit) return true;
     const side = team === 'A' ? 'A' : 'B';
-    const currentMatchId = await resolveCurrentMatchIdForEvents();
+    const currentMatchId = await ensureActiveQuickMatchId();
     if (!currentMatchId) {
       setBasketEventsFallback((prev) => {
         const idx = prev.findIndex((e) => e.team_side === side);
@@ -495,7 +539,7 @@ export default function GamePage() {
 
   async function removeBasketByPlayerAndType(playerName, points) {
     if (!canEdit) return;
-    const currentMatchId = await resolveCurrentMatchIdForEvents();
+    const currentMatchId = await ensureActiveQuickMatchId();
     if (!currentMatchId) return;
     const { data: latest, error } = await supabase
       .from('basket_events')
@@ -543,6 +587,11 @@ export default function GamePage() {
       if (!ok) showAlert('Não foi possível ajustar o histórico de cestas.');
     }
   }
+
+  useEffect(() => {
+    setBasketEvents([]);
+    setBasketEventsFallback([]);
+  }, [safeLive?.match_id, safeLive?.match_no, mode, quickMatchNumber]);
 
   async function handleEndMatch() {
     pause();
