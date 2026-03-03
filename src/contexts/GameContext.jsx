@@ -31,8 +31,8 @@ export function GameProvider({ children }) {
   const [running, setRunning] = useState(false);
   const [ajusteFinalAtivo, setAjusteFinalAtivo] = useState(false);
 
-  const [teamAName, setTeamAName] = useState('TIME 1');
-  const [teamBName, setTeamBName] = useState('TIME 2');
+  const [teamAName, setTeamAName] = useState(QUICK_TEAM_A);
+  const [teamBName, setTeamBName] = useState(QUICK_TEAM_B);
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [basketsA, setBasketsA] = useState({ one: 0, two: 0, three: 0 });
@@ -718,8 +718,10 @@ export function GameProvider({ children }) {
     if (live.reset_at) return;
     setMode(live.mode || 'quick');
     setQuarterIndex(Math.max(0, Number(live.quarter || 1) - 1));
-    setTeamAName(live.team_a || QUICK_TEAM_A);
-    setTeamBName(live.team_b || QUICK_TEAM_B);
+    const fallbackA = (live.mode || 'quick') === 'quick' ? QUICK_TEAM_A : 'TIME 1';
+    const fallbackB = (live.mode || 'quick') === 'quick' ? QUICK_TEAM_B : 'TIME 2';
+    setTeamAName(live.team_a || fallbackA);
+    setTeamBName(live.team_b || fallbackB);
     setScoreA(Number(live.score_a || 0));
     setScoreB(Number(live.score_b || 0));
     setTotalSeconds(Number(live.time_left || settings.quickDurationSeconds));
