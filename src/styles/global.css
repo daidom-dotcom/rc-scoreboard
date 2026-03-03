@@ -401,20 +401,20 @@ select {
   position: relative;
   align-items: center;
   gap: 20px;
-  height: calc(360px + (var(--score-scale) - 1) * 180px);
+  height: calc(320px + (var(--score-scale) - 1) * 150px);
 }
 
-.nome { font-size: 26px; position: absolute; top: 10px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nome { font-size: 26px; position: absolute; top: 2px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .placar .frame:first-child .nome { text-align: right; padding-right: 10px; width: 70%; right: 0; left: auto; }
 .placar .frame:last-child .nome { text-align: left; padding-left: 10px; width: 70%; left: 0; right: auto; }
 .placar-checkins {
   position: absolute;
-  bottom: 8px;
+  bottom: 2px;
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 24px);
   text-align: center;
-  font-size: calc(14px * var(--score-scale));
+  font-size: calc(12px * var(--score-scale));
   font-weight: 800;
   opacity: 0.78;
   white-space: nowrap;
@@ -501,7 +501,7 @@ select {
   font-size: clamp(10px, 1.2vw, 15px);
   font-weight: 900;
 }
-.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1; text-align: center; pointer-events: none; z-index: 1; }
+.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1; text-align: center; pointer-events: none; z-index: 1; line-height: .9; }
 
 .botoes-esquerda, .botoes-direita { display: flex; flex-direction: column; gap: 12px; justify-content: center; width: 82px; z-index: 2; }
 

@@ -34,7 +34,8 @@ export default function GamePage() {
     saveCurrentIfNeeded,
     endLiveGame,
     dateISO,
-    clearGameState
+    clearGameState,
+    applyLiveSnapshot
   } = useGame();
 
   const navigate = useNavigate();
@@ -85,12 +86,29 @@ export default function GamePage() {
     if (!isScoreboard) return;
     if (initializedScoreboardRef.current) return;
     initializedScoreboardRef.current = true;
-    const today = todayISO();
-    if (dateISO !== today) {
-      setDateISO(today);
+    let active = true;
+    async function bootstrapScoreboard() {
+      const today = todayISO();
+      if (dateISO !== today) {
+        setDateISO(today);
+      }
+      try {
+        const live = await fetchLiveGame();
+        if (!active) return;
+        if (live && (live.match_id || live.match_no || live.team_a || live.team_b)) {
+          applyLiveSnapshot(live);
+          return;
+        }
+      } catch {
+        // fallback inicia quick padrão
+      }
+      if (active) startQuick();
     }
-    startQuick();
-  }, [isScoreboard, dateISO, setDateISO, startQuick]);
+    bootstrapScoreboard();
+    return () => {
+      active = false;
+    };
+  }, [isScoreboard, dateISO, setDateISO, startQuick, applyLiveSnapshot]);
 
   useEffect(() => {
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {

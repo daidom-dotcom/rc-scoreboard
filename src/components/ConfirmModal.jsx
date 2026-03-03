@@ -11,11 +11,7 @@ export default function ConfirmModal() {
     setSecondsLeft(30);
     const t = setInterval(() => {
       setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(t);
-          resolveConfirm(true);
-          return 0;
-        }
+        if (prev <= 1) return 0;
         return prev - 1;
       });
     }, 1000);
@@ -28,7 +24,7 @@ export default function ConfirmModal() {
         <div className="modal-title">Aviso</div>
         <div className="confirm-message">{confirmState.message}</div>
         {confirmState?.countdown ? (
-          <div className="confirm-countdown">Nova partida em {secondsLeft}s</div>
+          <div className="confirm-countdown">Nova partida não será iniciada automaticamente ({secondsLeft}s)</div>
         ) : null}
         <div className="actions">
           <button className="btn-outline" onClick={() => resolveConfirm(false)}>Não</button>
