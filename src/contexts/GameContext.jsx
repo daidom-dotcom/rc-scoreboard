@@ -50,8 +50,8 @@ export function GameProvider({ children }) {
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
   function pushLiveGame(payload) {
-    if (!canControlLive) return;
-    if (remoteResetRef.current) return;
+    if (!canControlLive) return Promise.resolve(null);
+    if (remoteResetRef.current) return Promise.resolve(null);
     return upsertLiveGame(payload).catch(() => {});
   }
 
