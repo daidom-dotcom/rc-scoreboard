@@ -68,17 +68,10 @@ export default function CheckInPage() {
   async function loadMatches() {
     setLoading(true);
     try {
-      const targetDate = onlyToday ? (dateISO || todayISO()) : dateISO;
-      const [data, live] = await Promise.all([
-        fetchMatchesByDate(targetDate),
-        fetchLiveGame().catch(() => null)
-      ]);
-      let filtered = data;
-      if (live?.mode === 'quick' && live?.match_no) {
-        filtered = data.filter((m) => m.mode !== 'quick' || (m.match_no && m.match_no <= live.match_no));
-      }
-      setMatches(filtered);
-      if (filtered.length && !matchId) setMatchId(filtered[0].id);
+      const targetDate = onlyToday ? todayISO() : dateISO;
+      const data = await fetchMatchesByDate(targetDate);
+      setMatches(data || []);
+      if ((data || []).length && !matchId) setMatchId(data[0].id);
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar partidas');
     } finally {
@@ -88,7 +81,7 @@ export default function CheckInPage() {
 
   async function loadEntries() {
     if (!user?.id || !dateISO) return;
-    const targetDate = onlyToday ? (dateISO || todayISO()) : dateISO;
+    const targetDate = onlyToday ? todayISO() : dateISO;
     const { data, error } = await supabase
       .from('player_entries')
       .select('id, team_side, match_id, matches(id, team_a_name, team_b_name, date_iso)')
@@ -109,6 +102,7 @@ export default function CheckInPage() {
       return;
     }
 
+    const targetDate = onlyToday ? todayISO() : dateISO;
     try {
       const { error } = await supabase
         .from('player_entries')
@@ -117,7 +111,7 @@ export default function CheckInPage() {
           user_id: user.id,
           player_name: profile?.full_name || user.email,
           team_side: teamSide,
-          date_iso: dateISO
+          date_iso: targetDate
         }, { onConflict: 'user_id,match_id' });
       if (error) throw error;
       showAlert('Check-in registrado!');

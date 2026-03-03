@@ -298,7 +298,19 @@ export default function GamePage() {
 
   async function toggleMyTeam(side) {
     if (!canInteractionUser) return;
-    const currentMatchId = safeLive?.match_id || matchId;
+    let currentMatchId = safeLive?.match_id || matchId;
+    if (!currentMatchId) {
+      const { data: latestQuick } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('date_iso', todayISO())
+        .eq('mode', 'quick')
+        .eq('status', 'pending')
+        .order('match_no', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
+      currentMatchId = latestQuick?.id || null;
+    }
     if (!currentMatchId) {
       showAlert('Partida ainda não disponível para check-in.');
       return;
