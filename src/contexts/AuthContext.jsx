@@ -60,6 +60,7 @@ export function AuthProvider({ children }) {
     profile,
     role: profile?.role || 'observer',
     isMaster: profile?.role === 'master' && profile?.is_active !== false,
+    isScoreboard: profile?.role === 'scoreboard' && profile?.is_active !== false,
     signIn: async (email, password) => {
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });

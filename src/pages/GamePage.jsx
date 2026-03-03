@@ -4,11 +4,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import { todayISO } from '../utils/time';
-import { acquireLiveControl, fetchLiveControlLock, fetchLiveGame, forceAcquireLiveControl, heartbeatLiveControl, releaseLiveControl } from '../lib/api';
+import { fetchLiveGame } from '../lib/api';
 import PasswordModal from '../components/PasswordModal';
 
 export default function GamePage() {
-  const { user, isMaster } = useAuth();
+  const { user, isScoreboard } = useAuth();
   const {
     mode,
     quarterIndex,
@@ -24,6 +24,7 @@ export default function GamePage() {
     settings,
     formatTime,
     startQuick,
+    setDateISO,
     askConfirm,
     play,
     pause,
@@ -41,26 +42,13 @@ export default function GamePage() {
   const label = mode === 'quick' ? `Partida ${quickMatchNumber}` : `Quarter ${quarterIndex + 1}`;
   const timerAlert = running && totalSeconds <= settings.alertSeconds && totalSeconds > 0;
 
-  const [hasControl, setHasControl] = useState(false);
-  const [controlInfo, setControlInfo] = useState(null);
-  const deviceIdRef = useRef(null);
-  if (!deviceIdRef.current) {
-    const key = 'rc_controller_device_id_v1';
-    const existing = localStorage.getItem(key);
-    if (existing) deviceIdRef.current = existing;
-    else {
-      const id = `dev_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
-      localStorage.setItem(key, id);
-      deviceIdRef.current = id;
-    }
-  }
-
-  const canEdit = !!user && isMaster && hasControl;
+  const canEdit = !!user && isScoreboard;
   const controlsDisabled = !canEdit;
   const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
   const lastLiveAtRef = useRef(0);
   const lastGoodLiveRef = useRef(null);
+  const initializedScoreboardRef = useRef(false);
   const [editorHydrated, setEditorHydrated] = useState(!canEdit);
   const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
@@ -82,73 +70,15 @@ export default function GamePage() {
   }
 
   useEffect(() => {
-    if (!user || !isMaster) {
-      setHasControl(false);
-      setControlInfo(null);
-      return;
+    if (!isScoreboard) return;
+    if (initializedScoreboardRef.current) return;
+    initializedScoreboardRef.current = true;
+    const today = todayISO();
+    if (dateISO !== today) {
+      setDateISO(today);
     }
-    let active = true;
-
-    async function syncControl() {
-      try {
-        const res = await acquireLiveControl({
-          userId: user.id,
-          email: user.email,
-          fullName: user.user_metadata?.full_name || null,
-          deviceId: deviceIdRef.current
-        });
-        if (!active) return;
-        if (res?.acquired) {
-          setHasControl(true);
-          setControlInfo(res.lock || null);
-          return;
-        }
-        if (res?.lock?.controller_user_id === user.id) {
-          const forced = await forceAcquireLiveControl({
-            userId: user.id,
-            email: user.email,
-            fullName: user.user_metadata?.full_name || null,
-            deviceId: deviceIdRef.current
-          }).catch(() => null);
-          if (!active) return;
-          if (forced) {
-            setHasControl(true);
-            setControlInfo(forced);
-            return;
-          }
-        }
-        setHasControl(false);
-        setControlInfo(res.lock || null);
-      } catch {
-        if (!active) return;
-        const lock = await fetchLiveControlLock().catch(() => null);
-        setHasControl(false);
-        setControlInfo(lock);
-      }
-    }
-
-    syncControl();
-    return () => {
-      active = false;
-      releaseLiveControl({ userId: user.id, deviceId: deviceIdRef.current }).catch(() => {});
-    };
-  }, [user, isMaster]);
-
-  useEffect(() => {
-    if (!user || !isMaster) return;
-    const hb = setInterval(async () => {
-      if (hasControl) {
-        const beat = await heartbeatLiveControl({ userId: user.id, deviceId: deviceIdRef.current }).catch(() => null);
-        if (!beat) {
-          setHasControl(false);
-        }
-      } else {
-        const lock = await fetchLiveControlLock().catch(() => null);
-        setControlInfo(lock);
-      }
-    }, 4000);
-    return () => clearInterval(hb);
-  }, [user, isMaster, hasControl]);
+    startQuick();
+  }, [isScoreboard, dateISO, setDateISO, startQuick]);
 
   useEffect(() => {
     setEditorHydrated(!canEdit);
@@ -350,31 +280,6 @@ export default function GamePage() {
 
   return (
     <div className="game">
-      {!!user && isMaster && !hasControl ? (
-        <div className="panel" style={{ maxWidth: 720, margin: '0 auto 12px' }}>
-          <div className="muted" style={{ marginBottom: 8 }}>
-            Controle ativo em outro aparelho
-            {controlInfo?.controller_email ? ` (${controlInfo.controller_email})` : ''}.
-          </div>
-          <button
-            className="btn-controle"
-            style={{ margin: 0 }}
-            onClick={async () => {
-              const res = await forceAcquireLiveControl({
-                userId: user.id,
-                email: user.email,
-                fullName: user.user_metadata?.full_name || null,
-                deviceId: deviceIdRef.current
-              }).catch(() => null);
-              setHasControl(!!res);
-              setControlInfo(res || null);
-            }}
-          >
-            Tentar assumir controle
-          </button>
-        </div>
-      ) : null}
-
       <div className="center" style={{ position: 'relative' }}>
         <div className="topBar">
           <div id="partidaLabel">{viewLabel}</div>

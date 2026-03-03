@@ -2,16 +2,18 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
+import PasswordModal from './PasswordModal';
 import { useEffect, useState } from 'react';
 
 export default function Layout() {
-  const { user, isMaster, signOut } = useAuth();
+  const { user, isMaster, isScoreboard, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isGameRoute = location.pathname === '/game';
   const [showNav, setShowNav] = useState(true);
   const [timerScale, setTimerScale] = useState(1);
   const [scoreScale, setScoreScale] = useState(1);
+  const [logoutPwdOpen, setLogoutPwdOpen] = useState(false);
 
   useEffect(() => {
     if (isGameRoute) {
@@ -20,6 +22,12 @@ export default function Layout() {
       setShowNav(true);
     }
   }, [isGameRoute]);
+
+  useEffect(() => {
+    if (user && isScoreboard && location.pathname !== '/game') {
+      navigate('/game', { replace: true });
+    }
+  }, [user, isScoreboard, location.pathname, navigate]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--timer-scale', String(timerScale));
@@ -40,6 +48,17 @@ export default function Layout() {
   }
 
   async function handleLogout() {
+    if (user && isScoreboard) {
+      setLogoutPwdOpen(true);
+      return;
+    }
+    await signOut();
+    navigate('/');
+  }
+
+  async function confirmLogoutPassword(value) {
+    if (value !== '834856') return;
+    setLogoutPwdOpen(false);
     await signOut();
     navigate('/');
   }
@@ -49,16 +68,16 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.0.38</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.0.39</div>
         </div>
-        <nav className={`nav ${showNav ? '' : 'nav-hidden'}`}>
+        <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
             <NavLink to="/" className="nav-link">Home</NavLink>
           ) : null}
           {user ? (
             <NavLink to="/checkin" className="nav-link">Check-in</NavLink>
           ) : null}
-          {user && !isMaster ? (
+          {user && !isMaster && !isScoreboard ? (
             <NavLink to="/game" className="nav-link">🔥 Ao Vivo</NavLink>
           ) : null}
           {user && isMaster ? (
@@ -72,7 +91,7 @@ export default function Layout() {
           ) : null}
         </nav>
         <div className="auth">
-          {isGameRoute ? (
+          {isGameRoute && !isScoreboard ? (
             <>
               <button
                 className="btn-outline btn-ghost topbar-btn"
@@ -102,14 +121,16 @@ export default function Layout() {
               {showNav ? '🔼' : '🔽'}
             </button>
           ) : null}
-          {user && isMaster ? (
+          {user && isMaster && !isScoreboard ? (
             <NavLink to="/settings" className="btn-outline btn-ghost topbar-btn" title="Configurações" aria-label="Configurações">
               ⚙️
             </NavLink>
           ) : null}
-          <button className="btn-outline btn-ghost topbar-btn" onClick={toggleFullScreen} title="Tela cheia" aria-label="Tela cheia">
-            ⛶
-          </button>
+          {!isScoreboard ? (
+            <button className="btn-outline btn-ghost topbar-btn" onClick={toggleFullScreen} title="Tela cheia" aria-label="Tela cheia">
+              ⛶
+            </button>
+          ) : null}
           {user ? (
             <button className="btn-outline topbar-btn" onClick={handleLogout}>Sair</button>
           ) : (
@@ -122,6 +143,13 @@ export default function Layout() {
       </main>
       <ConfirmModal />
       <AlertModal />
+      <PasswordModal
+        open={logoutPwdOpen}
+        title="Confirmar saída"
+        message="Digite a senha para sair."
+        onClose={() => setLogoutPwdOpen(false)}
+        onConfirm={confirmLogoutPassword}
+      />
     </div>
   );
 }

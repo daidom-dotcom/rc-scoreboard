@@ -8,7 +8,7 @@ import { fetchLiveGame } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
 export default function HomePage() {
-  const { user, isMaster, profile } = useAuth();
+  const { user, isMaster, isScoreboard, profile } = useAuth();
   const {
     dateISO,
     setDateISO,
@@ -33,6 +33,12 @@ export default function HomePage() {
   useEffect(() => {
     setDateISO(todayISO());
   }, [setDateISO]);
+
+  useEffect(() => {
+    if (user && isScoreboard) {
+      navigate('/game', { replace: true });
+    }
+  }, [user, isScoreboard, navigate]);
 
   function handleQuick() {
     if (!canEdit) {
