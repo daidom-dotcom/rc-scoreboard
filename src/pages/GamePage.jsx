@@ -53,6 +53,7 @@ export default function GamePage() {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [ownTeamSide, setOwnTeamSide] = useState(null);
   const [basketEvents, setBasketEvents] = useState([]);
+  const [entriesReloadKey, setEntriesReloadKey] = useState(0);
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -226,7 +227,7 @@ export default function GamePage() {
       active = false;
       clearInterval(t);
     };
-  }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber]);
+  }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber, entriesReloadKey]);
 
   useEffect(() => {
     let active = true;
@@ -303,45 +304,35 @@ export default function GamePage() {
       return;
     }
     const targetSide = ownTeamSide === side ? null : side;
+    const previousSide = ownTeamSide;
+    setOwnTeamSide(targetSide);
+    const { error: delErr } = await supabase
+      .from('player_entries')
+      .delete()
+      .eq('match_id', currentMatchId)
+      .eq('user_id', user.id);
+    if (delErr) {
+      setOwnTeamSide(previousSide);
+      return showAlert(delErr.message || 'Erro ao atualizar check-in.');
+    }
     if (!targetSide) {
-      const { error } = await supabase
-        .from('player_entries')
-        .delete()
-        .eq('match_id', currentMatchId)
-        .eq('user_id', user.id);
-      if (error) return showAlert(error.message || 'Erro ao remover check-in.');
-      setOwnTeamSide(null);
+      setEntriesReloadKey((k) => k + 1);
       return;
     }
-    const { data: existing } = await supabase
+    const { error: inErr } = await supabase
       .from('player_entries')
-      .select('id')
-      .eq('match_id', currentMatchId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (existing?.id) {
-      const { error: upErr } = await supabase
-        .from('player_entries')
-        .update({ team_side: targetSide })
-        .eq('id', existing.id);
-      if (upErr) return showAlert(upErr.message || 'Erro ao atualizar check-in.');
-    } else {
-      const { error: inErr } = await supabase
-        .from('player_entries')
-        .insert({
-          match_id: currentMatchId,
-          user_id: user.id,
-          player_name: (profile?.full_name || user?.email || 'Jogador').trim(),
-          team_side: targetSide,
-          date_iso: dateISO || todayISO()
-        });
-      if (inErr) return showAlert(inErr.message || 'Erro ao atualizar check-in.');
+      .insert({
+        match_id: currentMatchId,
+        user_id: user.id,
+        player_name: (profile?.full_name || user?.email || 'Jogador').trim(),
+        team_side: targetSide,
+        date_iso: dateISO || todayISO()
+      });
+    if (inErr) {
+      setOwnTeamSide(previousSide);
+      return showAlert(inErr.message || 'Erro ao atualizar check-in.');
     }
-    setOwnTeamSide(targetSide);
-    // refresh list for visual feedback
-    setTimeout(() => {
-      setTeamEntries((prev) => ({ ...prev }));
-    }, 50);
+    setEntriesReloadKey((k) => k + 1);
   }
 
   async function handleEndMatch() {
