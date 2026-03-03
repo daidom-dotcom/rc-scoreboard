@@ -213,8 +213,11 @@ export default function GamePage() {
   }, [matchId, mode, quickMatchNumber, dateISO]);
 
   const safeLive = liveView || lastGoodLiveRef.current;
-  const viewTeamA = canEdit ? teamAName : (safeLive?.team_a || teamAName);
-  const viewTeamB = canEdit ? teamBName : (safeLive?.team_b || teamBName);
+  const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';
+  const quickTeamA = (settings.defaultTeamA || 'Com Colete').trim() || 'Com Colete';
+  const quickTeamB = (settings.defaultTeamB || 'Sem Colete').trim() || 'Sem Colete';
+  const viewTeamA = quickViewMode ? quickTeamA : (canEdit ? teamAName : (safeLive?.team_a || teamAName));
+  const viewTeamB = quickViewMode ? quickTeamB : (canEdit ? teamBName : (safeLive?.team_b || teamBName));
   const viewScoreA = canEdit ? scoreA : (safeLive?.score_a ?? scoreA);
   const viewScoreB = canEdit ? scoreB : (safeLive?.score_b ?? scoreB);
   const syncedObserverTime = useMemo(() => {

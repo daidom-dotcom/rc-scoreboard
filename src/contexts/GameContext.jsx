@@ -14,15 +14,14 @@ const defaultSettings = {
   soundEnabled: true,
   theme: 'dark-green'
 };
-const QUICK_TEAM_A = 'COM COLETE';
-const QUICK_TEAM_B = 'SEM COLETE';
-
 export function GameProvider({ children }) {
   const { user, isScoreboard } = useAuth();
   const canControlLive = !!user && isScoreboard;
   const [settings, setSettings] = useState(() => loadSettings() || defaultSettings);
   const [dateISO, setDateISO] = useState(() => loadAppDate() || todayISO());
 
+  const quickTeamA = (settings.defaultTeamA || 'Com Colete').trim() || 'Com Colete';
+  const quickTeamB = (settings.defaultTeamB || 'Sem Colete').trim() || 'Sem Colete';
   const [mode, setMode] = useState('quick');
   const [matchId, setMatchId] = useState(null);
   const [quarterIndex, setQuarterIndex] = useState(0);
@@ -31,8 +30,8 @@ export function GameProvider({ children }) {
   const [running, setRunning] = useState(false);
   const [ajusteFinalAtivo, setAjusteFinalAtivo] = useState(false);
 
-  const [teamAName, setTeamAName] = useState(QUICK_TEAM_A);
-  const [teamBName, setTeamBName] = useState(QUICK_TEAM_B);
+  const [teamAName, setTeamAName] = useState(quickTeamA);
+  const [teamBName, setTeamBName] = useState(quickTeamB);
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [basketsA, setBasketsA] = useState({ one: 0, two: 0, three: 0 });
@@ -217,8 +216,8 @@ export function GameProvider({ children }) {
     setAjusteFinalAtivo(false);
     setMode('quick');
     setQuarterIndex(0);
-    setTeamAName(QUICK_TEAM_A);
-    setTeamBName(QUICK_TEAM_B);
+    setTeamAName(quickTeamA);
+    setTeamBName(quickTeamB);
     resetCounters();
     setCurrentDurationSeconds(settings.quickDurationSeconds);
     setTotalSeconds(settings.quickDurationSeconds);
@@ -248,8 +247,8 @@ export function GameProvider({ children }) {
       const match = await createMatch({
         date_iso: dateISO || todayISO(),
         mode: 'quick',
-        team_a_name: QUICK_TEAM_A,
-        team_b_name: QUICK_TEAM_B,
+        team_a_name: quickTeamA,
+        team_b_name: quickTeamB,
         quarters: 1,
         durations: [settings.quickDurationSeconds],
         match_no: nextNo,
@@ -266,8 +265,8 @@ export function GameProvider({ children }) {
         match_no: nextNo,
         quarter: 1,
         time_left: totalSeconds,
-        team_a: QUICK_TEAM_A,
-        team_b: QUICK_TEAM_B,
+        team_a: quickTeamA,
+        team_b: quickTeamB,
         score_a: scoreA,
         score_b: scoreB,
         reset_at: null
@@ -283,8 +282,8 @@ export function GameProvider({ children }) {
     setMode('quick');
     setMatchId(null);
     setQuarterIndex(0);
-    setTeamAName(QUICK_TEAM_A);
-    setTeamBName(QUICK_TEAM_B);
+    setTeamAName(quickTeamA);
+    setTeamBName(quickTeamB);
     resetCounters();
     setCurrentDurationSeconds(settings.quickDurationSeconds);
     setTotalSeconds(settings.quickDurationSeconds);
@@ -525,8 +524,8 @@ export function GameProvider({ children }) {
         const match = await createMatch({
           date_iso: dateISO || todayISO(),
           mode: 'quick',
-          team_a_name: QUICK_TEAM_A,
-          team_b_name: QUICK_TEAM_B,
+          team_a_name: quickTeamA,
+          team_b_name: quickTeamB,
           quarters: 1,
           durations: [settings.quickDurationSeconds],
           match_no: quickMatchNumber,
@@ -716,12 +715,15 @@ export function GameProvider({ children }) {
   function applyLiveSnapshot(live) {
     if (!live) return;
     if (live.reset_at) return;
-    setMode(live.mode || 'quick');
+    const liveMode = live.mode || 'quick';
+    setMode(liveMode);
     setQuarterIndex(Math.max(0, Number(live.quarter || 1) - 1));
-    const fallbackA = (live.mode || 'quick') === 'quick' ? QUICK_TEAM_A : 'TIME 1';
-    const fallbackB = (live.mode || 'quick') === 'quick' ? QUICK_TEAM_B : 'TIME 2';
-    setTeamAName(live.team_a || fallbackA);
-    setTeamBName(live.team_b || fallbackB);
+    const isQuick = liveMode === 'quick';
+    const fallbackA = isQuick ? quickTeamA : 'TIME 1';
+    const fallbackB = isQuick ? quickTeamB : 'TIME 2';
+    // In quick mode, names are fixed and must never fallback to TIME 1/TIME 2.
+    setTeamAName(isQuick ? quickTeamA : (live.team_a || fallbackA));
+    setTeamBName(isQuick ? quickTeamB : (live.team_b || fallbackB));
     setScoreA(Number(live.score_a || 0));
     setScoreB(Number(live.score_b || 0));
     setTotalSeconds(Number(live.time_left || settings.quickDurationSeconds));
