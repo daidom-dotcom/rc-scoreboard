@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
-import { supabase } from '../lib/supabase';
 
 const GameContext = createContext(null);
 
@@ -47,7 +46,6 @@ export function GameProvider({ children }) {
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
-  const lastLiveAtRef = useRef(null);
   function pushLiveGame(payload) {
     if (remoteResetRef.current) return;
     return upsertLiveGame(payload).catch(() => {});
@@ -76,12 +74,7 @@ export function GameProvider({ children }) {
           setTimeout(() => handleTimerEnd(), 0);
           return 0;
         }
-        const next = prev - 1;
-        updateLiveGame({
-          status: 'running',
-          time_left: next
-        }).catch(() => {});
-        return next;
+        return prev - 1;
       });
     }, 1000);
 
@@ -90,73 +83,6 @@ export function GameProvider({ children }) {
       intervalRef.current = null;
     };
   }, [running]);
-
-  useEffect(() => {
-    let active = true;
-    async function pollLive() {
-      try {
-        const live = await fetchLiveGame();
-        if (!active || !live) return;
-        const updatedAt = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
-        if (!lastLiveAtRef.current || updatedAt > lastLiveAtRef.current) {
-          lastLiveAtRef.current = updatedAt;
-          applyLiveSnapshot(live);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    pollLive();
-    const t = setInterval(pollLive, 1000);
-    return () => {
-      active = false;
-      clearInterval(t);
-    };
-  }, []);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('live-game-sync')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'live_game' },
-        (payload) => {
-          const live = payload?.new;
-          if (!live || live.id !== 1) return;
-          const updatedAt = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
-          if (!lastLiveAtRef.current || updatedAt >= lastLiveAtRef.current) {
-            lastLiveAtRef.current = updatedAt;
-            applyLiveSnapshot(live);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!running) return;
-    const liveTick = setInterval(() => {
-      pushLiveGame({
-        id: 1,
-        status: 'running',
-        mode,
-        match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-        match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
-        quarter: quarterIndex + 1,
-        time_left: totalSeconds,
-        team_a: teamAName,
-        team_b: teamBName,
-        score_a: scoreA,
-        score_b: scoreB,
-        reset_at: null
-      }).catch(() => {});
-    }, 1000);
-    return () => clearInterval(liveTick);
-  }, [running, totalSeconds, mode, quarterIndex, teamAName, teamBName, scoreA, scoreB, matchId, quickMatchNumber]);
 
   useEffect(() => {
     let active = true;
