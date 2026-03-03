@@ -47,6 +47,7 @@ export default function GamePage() {
   const [liveView, setLiveView] = useState(null);
   const lastLiveAtRef = useRef(0);
   const lastGoodLiveRef = useRef(null);
+  const [editorHydrated, setEditorHydrated] = useState(!canEdit);
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
 
   function askPassword(message) {
@@ -66,13 +67,18 @@ export default function GamePage() {
   }
 
   useEffect(() => {
+    setEditorHydrated(!canEdit);
+  }, [canEdit]);
+
+  useEffect(() => {
+    if (canEdit && !editorHydrated) return;
     if (mode === 'quick' && teamAName === 'TIME 1' && teamBName === 'TIME 2') {
       startQuick();
     }
-  }, [mode, teamAName, teamBName, startQuick]);
+  }, [mode, teamAName, teamBName, startQuick, canEdit, editorHydrated]);
 
   useEffect(() => {
-    if (!canEdit) return;
+    if (!canEdit || !editorHydrated) return;
     const payload = {
       id: 1,
       status: running ? 'running' : 'paused',
@@ -84,8 +90,7 @@ export default function GamePage() {
       team_a: teamAName,
       team_b: teamBName,
       score_a: scoreA,
-      score_b: scoreB,
-      reset_at: null
+      score_b: scoreB
     };
     (async () => {
       try {
@@ -94,7 +99,7 @@ export default function GamePage() {
         // ignore
       }
     })();
-  }, [canEdit, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
+  }, [canEdit, editorHydrated, running, totalSeconds, scoreA, scoreB, teamAName, teamBName, matchId, quickMatchNumber, mode, quarterIndex]);
 
   useEffect(() => {
     if (!canEdit) return;
@@ -102,16 +107,23 @@ export default function GamePage() {
     async function syncFromLive() {
       try {
         const live = await fetchLiveGame();
-        if (active && live) applyLiveSnapshot(live);
+        if (active && live) {
+          const ts = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
+          lastLiveAtRef.current = ts;
+          lastGoodLiveRef.current = live;
+          applyLiveSnapshot(live);
+        }
       } catch {
         // ignore
+      } finally {
+        if (active) setEditorHydrated(true);
       }
     }
     syncFromLive();
     return () => {
       active = false;
     };
-  }, [canEdit]);
+  }, [canEdit, applyLiveSnapshot]);
 
   useEffect(() => {
     if (canEdit) return;
@@ -151,13 +163,10 @@ export default function GamePage() {
           const live = payload?.new;
           if (!live || live.id !== 1) return;
           const ts = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
-          if (ts >= lastLiveAtRef.current) {
+          if (ts > lastLiveAtRef.current) {
             lastLiveAtRef.current = ts;
             lastGoodLiveRef.current = live;
             setLiveView(live);
-          }
-          if (canEdit) {
-            applyLiveSnapshot(live);
           }
         }
       )
@@ -166,7 +175,7 @@ export default function GamePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [canEdit, applyLiveSnapshot]);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -279,9 +288,6 @@ export default function GamePage() {
       <div className="placar">
         <div className="frame">
           <div className="nome">{viewTeamA}</div>
-          <div className="team-checkins">
-            {(teamEntries.A || []).map((n) => <span key={`ga-${n}`}>{n}</span>)}
-          </div>
           <div className="botoes-esquerda">
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 1)}>+1</button>
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 2)}>+2</button>
@@ -289,19 +295,22 @@ export default function GamePage() {
               <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', -1)}>-1</button>
           </div>
           <div className="pontos">{viewScoreA}</div>
+          <div className="placar-checkins">
+            Time: {(teamEntries.A || []).length ? teamEntries.A.join(' / ') : '-'}
+          </div>
         </div>
 
         <div className="frame">
           <div className="nome">{viewTeamB}</div>
-          <div className="team-checkins right">
-            {(teamEntries.B || []).map((n) => <span key={`gb-${n}`}>{n}</span>)}
-          </div>
           <div className="pontos">{viewScoreB}</div>
           <div className="botoes-direita">
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 1)}>+1</button>
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 2)}>+2</button>
             <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 3)}>+3</button>
             <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', -1)}>-1</button>
+          </div>
+          <div className="placar-checkins">
+            Time: {(teamEntries.B || []).length ? teamEntries.B.join(' / ') : '-'}
           </div>
         </div>
       </div>

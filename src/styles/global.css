@@ -401,28 +401,25 @@ select {
   position: relative;
   align-items: center;
   gap: 20px;
-  height: calc(304px + (var(--score-scale) - 1) * 140px);
+  height: calc(360px + (var(--score-scale) - 1) * 180px);
 }
 
 .nome { font-size: 26px; position: absolute; top: 10px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .placar .frame:first-child .nome { text-align: right; padding-right: 10px; width: 70%; right: 0; left: auto; }
 .placar .frame:last-child .nome { text-align: left; padding-left: 10px; width: 70%; left: 0; right: auto; }
-.team-checkins {
+.placar-checkins {
   position: absolute;
-  top: 46px;
-  width: 100%;
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  text-align: center;
   font-size: calc(14px * var(--score-scale));
-  opacity: 0.7;
-  padding-right: 6px;
-}
-.team-checkins.right {
-  justify-content: flex-start;
-  padding-left: 6px;
-  padding-right: 0;
+  font-weight: 800;
+  opacity: 0.78;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .debug-panel {
   margin: 12px auto 0;
@@ -506,7 +503,7 @@ select {
 }
 .pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1; text-align: center; pointer-events: none; z-index: 1; }
 
-.botoes-esquerda, .botoes-direita { display: flex; flex-direction: column; gap: 10px; justify-content: center; width: 70px; z-index: 2; }
+.botoes-esquerda, .botoes-direita { display: flex; flex-direction: column; gap: 12px; justify-content: center; width: 82px; z-index: 2; }
 
 .btn-ponto {
   background: var(--verde);
@@ -514,11 +511,11 @@ select {
   border: none;
   padding: 0;
   font-weight: bold;
-  font-size: 20px;
+  font-size: 28px;
   cursor: pointer;
   border-radius: 999px;
-  width: 60px;
-  height: 60px;
+  width: 74px;
+  height: 74px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

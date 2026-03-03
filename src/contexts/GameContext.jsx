@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, deleteMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
 
@@ -230,21 +230,23 @@ export function GameProvider({ children }) {
   async function ensureQuickMatch(desiredNo) {
     try {
       if (remoteResetRef.current) return;
-      if (matchId) return;
+      if (matchId) {
+        return currentMatchRef.current || { id: matchId, match_no: quickMatchNumber };
+      }
       const targetNo = desiredNo || quickMatchNumber;
       const existing = await findPendingQuickMatch(dateISO || todayISO(), targetNo);
       if (existing) {
         setMatchId(existing.id);
         currentMatchRef.current = existing;
         if (existing.match_no) setQuickMatchNumber(existing.match_no);
-        return;
+        return existing;
       }
       const latest = await findLatestPendingQuick(dateISO || todayISO());
       if (latest) {
         await updateMatch(latest.id, { match_no: targetNo });
         setMatchId(latest.id);
         currentMatchRef.current = { ...latest, match_no: targetNo };
-        return;
+        return { ...latest, match_no: targetNo };
       }
       const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' }));
       const match = await createMatch({
@@ -274,8 +276,10 @@ export function GameProvider({ children }) {
         score_b: scoreB,
         reset_at: null
       }).catch(() => {});
+      return match;
     } catch {
       // ignore
+      return null;
     }
   }
 
@@ -463,15 +467,6 @@ export function GameProvider({ children }) {
       if (mode === 'quick' && !matchId) {
         await ensureQuickMatch(quickMatchNumber);
       }
-      if (scoreA === 0 && scoreB === 0) {
-        if (matchId) {
-          await deleteMatch(matchId);
-        }
-        await deletePendingQuickMatch(dateISO || todayISO(), quickMatchNumber).catch(() => {});
-        updateLiveGame({ status: 'ended', match_no: quickMatchNumber, time_left: 0, score_a: scoreA, score_b: scoreB }).catch(() => {});
-        await prepareNextQuick();
-        return;
-      }
       await saveQuickMatch();
       showAlert('Partida (rápida) salva!');
       updateLiveGame({ status: 'ended', match_no: quickMatchNumber, time_left: 0, score_a: scoreA, score_b: scoreB }).catch(() => {});
@@ -493,16 +488,17 @@ export function GameProvider({ children }) {
       : await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
     const nextNo = resetDay ? 1 : Math.max(quickMatchNumber + 1, dbNext);
     setQuickMatchNumber(nextNo);
+    setMatchId(null);
+    currentMatchRef.current = null;
+    const nextMatch = await ensureQuickMatch(nextNo);
     updateLiveGame({
       status: 'paused',
-      match_id: null,
+      match_id: nextMatch?.id || null,
       match_no: nextNo,
       time_left: settings.quickDurationSeconds,
       score_a: 0,
       score_b: 0
     }).catch(() => {});
-    setMatchId(null);
-    currentMatchRef.current = null;
   }
 
   async function saveQuickMatch() {
