@@ -461,6 +461,24 @@ select {
   font-size: 12px;
   font-weight: 800;
 }
+.basket-stats-plain {
+  margin: 8px 16px 0;
+  padding: 0;
+}
+.basket-stats-title {
+  font-size: 13px;
+  font-weight: 900;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  opacity: .9;
+  cursor: pointer;
+  user-select: none;
+}
+.basket-stats-item {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
+}
 .debug-panel {
   margin: 12px auto 0;
   max-width: 680px;

@@ -52,11 +52,7 @@ export default function GamePage() {
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [ownTeamSide, setOwnTeamSide] = useState(null);
-  const [selectedScorerA, setSelectedScorerA] = useState('');
-  const [selectedScorerB, setSelectedScorerB] = useState('');
   const [basketEvents, setBasketEvents] = useState([]);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [eventsOpen, setEventsOpen] = useState(false);
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -174,12 +170,6 @@ export default function GamePage() {
   }, []);
 
   useEffect(() => {
-    if (!canEdit) return;
-    if (!liveView) return;
-    applyLiveSnapshot(liveView);
-  }, [canEdit, liveView, applyLiveSnapshot]);
-
-  useEffect(() => {
     let active = true;
     setTeamEntries({ A: [], B: [] });
     async function loadEntries() {
@@ -239,32 +229,24 @@ export default function GamePage() {
   }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber]);
 
   useEffect(() => {
-    if (!teamEntries.A.length && !teamEntries.B.length) {
-      setSelectedScorerA('');
-      setSelectedScorerB('');
-      return;
-    }
-    setSelectedScorerA((prev) => (prev && teamEntries.A.includes(prev) ? prev : (teamEntries.A[0] || '')));
-    setSelectedScorerB((prev) => (prev && teamEntries.B.includes(prev) ? prev : (teamEntries.B[0] || '')));
-  }, [teamEntries]);
-
-  useEffect(() => {
     let active = true;
     async function loadBasketEvents() {
-      const currentMatchId = canEdit ? matchId : (liveView?.match_id || lastGoodLiveRef.current?.match_id || matchId);
+      const currentMatchId = canEdit
+        ? (matchId || liveView?.match_id || lastGoodLiveRef.current?.match_id)
+        : (liveView?.match_id || lastGoodLiveRef.current?.match_id || matchId);
       if (!currentMatchId) {
         if (active) setBasketEvents([]);
         return;
       }
       const { data } = await supabase
         .from('basket_events')
-        .select('id, team_side, player_name, points, created_at')
+        .select('id, player_name, points, created_at')
         .eq('match_id', currentMatchId)
         .order('created_at', { ascending: false });
       if (active) setBasketEvents(data || []);
     }
     loadBasketEvents();
-    const t = setInterval(loadBasketEvents, 2000);
+    const t = setInterval(loadBasketEvents, 2500);
     return () => {
       active = false;
       clearInterval(t);
@@ -300,6 +282,18 @@ export default function GamePage() {
       : `Partida ${safeLive?.match_no || 1}`);
   const isRapidMode = (safeLive?.mode || mode) === 'quick';
   const canInteractionUser = !!user && !isScoreboard;
+  const basketStats = useMemo(() => {
+    const map = new Map();
+    basketEvents.forEach((e) => {
+      const name = String(e.player_name || 'Jogador').trim();
+      if (!map.has(name)) map.set(name, { one: 0, two: 0, three: 0 });
+      const row = map.get(name);
+      if (e.points === 1) row.one += 1;
+      if (e.points === 2) row.two += 1;
+      if (e.points === 3) row.three += 1;
+    });
+    return Array.from(map.entries()).map(([name, c]) => ({ name, ...c }));
+  }, [basketEvents]);
 
   async function toggleMyTeam(side) {
     if (!canInteractionUser) return;
@@ -319,79 +313,36 @@ export default function GamePage() {
       setOwnTeamSide(null);
       return;
     }
-    const { error } = await supabase
+    const { data: existing } = await supabase
       .from('player_entries')
-      .upsert({
-        match_id: currentMatchId,
-        user_id: user.id,
-        player_name: (profile?.full_name || user?.email || 'Jogador').trim(),
-        team_side: targetSide,
-        date_iso: dateISO || todayISO()
-      }, { onConflict: 'user_id,match_id' });
-    if (error) return showAlert(error.message || 'Erro ao atualizar check-in.');
+      .select('id')
+      .eq('match_id', currentMatchId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (existing?.id) {
+      const { error: upErr } = await supabase
+        .from('player_entries')
+        .update({ team_side: targetSide })
+        .eq('id', existing.id);
+      if (upErr) return showAlert(upErr.message || 'Erro ao atualizar check-in.');
+    } else {
+      const { error: inErr } = await supabase
+        .from('player_entries')
+        .insert({
+          match_id: currentMatchId,
+          user_id: user.id,
+          player_name: (profile?.full_name || user?.email || 'Jogador').trim(),
+          team_side: targetSide,
+          date_iso: dateISO || todayISO()
+        });
+      if (inErr) return showAlert(inErr.message || 'Erro ao atualizar check-in.');
+    }
     setOwnTeamSide(targetSide);
+    // refresh list for visual feedback
+    setTimeout(() => {
+      setTeamEntries((prev) => ({ ...prev }));
+    }, 50);
   }
-
-  async function addAttributedBasket(points) {
-    if (!canInteractionUser) return;
-    const currentMatchId = safeLive?.match_id || matchId;
-    if (!currentMatchId) return showAlert('Partida indisponível.');
-    if (!ownTeamSide) return showAlert('Selecione seu time para registrar cesta.');
-    const scorer = ownTeamSide === 'A' ? selectedScorerA : selectedScorerB;
-    if (!scorer) return showAlert('Selecione o jogador que marcou a cesta.');
-
-    const { data, error } = await supabase.rpc('record_live_basket', {
-      match_id_input: currentMatchId,
-      team_side_input: ownTeamSide,
-      player_name_input: scorer,
-      points_input: Number(points)
-    });
-    if (error) return showAlert(error.message || 'Erro ao registrar cesta.');
-    if (data?.[0]) {
-      setLiveView((prev) => ({
-        ...(prev || {}),
-        id: 1,
-        mode: safeLive?.mode || mode,
-        match_id: currentMatchId,
-        match_no: safeLive?.match_no || quickMatchNumber,
-        team_a: viewTeamA,
-        team_b: viewTeamB,
-        quarter: safeLive?.quarter || 1,
-        status: safeLive?.status || 'paused',
-        time_left: safeLive?.time_left ?? totalSeconds,
-        score_a: data[0].score_a,
-        score_b: data[0].score_b,
-        updated_at: data[0].updated_at
-      }));
-    }
-  }
-
-  async function deleteBasketEvent(eventId) {
-    if (!canEdit) return;
-    const { data, error } = await supabase.rpc('delete_live_basket', { event_id_input: eventId });
-    if (error) return showAlert(error.message || 'Erro ao excluir cesta.');
-    if (data?.[0]) {
-      setLiveView((prev) => ({
-        ...(prev || {}),
-        score_a: data[0].score_a,
-        score_b: data[0].score_b,
-        updated_at: data[0].updated_at
-      }));
-    }
-  }
-
-  const basketStats = useMemo(() => {
-    const map = new Map();
-    basketEvents.forEach((e) => {
-      const key = e.player_name || 'Jogador';
-      if (!map.has(key)) map.set(key, { one: 0, two: 0, three: 0 });
-      const row = map.get(key);
-      if (e.points === 1) row.one += 1;
-      if (e.points === 2) row.two += 1;
-      if (e.points === 3) row.three += 1;
-    });
-    return Array.from(map.entries()).map(([name, v]) => ({ name, ...v }));
-  }, [basketEvents]);
 
   async function handleEndMatch() {
     pause();
@@ -471,20 +422,7 @@ export default function GamePage() {
           ) : null}
           <div className="pontos">{viewScoreA}</div>
           <div className="placar-checkins">
-            {(teamEntries.A || []).length ? (
-              canInteractionUser
-                ? teamEntries.A.map((n) => (
-                  <button
-                    key={`a-${n}`}
-                    type="button"
-                    className={`checkin-player-btn ${selectedScorerA === n ? 'active' : ''}`}
-                    onClick={() => setSelectedScorerA(n)}
-                  >
-                    {n}
-                  </button>
-                ))
-                : teamEntries.A.join(' / ')
-            ) : 'Sem check-in registrado.'}
+            {(teamEntries.A || []).length ? teamEntries.A.join(' / ') : 'Sem check-in registrado.'}
           </div>
         </div>
 
@@ -506,64 +444,10 @@ export default function GamePage() {
             </div>
           ) : null}
           <div className="placar-checkins">
-            {(teamEntries.B || []).length ? (
-              canInteractionUser
-                ? teamEntries.B.map((n) => (
-                  <button
-                    key={`b-${n}`}
-                    type="button"
-                    className={`checkin-player-btn ${selectedScorerB === n ? 'active' : ''}`}
-                    onClick={() => setSelectedScorerB(n)}
-                  >
-                    {n}
-                  </button>
-                ))
-                : teamEntries.B.join(' / ')
-            ) : 'Sem check-in registrado.'}
+            {(teamEntries.B || []).length ? teamEntries.B.join(' / ') : 'Sem check-in registrado.'}
           </div>
         </div>
       </div>
-
-      {canInteractionUser ? (
-        <div className="actions">
-          <button className="btn-ponto" onClick={() => addAttributedBasket(1)}>+1</button>
-          <button className="btn-ponto" onClick={() => addAttributedBasket(2)}>+2</button>
-          <button className="btn-ponto" onClick={() => addAttributedBasket(3)}>+3</button>
-        </div>
-      ) : null}
-
-      <details className="panel collapsible" open={statsOpen} onToggle={(e) => setStatsOpen(e.currentTarget.open)}>
-        <summary className="label">Cestas por Jogador</summary>
-        {!basketStats.length ? (
-          <div className="muted">Sem cestas registradas.</div>
-        ) : (
-          <div className="stats-list">
-            {basketStats.map((s) => (
-              <div className="stats-item" key={s.name}>
-                {s.name} ({s.one}) 1 ponto | ({s.two}) 2 pontos | ({s.three}) 3 pontos
-              </div>
-            ))}
-          </div>
-        )}
-      </details>
-
-      {canEdit ? (
-        <details className="panel collapsible" open={eventsOpen} onToggle={(e) => setEventsOpen(e.currentTarget.open)}>
-          <summary className="label">Cestas marcadas</summary>
-          {!basketEvents.length ? (
-            <div className="muted">Sem cestas registradas.</div>
-          ) : (
-            <div className="events-list">
-              {basketEvents.map((e) => (
-                <div className="event-item" key={e.id}>
-                  <span>{e.player_name} · {e.points}pt · Time {e.team_side}</span>
-                  <button className="btn-outline btn-small" onClick={() => deleteBasketEvent(e.id)}>x</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </details>
-      ) : null}
 
       {canEdit ? (
         <div className="game-key-row">
@@ -578,6 +462,19 @@ export default function GamePage() {
           </button>
         </div>
       ) : null}
+
+      <details className="basket-stats-plain">
+        <summary className="basket-stats-title">Cestas por jogador</summary>
+        {!basketStats.length ? (
+          <div className="basket-stats-item muted">Sem cestas registradas.</div>
+        ) : (
+          basketStats.map((s) => (
+            <div className="basket-stats-item" key={s.name}>
+              {s.name} ({s.one}) 1 ponto | ({s.two}) 2 pontos | ({s.three}) 3 pontos
+            </div>
+          ))
+        )}
+      </details>
 
       <PasswordModal
         open={passwordState.open}

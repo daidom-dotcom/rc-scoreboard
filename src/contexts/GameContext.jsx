@@ -412,6 +412,7 @@ export function GameProvider({ children }) {
   }
 
   function play() {
+    if (!canControlLive) return;
     if (totalSeconds === 0 && ajusteFinalAtivo) return;
     if (remoteResetRef.current) {
       remoteResetRef.current = false;
@@ -436,6 +437,7 @@ export function GameProvider({ children }) {
   }
 
   function pause() {
+    if (!canControlLive) return;
     if (remoteResetRef.current) return;
     setRunning(false);
     pushLiveGame({
@@ -455,6 +457,7 @@ export function GameProvider({ children }) {
   }
 
   function addPoint(team, value) {
+    if (!canControlLive) return;
     const canEdit = running || ajusteFinalAtivo;
     if (!canEdit) return;
     if (remoteResetRef.current) return;
@@ -707,6 +710,7 @@ export function GameProvider({ children }) {
   }
 
   function resetTimer() {
+    if (!canControlLive) return;
     setRunning(false);
     setAjusteFinalAtivo(false);
     setTotalSeconds(currentDurationSeconds);
