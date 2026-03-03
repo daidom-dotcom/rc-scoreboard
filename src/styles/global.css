@@ -483,6 +483,18 @@ select {
   font-weight: 800;
   line-height: 1.4;
 }
+.basket-del-btn {
+  border: none;
+  background: transparent;
+  color: var(--verde);
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 12px;
+  padding: 0 4px;
+}
+.basket-del-btn:hover {
+  opacity: .75;
+}
 .debug-panel {
   margin: 12px auto 0;
   max-width: 680px;

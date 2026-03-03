@@ -55,6 +55,19 @@ export function GameProvider({ children }) {
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
   const repairingMatchIdRef = useRef(false);
+  async function ensureAudioReady() {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume();
+      }
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  }
   function pushLiveGame(payload) {
     if (!canControlLive) return Promise.resolve(null);
     if (remoteResetRef.current) return Promise.resolve(null);
@@ -181,7 +194,7 @@ export function GameProvider({ children }) {
   }, [canControlLive, mode, matchId, quickMatchNumber, dateISO, running, totalSeconds, quickTeamA, quickTeamB]);
 
   useEffect(() => {
-    const shouldBeep = canControlLive && running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
+    const shouldBeep = canControlLive && running && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
     if (!shouldBeep) {
       if (beepIntervalRef.current) {
         clearInterval(beepIntervalRef.current);
@@ -193,13 +206,8 @@ export function GameProvider({ children }) {
 
     const playAlarmPulse = async () => {
       try {
-        if (!audioCtxRef.current) {
-          audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        const ctx = audioCtxRef.current;
-        if (ctx.state === 'suspended') {
-          await ctx.resume();
-        }
+        const ctx = await ensureAudioReady();
+        if (!ctx) return;
         const now = ctx.currentTime;
         const makeHorn = (start, freq, duration, gainValue) => {
           const osc = ctx.createOscillator();
@@ -242,7 +250,7 @@ export function GameProvider({ children }) {
         beepIntervalRef.current = null;
       }
     };
-  }, [canControlLive, running, totalSeconds, settings.soundEnabled, settings.alertSeconds]);
+  }, [canControlLive, running, totalSeconds, settings.alertSeconds]);
 
   function askConfirm(message) {
     return new Promise((resolve) => {
@@ -476,10 +484,8 @@ export function GameProvider({ children }) {
     }
     setAjusteFinalAtivo(false);
     setRunning(true);
-    // iOS/macOS may suspend AudioContext between matches; resume on user gesture.
-    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
-    }
+    // Unlock audio on user gesture to guarantee alarm playback.
+    ensureAudioReady().catch(() => {});
     if (mode === 'quick') ensureQuickMatch();
     pushLiveGame({
       id: 1,
@@ -519,10 +525,10 @@ export function GameProvider({ children }) {
 
   function addPoint(team, value) {
     if (!canControlLive) return;
-    const canEdit = running || ajusteFinalAtivo;
+    const delta = Number(value) || 0;
+    const canEdit = running || ajusteFinalAtivo || delta < 0;
     if (!canEdit) return;
     if (remoteResetRef.current) return;
-    const delta = Number(value) || 0;
     if (mode === 'quick') ensureQuickMatch();
 
     if (team === 'A') {
@@ -555,6 +561,8 @@ export function GameProvider({ children }) {
           else if (next.two > 0) next.two -= 1;
           else if (next.one > 0) next.one -= 1;
         }
+        if (delta === -2 && next.two > 0) next.two -= 1;
+        if (delta === -3 && next.three > 0) next.three -= 1;
         basketsARef.current = next;
         return next;
       });
@@ -590,6 +598,8 @@ export function GameProvider({ children }) {
           else if (next.two > 0) next.two -= 1;
           else if (next.one > 0) next.one -= 1;
         }
+        if (delta === -2 && next.two > 0) next.two -= 1;
+        if (delta === -3 && next.three > 0) next.three -= 1;
         basketsBRef.current = next;
         return next;
       });

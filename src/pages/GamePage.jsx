@@ -222,11 +222,17 @@ export default function GamePage() {
   useEffect(() => {
     let active = true;
     async function loadBasketEvents() {
-      const currentMatchId = canEdit
+      let currentMatchId = canEdit
         ? (matchId || liveView?.match_id || lastGoodLiveRef.current?.match_id)
         : (liveView?.match_id || lastGoodLiveRef.current?.match_id || matchId);
+      if (!currentMatchId && (safeLive?.mode || mode) === 'quick') {
+        currentMatchId = await resolveActiveQuickMatchId();
+      }
       if (!currentMatchId) {
-        if (active) setBasketEvents([]);
+        if (active) {
+          setBasketEvents([]);
+          setBasketEventsFallback([]);
+        }
         return;
       }
       const { data } = await supabase
@@ -234,7 +240,10 @@ export default function GamePage() {
         .select('id, player_name, points, created_at')
         .eq('match_id', currentMatchId)
         .order('created_at', { ascending: false });
-      if (active) setBasketEvents(data || []);
+      if (active) {
+        setBasketEvents(data || []);
+        setBasketEventsFallback([]);
+      }
     }
     loadBasketEvents();
     const t = setInterval(loadBasketEvents, 2500);
@@ -242,7 +251,7 @@ export default function GamePage() {
       active = false;
       clearInterval(t);
     };
-  }, [canEdit, matchId, liveView?.match_id]);
+  }, [canEdit, matchId, liveView?.match_id, liveView?.match_no, mode, safeLive?.mode]);
 
   const safeLive = liveView || lastGoodLiveRef.current;
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';
@@ -483,6 +492,43 @@ export default function GamePage() {
     return true;
   }
 
+  async function removeBasketByPlayerAndType(playerName, points) {
+    if (!canEdit) return;
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
+    if (!currentMatchId) return;
+    const { data: latest, error } = await supabase
+      .from('basket_events')
+      .select('id, team_side, points, player_name, created_at')
+      .eq('match_id', currentMatchId)
+      .eq('player_name', playerName)
+      .eq('points', points)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      showAlert(error.message || 'Erro ao buscar cesta para excluir.');
+      return;
+    }
+    if (!latest?.id) {
+      const idx = basketEventsFallback.findIndex((e) => e.player_name === playerName && Number(e.points) === Number(points));
+      if (idx < 0) return;
+      const target = basketEventsFallback[idx];
+      setBasketEventsFallback((prev) => prev.filter((_, i) => i !== idx));
+      if (target?.team_side) addPoint(target.team_side, -Number(points));
+      return;
+    }
+    const { error: delErr } = await supabase
+      .from('basket_events')
+      .delete()
+      .eq('id', latest.id);
+    if (delErr) {
+      showAlert(delErr.message || 'Erro ao excluir cesta.');
+      return;
+    }
+    setBasketEvents((prev) => prev.filter((e) => e.id !== latest.id));
+    addPoint(latest.team_side, -Number(points));
+  }
+
   async function handlePointButton(team, value) {
     if (!canEdit) return;
     if (value > 0) {
@@ -657,7 +703,10 @@ export default function GamePage() {
         ) : (
           basketStats.map((s, idx) => (
             <div className="basket-stats-item" key={s.name}>
-              {idx + 1}. {s.name} ({s.one}) 1 ponto | ({s.two}) 2 pontos | ({s.three}) 3 pontos | {s.totalPoints} pts
+              {idx + 1}. {s.name} - ({s.one}) 1 ponto {canEdit ? <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>(x)</button> : null}
+              {'   '}| ({s.two}) 2 pontos {canEdit ? <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>(x)</button> : null}
+              {'   '}| ({s.three}) 3 pontos {canEdit ? <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>(x)</button> : null}
+              {'   '}| {s.totalPoints} pts
             </div>
           ))
         )}
