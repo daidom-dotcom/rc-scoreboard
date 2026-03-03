@@ -174,35 +174,19 @@ export default function GamePage() {
     let active = true;
     setTeamEntries({ A: [], B: [] });
     async function loadEntries() {
-      const date = canEdit ? (dateISO || todayISO()) : todayISO();
-      const modeForEntries = canEdit
-        ? mode
-        : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
-      const liveMatchId = canEdit
-        ? (matchId || null)
-        : (liveView?.match_id || lastGoodLiveRef.current?.match_id || null);
-      const quickNoForEntries = canEdit
-        ? Number(quickMatchNumber || 0)
-        : Number(liveView?.match_no || lastGoodLiveRef.current?.match_no || quickMatchNumber || 0);
-      let query = supabase.from('player_entries').select('player_name, team_side, user_id');
-
-      // First choice: exact match_id from live/current state.
-      if (liveMatchId) {
-        query = query.eq('match_id', liveMatchId);
-      } else if (modeForEntries === 'quick' && quickNoForEntries) {
-        // Fallback for legacy rows without live match_id hydration.
-        query = supabase
-          .from('player_entries')
-          .select('player_name, team_side, user_id, matches!inner(match_no,date_iso,mode)')
-          .eq('matches.match_no', quickNoForEntries)
-          .eq('matches.date_iso', date)
-          .eq('matches.mode', 'quick');
-      } else {
+      const modeForEntries = canEdit ? mode : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
+      let liveMatchId = canEdit ? (matchId || null) : (liveView?.match_id || lastGoodLiveRef.current?.match_id || null);
+      if (!liveMatchId && modeForEntries === 'quick') {
+        liveMatchId = await resolveActiveQuickMatchId();
+      }
+      if (!liveMatchId) {
         if (active) setTeamEntries({ A: [], B: [] });
         return;
       }
-
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('player_entries')
+        .select('player_name, team_side, user_id')
+        .eq('match_id', liveMatchId);
       if (error) {
         if (active) setTeamEntries({ A: [], B: [] });
         return;
@@ -296,6 +280,46 @@ export default function GamePage() {
     return Array.from(map.entries()).map(([name, c]) => ({ name, ...c }));
   }, [basketEvents]);
 
+  async function resolveActiveQuickMatchId() {
+    let currentMatchId = safeLive?.match_id || matchId || null;
+    if (currentMatchId) return currentMatchId;
+    const preferredDate = dateISO || todayISO();
+    const liveNo = Number(safeLive?.match_no || quickMatchNumber || 0);
+    if (liveNo > 0) {
+      const { data: byNoDate } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('mode', 'quick')
+        .eq('match_no', liveNo)
+        .eq('date_iso', preferredDate)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      currentMatchId = byNoDate?.id || null;
+      if (currentMatchId) return currentMatchId;
+      const { data: byNoAnyDate } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('mode', 'quick')
+        .eq('match_no', liveNo)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      currentMatchId = byNoAnyDate?.id || null;
+      if (currentMatchId) return currentMatchId;
+    }
+    const { data: latestQuick } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('mode', 'quick')
+      .eq('status', 'pending')
+      .order('date_iso', { ascending: false })
+      .order('match_no', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    return latestQuick?.id || null;
+  }
+
   async function toggleMyTeam(side) {
     if (!user) {
       showAlert('Faça login para fazer check-in.');
@@ -306,44 +330,7 @@ export default function GamePage() {
       return;
     }
     if (!isRapidMode) return;
-    let currentMatchId = safeLive?.match_id || matchId;
-    if (!currentMatchId && safeLive?.match_no) {
-      const preferredDate = dateISO || todayISO();
-      const matchNo = Number(safeLive.match_no);
-      const { data: byNoDate } = await supabase
-        .from('matches')
-        .select('id')
-        .eq('mode', 'quick')
-        .eq('match_no', matchNo)
-        .eq('date_iso', preferredDate)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      currentMatchId = byNoDate?.id || null;
-      if (!currentMatchId) {
-        const { data: byNoAnyDate } = await supabase
-          .from('matches')
-          .select('id')
-          .eq('mode', 'quick')
-          .eq('match_no', matchNo)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        currentMatchId = byNoAnyDate?.id || null;
-      }
-    }
-    if (!currentMatchId) {
-      const { data: latestQuick } = await supabase
-        .from('matches')
-        .select('id')
-        .eq('mode', 'quick')
-        .eq('status', 'pending')
-        .order('date_iso', { ascending: false })
-        .order('match_no', { ascending: false, nullsFirst: false })
-        .limit(1)
-        .maybeSingle();
-      currentMatchId = latestQuick?.id || null;
-    }
+    const currentMatchId = await resolveActiveQuickMatchId();
     if (!currentMatchId) {
       showAlert('Partida ainda não disponível para check-in.');
       return;

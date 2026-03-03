@@ -155,7 +155,7 @@ export default function CheckInPage() {
     const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
     const { data, error } = await supabase
       .from('player_entries')
-      .select('id, team_side, match_id, matches(id, team_a_name, team_b_name, date_iso)')
+      .select('id, team_side, match_id, matches(id, match_no, team_a_name, team_b_name, date_iso)')
       .eq('user_id', user.id)
       .eq('date_iso', targetDate)
       .order('created_at', { ascending: false });
@@ -264,10 +264,10 @@ export default function CheckInPage() {
               <div></div>
             </div>
             {orderedEntries.map((e) => {
-              const number = orderMap.get(e.match_id) || '-';
+              const number = e.matches?.match_no || orderMap.get(e.match_id) || '-';
               return (
               <div className="users-row" key={e.id}>
-                <div>Partida {number} · {e.matches?.team_a_name} vs {e.matches?.team_b_name}</div>
+                <div>Partida - {number} | {e.matches?.team_a_name} vs {e.matches?.team_b_name}</div>
                 <div>{e.team_side === 'A' ? e.matches?.team_a_name : e.matches?.team_b_name}</div>
                 <div>
                   <button className="btn-outline btn-small" onClick={() => removeEntry(e.id)} disabled={loading}>
