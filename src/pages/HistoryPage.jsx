@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import SummaryTable from '../components/SummaryTable';
 import { fetchMatchesByDate, fetchMatchesByRange, fetchTeams } from '../lib/api';
-import { formatDateBR, todayISO } from '../utils/time';
+import { formatDateBR, toSaoPauloDateTime, todayISO } from '../utils/time';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import DateWheelField from '../components/DateWheelField';
@@ -106,7 +106,8 @@ export default function HistoryPage() {
       if (error) throw error;
       const rows = (data || []).map((m) => ({
         ...m,
-        match_results: m.match_results && !Array.isArray(m.match_results) ? [m.match_results] : (m.match_results || [])
+        match_results: (m.match_results && !Array.isArray(m.match_results) ? [m.match_results] : (m.match_results || []))
+          .map((r) => ({ ...r, finished_at_sp: toSaoPauloDateTime(r.finished_at) }))
       }));
       setRows(rows);
     } catch (err) {
@@ -199,7 +200,7 @@ export default function HistoryPage() {
       showAlert(`Erro ao carregar resultados: ${error.message}`);
       return;
     }
-    const map = new Map((results || []).map((r) => [r.match_id, r]));
+    const map = new Map((results || []).map((r) => [r.match_id, { ...r, finished_at_sp: toSaoPauloDateTime(r.finished_at) }]));
     setRows((prev) => prev.map((m) => ({
       ...m,
       match_results: m.match_results?.length ? m.match_results : (map.get(m.id) ? [map.get(m.id)] : [])
@@ -219,8 +220,8 @@ export default function HistoryPage() {
   const sortedRows = useMemo(() => {
     const list = [...rows];
     list.sort((a, b) => {
-      const aTime = a.match_results?.[0]?.finished_at || a.created_at;
-      const bTime = b.match_results?.[0]?.finished_at || b.created_at;
+      const aTime = a.match_results?.[0]?.finished_at_sp || a.match_results?.[0]?.finished_at || a.created_at;
+      const bTime = b.match_results?.[0]?.finished_at_sp || b.match_results?.[0]?.finished_at || b.created_at;
       return new Date(aTime).getTime() - new Date(bTime).getTime();
     });
     return list;

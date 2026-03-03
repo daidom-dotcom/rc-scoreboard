@@ -29,8 +29,8 @@ export default function CheckInPage() {
     const list = [...matches];
     list.sort((a, b) => {
       if (a.match_no && b.match_no) return a.match_no - b.match_no;
-      const aTime = a.match_results?.[0]?.finished_at || a.created_at;
-      const bTime = b.match_results?.[0]?.finished_at || b.created_at;
+      const aTime = a.match_results?.[0]?.finished_at_sp || a.match_results?.[0]?.finished_at || a.created_at;
+      const bTime = b.match_results?.[0]?.finished_at_sp || b.match_results?.[0]?.finished_at || b.created_at;
       return new Date(aTime).getTime() - new Date(bTime).getTime();
     });
     return list;

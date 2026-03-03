@@ -525,17 +525,34 @@ export function GameProvider({ children }) {
       if (mode === 'quick' && !matchId) {
         await ensureQuickMatch(quickMatchNumber);
       }
-      await saveQuickMatch();
-      showAlert('Partida (rápida) salva!');
-      updateLiveGame({ status: 'ended', match_no: quickMatchNumber, time_left: 0, score_a: scoreA, score_b: scoreB });
-      await prepareNextQuick();
+      const hasNonZeroScore = Number(scoreA) !== 0 || Number(scoreB) !== 0;
+      const closingMatchNo = quickMatchNumber;
+
+      if (hasNonZeroScore) {
+        await saveQuickMatch();
+        showAlert('Partida (rápida) salva!');
+      } else if (matchId) {
+        // 0x0 should not pollute history/results: discard the open quick match.
+        await deleteMatch(matchId);
+        setMatchId(null);
+        currentMatchRef.current = null;
+      }
+
+      await updateLiveGame({
+        status: 'ended',
+        match_no: closingMatchNo,
+        time_left: 0,
+        score_a: scoreA,
+        score_b: scoreB
+      });
+      await prepareNextQuick(false, closingMatchNo + 1);
     } catch (err) {
       setLastError(err);
       showAlert(err.message || 'Erro ao salvar partida rápida.');
     }
   }
 
-  async function prepareNextQuick(resetDay = false) {
+  async function prepareNextQuick(resetDay = false, forcedNextNo = null) {
     setAjusteFinalAtivo(false);
     setRunning(false);
     setCurrentDurationSeconds(settings.quickDurationSeconds);
@@ -544,7 +561,8 @@ export function GameProvider({ children }) {
     const dbNext = resetDay
       ? 1
       : await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
-    const nextNo = resetDay ? 1 : Math.max(quickMatchNumber + 1, dbNext);
+    const localNext = forcedNextNo || (quickMatchNumber + 1);
+    const nextNo = resetDay ? 1 : Math.max(localNext, dbNext);
     setQuickMatchNumber(nextNo);
     setMatchId(null);
     currentMatchRef.current = null;

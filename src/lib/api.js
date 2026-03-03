@@ -1,4 +1,19 @@
 import { supabase } from './supabase';
+import { toSaoPauloDateTime } from '../utils/time';
+
+function normalizeMatchRows(data) {
+  return (data || []).map((m) => {
+    const list = m.match_results && !Array.isArray(m.match_results) ? [m.match_results] : (m.match_results || []);
+    const withTz = list.map((r) => ({
+      ...r,
+      finished_at_sp: toSaoPauloDateTime(r.finished_at)
+    }));
+    return {
+      ...m,
+      match_results: withTz
+    };
+  });
+}
 
 export async function fetchTeams() {
   const { data, error } = await supabase
@@ -34,17 +49,14 @@ export async function fetchMatchesByDate(dateISO) {
     .eq('date_iso', dateISO)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  const rows = (data || []).map((m) => ({
-    ...m,
-    match_results: m.match_results && !Array.isArray(m.match_results) ? [m.match_results] : (m.match_results || [])
-  }));
+  const rows = normalizeMatchRows(data);
   const missing = rows.filter((m) => !m.match_results || m.match_results.length === 0).map((m) => m.id);
   if (missing.length) {
     const { data: results } = await supabase
       .from('match_results')
       .select('*')
       .in('match_id', missing);
-    const map = new Map((results || []).map((r) => [r.match_id, r]));
+    const map = new Map((results || []).map((r) => [r.match_id, { ...r, finished_at_sp: toSaoPauloDateTime(r.finished_at) }]));
     return rows.map((m) => ({
       ...m,
       match_results: m.match_results?.length ? m.match_results : (map.get(m.id) ? [map.get(m.id)] : [])
@@ -69,17 +81,14 @@ export async function fetchMatchesByRange({ dateFrom, dateTo, mode, team }) {
 
   const { data, error } = await query;
   if (error) throw error;
-  const rows = (data || []).map((m) => ({
-    ...m,
-    match_results: m.match_results && !Array.isArray(m.match_results) ? [m.match_results] : (m.match_results || [])
-  }));
+  const rows = normalizeMatchRows(data);
   const missing = rows.filter((m) => !m.match_results || m.match_results.length === 0).map((m) => m.id);
   if (missing.length) {
     const { data: results } = await supabase
       .from('match_results')
       .select('*')
       .in('match_id', missing);
-    const map = new Map((results || []).map((r) => [r.match_id, r]));
+    const map = new Map((results || []).map((r) => [r.match_id, { ...r, finished_at_sp: toSaoPauloDateTime(r.finished_at) }]));
     return rows.map((m) => ({
       ...m,
       match_results: m.match_results?.length ? m.match_results : (map.get(m.id) ? [map.get(m.id)] : [])
