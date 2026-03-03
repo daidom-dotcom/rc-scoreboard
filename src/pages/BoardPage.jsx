@@ -69,20 +69,26 @@ export default function BoardPage() {
         <div className="board-subtitle">
           Domingos de 01/04 a 31/12 ({year}) - {sundays.length} casas
         </div>
-        <div
-          className="real-board"
-          style={{ gridTemplateColumns: `repeat(${board.size}, 1fr)` }}
-        >
-          {board.grid.reduce((acc, row) => acc.concat(row), []).map((cell, idx) => (
-            <div key={idx} className={`board-cell ${cell ? 'active' : 'empty'}`}>
-              {cell ? (
-                <>
-                  <div className="board-cell-title">Domingo</div>
-                  <div className="board-cell-date">{fmt(cell)}</div>
-                </>
-              ) : null}
-            </div>
-          ))}
+        <div className="court-wrap">
+          <div className="court-line midline" />
+          <div className="court-circle" />
+          <div className="paint left" />
+          <div className="paint right" />
+          <div
+            className="real-board"
+            style={{ gridTemplateColumns: `repeat(${board.size}, 1fr)` }}
+          >
+            {board.grid.reduce((acc, row) => acc.concat(row), []).map((cell, idx) => (
+              <div key={idx} className={`board-cell ${cell ? 'active' : 'empty'}`}>
+                {cell ? (
+                  <>
+                    <div className="board-cell-title">Domingo</div>
+                    <div className="board-cell-date">{fmt(cell)}</div>
+                  </>
+                ) : null}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
