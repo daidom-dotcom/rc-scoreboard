@@ -177,21 +177,25 @@ export default function GamePage() {
       const modeForEntries = canEdit
         ? mode
         : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
+      const liveMatchId = canEdit
+        ? (matchId || null)
+        : (liveView?.match_id || lastGoodLiveRef.current?.match_id || null);
       const quickNoForEntries = canEdit
         ? Number(quickMatchNumber || 0)
         : Number(liveView?.match_no || lastGoodLiveRef.current?.match_no || quickMatchNumber || 0);
       let query = supabase.from('player_entries').select('player_name, team_side');
 
-      // In quick mode, always bind check-ins by current match_no/date to avoid stale matchId reads.
-      if (modeForEntries === 'quick' && quickNoForEntries) {
+      // First choice: exact match_id from live/current state.
+      if (liveMatchId) {
+        query = query.eq('match_id', liveMatchId);
+      } else if (modeForEntries === 'quick' && quickNoForEntries) {
+        // Fallback for legacy rows without live match_id hydration.
         query = supabase
           .from('player_entries')
           .select('player_name, team_side, matches!inner(match_no,date_iso,mode)')
           .eq('matches.match_no', quickNoForEntries)
           .eq('matches.date_iso', date)
           .eq('matches.mode', 'quick');
-      } else if (matchId) {
-        query = query.eq('match_id', matchId);
       } else {
         if (active) setTeamEntries({ A: [], B: [] });
         return;
@@ -217,7 +221,7 @@ export default function GamePage() {
       active = false;
       clearInterval(t);
     };
-  }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, matchId, mode, quickMatchNumber]);
+  }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber]);
 
   const safeLive = liveView || lastGoodLiveRef.current;
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';

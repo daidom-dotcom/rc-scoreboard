@@ -215,6 +215,7 @@ export function GameProvider({ children }) {
       .eq('date_iso', date)
       .eq('mode', 'quick')
       .eq('status', 'pending')
+      .order('match_no', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
     if (error) return null;
     const list = data || [];
