@@ -205,8 +205,8 @@ export default function GamePage() {
         setTeamEntries({ A: a, B: b });
         setOwnTeamSide(mine);
         setSelectedScorer((prev) => ({
-          A: (prev.A && a.includes(prev.A)) ? prev.A : (a[0] || ''),
-          B: (prev.B && b.includes(prev.B)) ? prev.B : (b[0] || '')
+          A: (prev.A && a.includes(prev.A)) ? prev.A : '',
+          B: (prev.B && b.includes(prev.B)) ? prev.B : ''
         }));
       }
     }
@@ -405,12 +405,7 @@ export default function GamePage() {
     if (!canEdit) return true;
     if (![1, 2, 3].includes(points)) return true;
     const side = team === 'A' ? 'A' : 'B';
-    const players = teamEntries[side] || [];
-    const scorer = selectedScorer[side] || players[0] || '';
-    if (!scorer) {
-      showAlert('Selecione um jogador com check-in para registrar a cesta.');
-      return false;
-    }
+    const scorer = selectedScorer[side] || 'Outros';
     const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) {
       showAlert('Partida ativa não encontrada para registrar a cesta.');
@@ -435,7 +430,7 @@ export default function GamePage() {
     setBasketEvents((prev) => ([
       {
         id: `tmp-${Date.now()}`,
-        player_name: scorer,
+        player_name: scorer || 'Outros',
         points,
         created_at: new Date().toISOString(),
         team_side: side
@@ -550,7 +545,7 @@ export default function GamePage() {
         <div className="frame">
           <button
             type="button"
-            className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${canInteractionUser && ownTeamSide === 'B' ? 'faded' : ''}`}
+            className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'B' ? 'faded' : ''}`}
             onClick={() => toggleMyTeam('A')}
           >
             {viewTeamA}
@@ -573,7 +568,7 @@ export default function GamePage() {
                     <button
                       type="button"
                       className={`checkin-player-btn ${selectedScorer.A === name ? 'active' : ''}`}
-                      onClick={() => setSelectedScorer((prev) => ({ ...prev, A: name }))}
+                      onClick={() => setSelectedScorer((prev) => ({ ...prev, A: prev.A === name ? '' : name }))}
                     >
                       {name}
                     </button>
@@ -590,7 +585,7 @@ export default function GamePage() {
         <div className="frame">
           <button
             type="button"
-            className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${canInteractionUser && ownTeamSide === 'A' ? 'faded' : ''}`}
+            className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'A' ? 'faded' : ''}`}
             onClick={() => toggleMyTeam('B')}
           >
             {viewTeamB}
@@ -612,7 +607,7 @@ export default function GamePage() {
                     <button
                       type="button"
                       className={`checkin-player-btn ${selectedScorer.B === name ? 'active' : ''}`}
-                      onClick={() => setSelectedScorer((prev) => ({ ...prev, B: name }))}
+                      onClick={() => setSelectedScorer((prev) => ({ ...prev, B: prev.B === name ? '' : name }))}
                     >
                       {name}
                     </button>

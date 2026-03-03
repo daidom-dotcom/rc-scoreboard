@@ -428,17 +428,21 @@ select {
   text-overflow: ellipsis;
 }
 .checkin-player-btn {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--verde);
   font-size: inherit;
   font-weight: 900;
   cursor: pointer;
-  padding: 0 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
 }
 .checkin-player-btn.active {
-  text-shadow: 0 0 10px var(--verde);
-  text-decoration: underline;
+  background: var(--verde);
+  color: var(--preto);
+  border-color: var(--verde);
+  text-shadow: none;
+  text-decoration: none;
 }
 .collapsible {
   margin-top: 10px;
