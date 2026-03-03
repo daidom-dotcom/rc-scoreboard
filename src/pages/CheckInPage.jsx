@@ -131,12 +131,16 @@ export default function CheckInPage() {
     if (!entryId) return;
     setLoading(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('player_entries')
         .delete()
+        .select('id')
         .eq('id', entryId)
         .eq('user_id', user.id);
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Sem permissão para excluir este check-in.');
+      }
       await loadEntries();
     } catch (err) {
       showAlert(err.message || 'Erro ao excluir check-in');

@@ -581,7 +581,6 @@ export function GameProvider({ children }) {
           basketsA: basketsARef.current,
           basketsB: basketsBRef.current
         });
-        showAlert('Partida (rápida) salva!');
       } else if (matchId) {
         // 0x0 should not pollute history/results: discard the open quick match.
         await deleteMatch(matchId);
