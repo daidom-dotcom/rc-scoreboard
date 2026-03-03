@@ -44,6 +44,10 @@ export function GameProvider({ children }) {
 
   const intervalRef = useRef(null);
   const currentMatchRef = useRef(null);
+  const scoreARef = useRef(0);
+  const scoreBRef = useRef(0);
+  const basketsARef = useRef({ one: 0, two: 0, three: 0 });
+  const basketsBRef = useRef({ one: 0, two: 0, three: 0 });
   const beepIntervalRef = useRef(null);
   const audioCtxRef = useRef(null);
   const lastResetRef = useRef(null);
@@ -206,6 +210,10 @@ export function GameProvider({ children }) {
     setScoreB(0);
     setBasketsA({ one: 0, two: 0, three: 0 });
     setBasketsB({ one: 0, two: 0, three: 0 });
+    scoreARef.current = 0;
+    scoreBRef.current = 0;
+    basketsARef.current = { one: 0, two: 0, three: 0 };
+    basketsBRef.current = { one: 0, two: 0, three: 0 };
   }
 
   async function normalizePendingQuick(date) {
@@ -455,6 +463,7 @@ export function GameProvider({ children }) {
     if (team === 'A') {
       setScoreA((prev) => {
         const nextScore = Math.max(0, prev + delta);
+        scoreARef.current = nextScore;
         pushLiveGame({
           id: 1,
           status: running ? 'running' : 'paused',
@@ -481,6 +490,7 @@ export function GameProvider({ children }) {
           else if (next.two > 0) next.two -= 1;
           else if (next.one > 0) next.one -= 1;
         }
+        basketsARef.current = next;
         return next;
       });
     }
@@ -488,6 +498,7 @@ export function GameProvider({ children }) {
     if (team === 'B') {
       setScoreB((prev) => {
         const nextScore = Math.max(0, prev + delta);
+        scoreBRef.current = nextScore;
         pushLiveGame({
           id: 1,
           status: running ? 'running' : 'paused',
@@ -514,6 +525,7 @@ export function GameProvider({ children }) {
           else if (next.two > 0) next.two -= 1;
           else if (next.one > 0) next.one -= 1;
         }
+        basketsBRef.current = next;
         return next;
       });
     }
@@ -557,11 +569,18 @@ export function GameProvider({ children }) {
       if (mode === 'quick' && !matchId) {
         ensuredMatch = await ensureQuickMatch(quickMatchNumber);
       }
-      const hasNonZeroScore = Number(scoreA) !== 0 || Number(scoreB) !== 0;
+      const snapshotScoreA = Number(scoreARef.current || 0);
+      const snapshotScoreB = Number(scoreBRef.current || 0);
+      const hasNonZeroScore = snapshotScoreA !== 0 || snapshotScoreB !== 0;
       const closingMatchNo = quickMatchNumber;
 
       if (hasNonZeroScore) {
-        await saveQuickMatch(ensuredMatch?.id || null);
+        await saveQuickMatch(ensuredMatch?.id || null, {
+          scoreA: snapshotScoreA,
+          scoreB: snapshotScoreB,
+          basketsA: basketsARef.current,
+          basketsB: basketsBRef.current
+        });
         showAlert('Partida (rápida) salva!');
       } else if (matchId) {
         // 0x0 should not pollute history/results: discard the open quick match.
@@ -574,8 +593,8 @@ export function GameProvider({ children }) {
         status: 'ended',
         match_no: closingMatchNo,
         time_left: 0,
-        score_a: scoreA,
-        score_b: scoreB
+        score_a: snapshotScoreA,
+        score_b: snapshotScoreB
       });
       await prepareNextQuick(false, closingMatchNo + 1);
     } catch (err) {
@@ -613,11 +632,15 @@ export function GameProvider({ children }) {
     });
   }
 
-  async function saveQuickMatch(forcedMatchId = null) {
+  async function saveQuickMatch(forcedMatchId = null, snapshot = null) {
     try {
-      const totalC1 = basketsA.one + basketsB.one;
-      const totalC2 = basketsA.two + basketsB.two;
-      const totalC3 = basketsA.three + basketsB.three;
+      const sA = Number(snapshot?.scoreA ?? scoreARef.current ?? scoreA ?? 0);
+      const sB = Number(snapshot?.scoreB ?? scoreBRef.current ?? scoreB ?? 0);
+      const bA = snapshot?.basketsA || basketsARef.current || basketsA;
+      const bB = snapshot?.basketsB || basketsBRef.current || basketsB;
+      const totalC1 = Number(bA.one || 0) + Number(bB.one || 0);
+      const totalC2 = Number(bA.two || 0) + Number(bB.two || 0);
+      const totalC3 = Number(bA.three || 0) + Number(bB.three || 0);
       let id = forcedMatchId || matchId;
       if (!id) {
         const match = await createMatch({
@@ -636,8 +659,8 @@ export function GameProvider({ children }) {
 
       await upsertMatchResult({
         match_id: id,
-        score_a: scoreA,
-        score_b: scoreB,
+        score_a: sA,
+        score_b: sB,
         baskets1: totalC1,
         baskets2: totalC2,
         baskets3: totalC3,
@@ -790,11 +813,16 @@ export function GameProvider({ children }) {
   }
 
   async function saveCurrentIfNeeded() {
-    if (scoreA === 0 && scoreB === 0) return;
+    if (Number(scoreARef.current || 0) === 0 && Number(scoreBRef.current || 0) === 0) return;
     if (mode === 'quick') {
       try {
         const ensuredMatch = matchId ? null : await ensureQuickMatch(quickMatchNumber);
-        await saveQuickMatch(ensuredMatch?.id || null);
+        await saveQuickMatch(ensuredMatch?.id || null, {
+          scoreA: Number(scoreARef.current || 0),
+          scoreB: Number(scoreBRef.current || 0),
+          basketsA: basketsARef.current,
+          basketsB: basketsBRef.current
+        });
       } catch (err) {
         setLastError(err);
         showAlert(err.message || 'Erro ao salvar partida.');
