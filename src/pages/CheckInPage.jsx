@@ -25,6 +25,10 @@ export default function CheckInPage() {
     loadEntries();
   }, [dateISO, onlyToday]);
 
+  useEffect(() => {
+    if (gameDateISO) setDateISO(gameDateISO);
+  }, [gameDateISO]);
+
   const orderedMatches = useMemo(() => {
     const list = [...matches];
     list.sort((a, b) => {
@@ -39,7 +43,7 @@ export default function CheckInPage() {
   const displayMatches = useMemo(() => {
     const map = new Map();
     orderedMatches.forEach((m) => {
-      const key = m.match_no ? `n-${m.match_no}` : `id-${m.id}`;
+      const key = m.match_no ? `${m.mode || 'x'}-n-${m.match_no}` : `id-${m.id}`;
       if (!map.has(key)) map.set(key, m);
     });
     return Array.from(map.values());
@@ -68,7 +72,7 @@ export default function CheckInPage() {
   async function loadMatches() {
     setLoading(true);
     try {
-      const targetDate = onlyToday ? todayISO() : dateISO;
+      const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
       const data = await fetchMatchesByDate(targetDate);
       setMatches(data || []);
       if ((data || []).length && !matchId) setMatchId(data[0].id);
@@ -81,7 +85,7 @@ export default function CheckInPage() {
 
   async function loadEntries() {
     if (!user?.id || !dateISO) return;
-    const targetDate = onlyToday ? todayISO() : dateISO;
+    const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
     const { data, error } = await supabase
       .from('player_entries')
       .select('id, team_side, match_id, matches(id, team_a_name, team_b_name, date_iso)')
@@ -102,7 +106,7 @@ export default function CheckInPage() {
       return;
     }
 
-    const targetDate = onlyToday ? todayISO() : dateISO;
+    const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
     try {
       const { error } = await supabase
         .from('player_entries')
