@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { createMatch, deleteMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
+import { useAuth } from './AuthContext';
 
 const GameContext = createContext(null);
 
@@ -17,6 +18,8 @@ const QUICK_TEAM_A = 'COM COLETE';
 const QUICK_TEAM_B = 'SEM COLETE';
 
 export function GameProvider({ children }) {
+  const { user, isScoreboard } = useAuth();
+  const canControlLive = !!user && isScoreboard;
   const [settings, setSettings] = useState(() => loadSettings() || defaultSettings);
   const [dateISO, setDateISO] = useState(() => loadAppDate() || todayISO());
 
@@ -47,6 +50,7 @@ export function GameProvider({ children }) {
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
   function pushLiveGame(payload) {
+    if (!canControlLive) return;
     if (remoteResetRef.current) return;
     return upsertLiveGame(payload).catch(() => {});
   }
@@ -122,7 +126,7 @@ export function GameProvider({ children }) {
       score_b: scoreB,
       reset_at: null
     }).catch(() => {});
-  }, [mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
+  }, [canControlLive, mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
 
   useEffect(() => {
     const shouldBeep = running && settings.soundEnabled && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
@@ -239,13 +243,6 @@ export function GameProvider({ children }) {
         currentMatchRef.current = existing;
         if (existing.match_no) setQuickMatchNumber(existing.match_no);
         return existing;
-      }
-      const latest = await findLatestPendingQuick(dateISO || todayISO());
-      if (latest) {
-        await updateMatch(latest.id, { match_no: targetNo });
-        setMatchId(latest.id);
-        currentMatchRef.current = { ...latest, match_no: targetNo };
-        return { ...latest, match_no: targetNo };
       }
       const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' }));
       const match = await createMatch({

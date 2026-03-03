@@ -1,11 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { formatDateBR, todayISO } from '../utils/time';
 import DateWheelField from '../components/DateWheelField';
-import { fetchLiveGame } from '../lib/api';
-import { supabase } from '../lib/supabase';
 
 export default function HomePage() {
   const { user, isMaster, isScoreboard, profile } = useAuth();
@@ -14,17 +12,6 @@ export default function HomePage() {
     setDateISO,
     startQuick,
     showAlert,
-    running,
-    mode,
-    teamAName,
-    teamBName,
-    scoreA,
-    scoreB,
-    totalSeconds,
-    quarterIndex,
-    quickMatchNumber,
-    matchId,
-    formatTime
   } = useGame();
   const navigate = useNavigate();
 
@@ -69,85 +56,6 @@ export default function HomePage() {
     const targetDate = dateISO || todayISO();
     navigate(`/checkin?date=${targetDate}`);
   }
-
-  const [live, setLive] = useState(null);
-  const [liveEntries, setLiveEntries] = useState({ A: [], B: [] });
-
-  useEffect(() => {
-    let active = true;
-    async function loadLive() {
-      try {
-        const data = await fetchLiveGame();
-        if (active) setLive(data);
-      } catch {
-        // ignore
-      }
-    }
-    loadLive();
-    const t = setInterval(loadLive, 1000);
-    return () => {
-      active = false;
-      clearInterval(t);
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    async function loadEntries() {
-      if (!live) {
-        if (active) setLiveEntries({ A: [], B: [] });
-        return;
-      }
-
-      const activeMatchId = running ? matchId : live.match_id;
-      let query = supabase.from('player_entries').select('player_name, team_side');
-
-      if (activeMatchId) {
-        query = query.eq('match_id', activeMatchId);
-      } else if (live.mode === 'quick' && live.match_no) {
-        query = supabase
-          .from('player_entries')
-          .select('player_name, team_side, matches!inner(match_no,date_iso,mode)')
-          .eq('matches.match_no', live.match_no)
-          .eq('matches.date_iso', dateISO || todayISO())
-          .eq('matches.mode', 'quick');
-      } else {
-        if (active) setLiveEntries({ A: [], B: [] });
-        return;
-      }
-
-      const { data, error } = await query;
-      if (error) return;
-      const a = [];
-      const b = [];
-      (data || []).forEach((e) => {
-        const first = String(e.player_name || '').trim().split(' ')[0] || e.player_name;
-        if (e.team_side === 'A') a.push(first);
-        if (e.team_side === 'B') b.push(first);
-      });
-      if (active) setLiveEntries({ A: a, B: b });
-    }
-    loadEntries();
-    const t = setInterval(loadEntries, 3000);
-    return () => {
-      active = false;
-      clearInterval(t);
-    };
-  }, [live?.match_id]);
-
-  const liveActive = live && (live.status !== 'ended' || live.time_left > 0 || live.score_a > 0 || live.score_b > 0);
-  const liveReset = live?.reset_at ? new Date(live.reset_at).getTime() : null;
-  const localHasMovement = totalSeconds > 0 || scoreA > 0 || scoreB > 0;
-  const showNow = running || (liveActive && (!liveReset || live.time_left > 0 || live.score_a > 0 || live.score_b > 0));
-  const isLive = running
-    ? localHasMovement
-    : (live && (live.status === 'running' || live.score_a > 0 || live.score_b > 0));
-  const matchLabel = mode === 'tournament'
-    ? `Quarter ${quarterIndex + 1}`
-    : `Partida ${quickMatchNumber}`;
-  const liveLabel = live?.mode === 'tournament'
-    ? `Quarter ${live.quarter}`
-    : `Partida ${live?.match_no || 1}`;
 
   return (
     <div className="center home-wrapper">

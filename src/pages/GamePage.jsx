@@ -200,6 +200,7 @@ export default function GamePage() {
     return Math.max(0, base - elapsed);
   }, [safeLive, totalSeconds, observerNowMs]);
   const viewTime = canEdit ? totalSeconds : syncedObserverTime;
+  const safeViewTime = Number.isFinite(Number(viewTime)) ? Number(viewTime) : settings.quickDurationSeconds;
   const viewLabel = canEdit
     ? label
     : (safeLive?.mode === 'tournament'
@@ -253,7 +254,7 @@ export default function GamePage() {
       <div className="center" style={{ position: 'relative' }}>
         <div className="topBar">
           <div id="partidaLabel">{viewLabel}</div>
-          <div id="timer" className={timerAlert ? 'timer-alert' : ''}>{formatTime(viewTime)}</div>
+          <div id="timer" className={timerAlert ? 'timer-alert' : ''}>{formatTime(safeViewTime)}</div>
           {canEdit ? (
             <div id="controlesJogos">
               <button className="btn-controle" onClick={play} disabled={!canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo)}>PLAY</button>
