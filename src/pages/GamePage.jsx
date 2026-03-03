@@ -53,6 +53,7 @@ export default function GamePage() {
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [ownTeamSide, setOwnTeamSide] = useState(null);
   const [basketEvents, setBasketEvents] = useState([]);
+  const [basketEventsFallback, setBasketEventsFallback] = useState([]);
   const [entriesReloadKey, setEntriesReloadKey] = useState(0);
   const [selectedScorer, setSelectedScorer] = useState({ A: '', B: '' });
 
@@ -273,8 +274,9 @@ export default function GamePage() {
   const isRapidMode = (safeLive?.mode || mode) === 'quick';
   const canInteractionUser = !!user && !isScoreboard;
   const basketStats = useMemo(() => {
+    const mergedEvents = [...basketEvents, ...basketEventsFallback];
     const map = new Map();
-    basketEvents.forEach((e) => {
+    mergedEvents.forEach((e) => {
       const name = String(e.player_name || 'Jogador').trim();
       if (!map.has(name)) map.set(name, { one: 0, two: 0, three: 0 });
       const row = map.get(name);
@@ -293,7 +295,7 @@ export default function GamePage() {
         if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
         return b.totalBaskets - a.totalBaskets;
       });
-  }, [basketEvents]);
+  }, [basketEvents, basketEventsFallback]);
 
   async function resolveActiveQuickMatchId() {
     let currentMatchId = safeLive?.match_id || matchId || null;
@@ -407,11 +409,18 @@ export default function GamePage() {
     const side = team === 'A' ? 'A' : 'B';
     const scorer = selectedScorer[side] || 'Outros';
     const currentMatchId = await resolveCurrentMatchIdForEvents();
+    const fallbackEvent = {
+      id: `fallback-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      player_name: scorer || 'Outros',
+      points,
+      created_at: new Date().toISOString(),
+      team_side: side
+    };
     if (!currentMatchId) {
-      showAlert('Partida ativa não encontrada para registrar a cesta.');
-      return false;
+      setBasketEventsFallback((prev) => [fallbackEvent, ...prev]);
+      return true;
     }
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('basket_events')
       .insert({
         match_id: currentMatchId,
@@ -422,21 +431,14 @@ export default function GamePage() {
         player_name: scorer,
         points,
         created_by: user?.id || null
-      });
+      })
+      .select('id, player_name, points, created_at, team_side')
+      .single();
     if (error) {
-      showAlert(error.message || 'Erro ao registrar cesta.');
-      return false;
+      setBasketEventsFallback((prev) => [fallbackEvent, ...prev]);
+      return true;
     }
-    setBasketEvents((prev) => ([
-      {
-        id: `tmp-${Date.now()}`,
-        player_name: scorer || 'Outros',
-        points,
-        created_at: new Date().toISOString(),
-        team_side: side
-      },
-      ...prev
-    ]));
+    if (data) setBasketEvents((prev) => [data, ...prev]);
     return true;
   }
 
@@ -444,7 +446,14 @@ export default function GamePage() {
     if (!canEdit) return true;
     const side = team === 'A' ? 'A' : 'B';
     const currentMatchId = await resolveCurrentMatchIdForEvents();
-    if (!currentMatchId) return true;
+    if (!currentMatchId) {
+      setBasketEventsFallback((prev) => {
+        const idx = prev.findIndex((e) => e.team_side === side);
+        if (idx < 0) return prev;
+        return prev.filter((_, i) => i !== idx);
+      });
+      return true;
+    }
     const { data: latest, error } = await supabase
       .from('basket_events')
       .select('id, player_name, points, team_side, created_at')
@@ -454,7 +463,14 @@ export default function GamePage() {
       .limit(1)
       .maybeSingle();
     if (error) return true;
-    if (!latest?.id) return true;
+    if (!latest?.id) {
+      setBasketEventsFallback((prev) => {
+        const idx = prev.findIndex((e) => e.team_side === side);
+        if (idx < 0) return prev;
+        return prev.filter((_, i) => i !== idx);
+      });
+      return true;
+    }
     const { error: delError } = await supabase
       .from('basket_events')
       .delete()
@@ -472,17 +488,12 @@ export default function GamePage() {
     if (value > 0) {
       addPoint(team, value);
       const ok = await registerBasketEvent(team, value);
-      if (!ok) {
-        showAlert('Ponto marcado, mas não foi possível vincular a cesta ao jogador.');
-      }
       return;
     }
     if (value < 0) {
       addPoint(team, value);
       const ok = await removeLastBasketEvent(team);
-      if (!ok) {
-        showAlert('Ponto removido, mas não foi possível ajustar o histórico de cestas.');
-      }
+      if (!ok) showAlert('Não foi possível ajustar o histórico de cestas.');
     }
   }
 
@@ -556,7 +567,6 @@ export default function GamePage() {
           </button>
           {canEdit ? (
             <div className="botoes-esquerda">
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 1)}>+1</button>
               <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 1)}>+1</button>
               <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 2)}>+2</button>
               <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 3)}>+3</button>
