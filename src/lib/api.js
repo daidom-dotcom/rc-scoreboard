@@ -198,9 +198,13 @@ export async function upsertMatchResult(payload) {
 }
 
 export async function upsertLiveGame(payload) {
+  const safePayload = {
+    ...payload,
+    updated_at: new Date().toISOString()
+  };
   const { data, error } = await supabase
     .from('live_game')
-    .upsert(payload)
+    .upsert(safePayload)
     .select()
     .single();
   if (error) throw error;
@@ -208,9 +212,13 @@ export async function upsertLiveGame(payload) {
 }
 
 export async function updateLiveGame(payload) {
+  const safePayload = {
+    ...payload,
+    updated_at: new Date().toISOString()
+  };
   const { data, error } = await supabase
     .from('live_game')
-    .update(payload)
+    .update(safePayload)
     .eq('id', 1)
     .select()
     .single();
