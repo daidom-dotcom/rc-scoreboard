@@ -176,15 +176,16 @@ export default function GamePage() {
       const date = dateISO || todayISO();
       let query = supabase.from('player_entries').select('player_name, team_side');
 
-      if (matchId) {
-        query = query.eq('match_id', matchId);
-      } else if (mode === 'quick' && quickMatchNumber) {
+      // In quick mode, always bind check-ins by current match_no/date to avoid stale matchId reads.
+      if (mode === 'quick' && quickMatchNumber) {
         query = supabase
           .from('player_entries')
           .select('player_name, team_side, matches!inner(match_no,date_iso,mode)')
           .eq('matches.match_no', quickMatchNumber)
           .eq('matches.date_iso', date)
           .eq('matches.mode', 'quick');
+      } else if (matchId) {
+        query = query.eq('match_id', matchId);
       } else {
         if (active) setTeamEntries({ A: [], B: [] });
         return;

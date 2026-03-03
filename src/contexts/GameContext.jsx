@@ -138,24 +138,39 @@ export function GameProvider({ children }) {
     }
 
     if (!beepIntervalRef.current) {
-      beepIntervalRef.current = setInterval(() => {
+      const playAlarmPulse = () => {
         try {
           if (!audioCtxRef.current) {
             audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
           }
           const ctx = audioCtxRef.current;
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.frequency.value = 880;
-          gain.gain.value = 0.06;
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start();
-          osc.stop(ctx.currentTime + 0.1);
+          const now = ctx.currentTime;
+          const makeBeep = (start, freq, duration, gainValue) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, start);
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(start);
+            osc.stop(start + duration + 0.01);
+          };
+
+          // Double alternating alarm pulse (more noticeable than single beep).
+          makeBeep(now, 1450, 0.11, 0.2);
+          makeBeep(now + 0.14, 980, 0.13, 0.2);
         } catch {
           // ignore audio errors
         }
-      }, 900);
+      };
+
+      playAlarmPulse();
+      beepIntervalRef.current = setInterval(() => {
+        playAlarmPulse();
+      }, 650);
     }
 
     return () => {

@@ -24,7 +24,7 @@ export default function ConfirmModal() {
         <div className="modal-title">Aviso</div>
         <div className="confirm-message">{confirmState.message}</div>
         {confirmState?.countdown ? (
-          <div className="confirm-countdown">Nova partida não será iniciada automaticamente ({secondsLeft}s)</div>
+          <div className="confirm-countdown">{secondsLeft}s</div>
         ) : null}
         <div className="actions">
           <button className="btn-outline" onClick={() => resolveConfirm(false)}>Não</button>
