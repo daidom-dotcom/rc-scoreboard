@@ -39,7 +39,6 @@ export default function GamePage() {
 
   const navigate = useNavigate();
   const label = mode === 'quick' ? `Partida ${quickMatchNumber}` : `Quarter ${quarterIndex + 1}`;
-  const timerAlert = running && totalSeconds <= settings.alertSeconds && totalSeconds > 0;
 
   const canEdit = !!user && isScoreboard;
   const controlsDisabled = !canEdit;
@@ -217,6 +216,9 @@ export default function GamePage() {
   }, [safeLive, totalSeconds, observerNowMs]);
   const viewTime = canEdit ? totalSeconds : syncedObserverTime;
   const safeViewTime = Number.isFinite(Number(viewTime)) ? Number(viewTime) : settings.quickDurationSeconds;
+  const timerAlert = safeViewTime <= settings.alertSeconds
+    && safeViewTime > 0
+    && (canEdit ? running : (safeLive?.status === 'running'));
   const viewLabel = canEdit
     ? label
     : (safeLive?.mode === 'tournament'
@@ -283,29 +285,33 @@ export default function GamePage() {
       <div className="placar">
         <div className="frame">
           <div className="nome">{viewTeamA}</div>
-          <div className="botoes-esquerda">
-            <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 1)}>+1</button>
-            <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 2)}>+2</button>
-            <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 3)}>+3</button>
+          {canEdit ? (
+            <div className="botoes-esquerda">
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 1)}>+1</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 2)}>+2</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', 3)}>+3</button>
               <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('A', -1)}>-1</button>
-          </div>
+            </div>
+          ) : null}
           <div className="pontos">{viewScoreA}</div>
           <div className="placar-checkins">
-            Time: {(teamEntries.A || []).length ? teamEntries.A.join(' / ') : 'Sem check-in registrado.'}
+            {(teamEntries.A || []).length ? teamEntries.A.join(' / ') : 'Sem check-in registrado.'}
           </div>
         </div>
 
         <div className="frame">
           <div className="nome">{viewTeamB}</div>
           <div className="pontos">{viewScoreB}</div>
-          <div className="botoes-direita">
-            <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 1)}>+1</button>
-            <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 2)}>+2</button>
-            <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 3)}>+3</button>
-            <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', -1)}>-1</button>
-          </div>
+          {canEdit ? (
+            <div className="botoes-direita">
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 1)}>+1</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 2)}>+2</button>
+              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', 3)}>+3</button>
+              <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => addPoint('B', -1)}>-1</button>
+            </div>
+          ) : null}
           <div className="placar-checkins">
-            Time: {(teamEntries.B || []).length ? teamEntries.B.join(' / ') : 'Sem check-in registrado.'}
+            {(teamEntries.B || []).length ? teamEntries.B.join(' / ') : 'Sem check-in registrado.'}
           </div>
         </div>
       </div>
