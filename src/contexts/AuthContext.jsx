@@ -61,7 +61,8 @@ export function AuthProvider({ children }) {
     role: profile?.role || 'observer',
     isMaster: profile?.role === 'master' && profile?.is_active !== false,
     signIn: async (email, password) => {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error) throw error;
       if (data?.user) {
         const prof = await loadProfile(data.user.id);
@@ -72,7 +73,8 @@ export function AuthProvider({ children }) {
       }
     },
     signUp: async (email, password, fullName) => {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const { data, error } = await supabase.auth.signUp({ email: normalizedEmail, password });
       if (error) throw error;
       if (data?.user?.id && fullName) {
         await supabase
@@ -80,6 +82,13 @@ export function AuthProvider({ children }) {
           .update({ full_name: fullName })
           .eq('id', data.user.id);
       }
+    },
+    resetPassword: async (email) => {
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/login`
+      });
+      if (error) throw error;
     },
     signInWithOAuth: async (provider) => {
       const { error } = await supabase.auth.signInWithOAuth({ provider });

@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useGame } from '../contexts/GameContext';
 
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -18,15 +18,16 @@ export default function LoginPage() {
   const { showAlert } = useGame();
 
   async function handleLogin() {
+    const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(normalizedEmail, password);
       navigate('/');
     } catch (err) {
       const { data } = await supabase
         .from('pending_invites')
         .select('email')
-        .eq('email', email.trim().toLowerCase())
+        .eq('email', normalizedEmail)
         .maybeSingle();
       if (data) {
         setNeedPasswordSetup(true);
@@ -35,6 +36,23 @@ export default function LoginPage() {
       } else {
         showAlert(err.message || 'Falha no login');
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      showAlert('Informe seu email para recuperar a senha.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await resetPassword(normalizedEmail);
+      showAlert('Enviamos um email para redefinição de senha.');
+    } catch (err) {
+      showAlert(err?.message || 'Não foi possível enviar o email de recuperação.');
     } finally {
       setLoading(false);
     }
@@ -104,6 +122,7 @@ export default function LoginPage() {
           <>
             <button className="btn-outline" onClick={() => setCreateObserver(true)} disabled={loading}>Novo Usuário</button>
             <button className="btn-controle" onClick={handleLogin} disabled={loading}>Entrar</button>
+            <button className="btn-outline" onClick={handleForgotPassword} disabled={loading}>Esqueci minha senha</button>
           </>
         )}
       </div>
