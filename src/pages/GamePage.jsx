@@ -173,15 +173,21 @@ export default function GamePage() {
     let active = true;
     setTeamEntries({ A: [], B: [] });
     async function loadEntries() {
-      const date = dateISO || todayISO();
+      const date = canEdit ? (dateISO || todayISO()) : todayISO();
+      const modeForEntries = canEdit
+        ? mode
+        : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
+      const quickNoForEntries = canEdit
+        ? Number(quickMatchNumber || 0)
+        : Number(liveView?.match_no || lastGoodLiveRef.current?.match_no || quickMatchNumber || 0);
       let query = supabase.from('player_entries').select('player_name, team_side');
 
       // In quick mode, always bind check-ins by current match_no/date to avoid stale matchId reads.
-      if (mode === 'quick' && quickMatchNumber) {
+      if (modeForEntries === 'quick' && quickNoForEntries) {
         query = supabase
           .from('player_entries')
           .select('player_name, team_side, matches!inner(match_no,date_iso,mode)')
-          .eq('matches.match_no', quickMatchNumber)
+          .eq('matches.match_no', quickNoForEntries)
           .eq('matches.date_iso', date)
           .eq('matches.mode', 'quick');
       } else if (matchId) {
@@ -211,7 +217,7 @@ export default function GamePage() {
       active = false;
       clearInterval(t);
     };
-  }, [matchId, mode, quickMatchNumber, dateISO]);
+  }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, matchId, mode, quickMatchNumber]);
 
   const safeLive = liveView || lastGoodLiveRef.current;
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';

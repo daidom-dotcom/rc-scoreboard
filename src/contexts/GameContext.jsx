@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createMatch, deleteMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
 import { useAuth } from './AuthContext';
@@ -37,7 +38,7 @@ export function GameProvider({ children }) {
   const [basketsA, setBasketsA] = useState({ one: 0, two: 0, three: 0 });
   const [basketsB, setBasketsB] = useState({ one: 0, two: 0, three: 0 });
   const [quickMatchNumber, setQuickMatchNumber] = useState(1);
-  const [confirmState, setConfirmState] = useState({ open: false, message: '', resolve: null, countdown: false });
+  const [confirmState, setConfirmState] = useState({ open: false, message: '', resolve: null });
   const [alertState, setAlertState] = useState({ open: false, message: '' });
   const [lastError, setLastError] = useState(null);
 
@@ -181,15 +182,15 @@ export function GameProvider({ children }) {
     };
   }, [running, totalSeconds, settings.soundEnabled, settings.alertSeconds]);
 
-  function askConfirm(message, options = {}) {
+  function askConfirm(message) {
     return new Promise((resolve) => {
-      setConfirmState({ open: true, message, resolve, countdown: !!options.countdown });
+      setConfirmState({ open: true, message, resolve });
     });
   }
 
   function resolveConfirm(result) {
     if (confirmState.resolve) confirmState.resolve(result);
-    setConfirmState({ open: false, message: '', resolve: null, countdown: false });
+    setConfirmState({ open: false, message: '', resolve: null });
   }
 
   function showAlert(message) {
@@ -207,14 +208,34 @@ export function GameProvider({ children }) {
     setBasketsB({ one: 0, two: 0, three: 0 });
   }
 
+  async function normalizePendingQuick(date) {
+    const { data, error } = await supabase
+      .from('matches')
+      .select('id,match_no,created_at')
+      .eq('date_iso', date)
+      .eq('mode', 'quick')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error) return null;
+    const list = data || [];
+    if (!list.length) return null;
+    const keep = list[0];
+    const removeIds = list.slice(1).map((m) => m.id);
+    if (removeIds.length) {
+      await supabase.from('matches').delete().in('id', removeIds);
+    }
+    return keep;
+  }
+
   async function refreshQuickNumber() {
     try {
-      const pending = await findLatestPendingQuick(dateISO || todayISO());
+      const date = dateISO || todayISO();
+      const pending = await normalizePendingQuick(date) || await findLatestPendingQuick(date);
       if (pending?.match_no) {
         setQuickMatchNumber(pending.match_no);
         return pending.match_no;
       }
-      const next = await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
+      const next = await fetchNextMatchNo({ dateISO: date, mode: 'quick' });
       setQuickMatchNumber(next);
       return next;
     } catch {
@@ -250,17 +271,25 @@ export function GameProvider({ children }) {
       if (matchId) {
         return currentMatchRef.current || { id: matchId, match_no: quickMatchNumber };
       }
+      const date = dateISO || todayISO();
+      const normalizedPending = await normalizePendingQuick(date);
+      if (normalizedPending) {
+        setMatchId(normalizedPending.id);
+        currentMatchRef.current = normalizedPending;
+        if (normalizedPending.match_no) setQuickMatchNumber(normalizedPending.match_no);
+        return normalizedPending;
+      }
       const targetNo = desiredNo || quickMatchNumber;
-      const existing = await findPendingQuickMatch(dateISO || todayISO(), targetNo);
+      const existing = await findPendingQuickMatch(date, targetNo);
       if (existing) {
         setMatchId(existing.id);
         currentMatchRef.current = existing;
         if (existing.match_no) setQuickMatchNumber(existing.match_no);
         return existing;
       }
-      const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' }));
+      const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: date, mode: 'quick' }));
       const match = await createMatch({
-        date_iso: dateISO || todayISO(),
+        date_iso: date,
         mode: 'quick',
         team_a_name: quickTeamA,
         team_b_name: quickTeamB,
@@ -460,14 +489,14 @@ export function GameProvider({ children }) {
 
   async function handleTimerEnd() {
     if (mode === 'tournament') {
-      const ok = await askConfirm(`Tempo encerrado! Encerrar o Quarter ${quarterIndex + 1}?`, { countdown: true });
+      const ok = await askConfirm(`Tempo encerrado! Encerrar o Quarter ${quarterIndex + 1}?`);
       if (ok) await advanceQuarterOrFinish();
       else {
         setAjusteFinalAtivo(true);
         showAlert('Quarter ficou em 00:00. Ajuste o placar se precisar e depois continue.');
       }
     } else {
-      const ok = await askConfirm('Tempo encerrado! Deseja encerrar a partida?', { countdown: true });
+      const ok = await askConfirm('Tempo encerrado! Deseja encerrar a partida?');
       if (ok) await finishQuick();
       else {
         setAjusteFinalAtivo(true);
@@ -544,12 +573,10 @@ export function GameProvider({ children }) {
           quarters: 1,
           durations: [settings.quickDurationSeconds],
           match_no: quickMatchNumber,
-          status: 'done'
+          status: 'pending'
         });
         id = match.id;
         setMatchId(id);
-      } else {
-        await updateMatch(id, { status: 'done', match_no: quickMatchNumber });
       }
 
       await upsertMatchResult({
@@ -561,6 +588,8 @@ export function GameProvider({ children }) {
         baskets3: totalC3,
         finished_at: new Date().toISOString()
       });
+
+      await updateMatch(id, { status: 'done', match_no: quickMatchNumber });
     } catch (err) {
       setLastError(err);
       throw err;
@@ -670,7 +699,6 @@ export function GameProvider({ children }) {
     const totalC3 = basketsA.three + basketsB.three;
 
     try {
-      await updateMatch(match.id, { status: 'done' });
       await upsertMatchResult({
         match_id: match.id,
         score_a: scoreA,
@@ -680,6 +708,7 @@ export function GameProvider({ children }) {
         baskets3: totalC3,
         finished_at: new Date().toISOString()
       });
+      await updateMatch(match.id, { status: 'done' });
 
       pushLiveGame({
         id: 1,
@@ -710,7 +739,6 @@ export function GameProvider({ children }) {
     if (mode === 'quick') {
       try {
         await saveQuickMatch();
-        await prepareNextQuick(true);
       } catch (err) {
         setLastError(err);
         showAlert(err.message || 'Erro ao salvar partida.');
