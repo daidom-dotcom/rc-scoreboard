@@ -303,7 +303,7 @@ export default function GamePage() {
       const { data: latestQuick } = await supabase
         .from('matches')
         .select('id')
-        .eq('date_iso', todayISO())
+        .eq('date_iso', dateISO || todayISO())
         .eq('mode', 'quick')
         .eq('status', 'pending')
         .order('match_no', { ascending: false, nullsFirst: false })
@@ -317,6 +317,7 @@ export default function GamePage() {
     }
     const targetSide = ownTeamSide === side ? null : side;
     const previousSide = ownTeamSide;
+    const myFirst = String((profile?.full_name || user?.email || 'Jogador').trim()).split(' ')[0];
     setOwnTeamSide(targetSide);
     const { error: delErr } = await supabase
       .from('player_entries')
@@ -328,6 +329,10 @@ export default function GamePage() {
       return showAlert(delErr.message || 'Erro ao atualizar check-in.');
     }
     if (!targetSide) {
+      setTeamEntries((prev) => ({
+        A: prev.A.filter((n) => n !== myFirst),
+        B: prev.B.filter((n) => n !== myFirst)
+      }));
       setEntriesReloadKey((k) => k + 1);
       return;
     }
@@ -344,6 +349,13 @@ export default function GamePage() {
       setOwnTeamSide(previousSide);
       return showAlert(inErr.message || 'Erro ao atualizar check-in.');
     }
+    setTeamEntries((prev) => {
+      const a = prev.A.filter((n) => n !== myFirst);
+      const b = prev.B.filter((n) => n !== myFirst);
+      if (targetSide === 'A') a.push(myFirst);
+      if (targetSide === 'B') b.push(myFirst);
+      return { A: a, B: b };
+    });
     setEntriesReloadKey((k) => k + 1);
   }
 

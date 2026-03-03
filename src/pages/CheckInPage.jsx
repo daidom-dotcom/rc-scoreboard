@@ -72,36 +72,40 @@ export default function CheckInPage() {
   async function loadMatches() {
     setLoading(true);
     try {
-      const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
-      const [data, live] = await Promise.all([
-        fetchMatchesByDate(targetDate),
-        fetchLiveGame().catch(() => null)
-      ]);
-      let merged = [...(data || [])];
-
-      // Guarantee that the currently active live match is selectable for check-in.
-      if (live?.match_id && live?.mode === 'quick') {
-        const exists = merged.some((m) => m.id === live.match_id);
-        if (!exists) {
-          const { data: liveMatch } = await supabase
-            .from('matches')
-            .select('*, match_results(*)')
-            .eq('id', live.match_id)
-            .maybeSingle();
-          if (liveMatch && (!onlyToday || liveMatch.date_iso === targetDate)) {
-            merged.unshift({
-              ...liveMatch,
-              match_results: liveMatch.match_results && !Array.isArray(liveMatch.match_results)
-                ? [liveMatch.match_results]
-                : (liveMatch.match_results || [])
-            });
-          }
+      const live = await fetchLiveGame().catch(() => null);
+      let liveMatch = null;
+      if (live?.match_id) {
+        const { data } = await supabase
+          .from('matches')
+          .select('*, match_results(*)')
+          .eq('id', live.match_id)
+          .maybeSingle();
+        if (data) {
+          liveMatch = {
+            ...data,
+            match_results: data.match_results && !Array.isArray(data.match_results)
+              ? [data.match_results]
+              : (data.match_results || [])
+          };
         }
       }
 
+      const targetDate = onlyToday
+        ? (liveMatch?.date_iso || gameDateISO || dateISO || todayISO())
+        : dateISO;
+      const data = await fetchMatchesByDate(targetDate);
+      let merged = [...(data || [])];
+
+      // Guarantee that the currently active live match is selectable for check-in.
+      if (liveMatch) {
+        const exists = merged.some((m) => m.id === liveMatch.id);
+        if (!exists) merged.unshift(liveMatch);
+      }
+
       setMatches(merged);
-      if (live?.match_id) {
-        setMatchId(live.match_id);
+      if (liveMatch?.id) {
+        setDateISO(liveMatch.date_iso);
+        setMatchId(liveMatch.id);
       } else if (merged.length && !matchId) {
         setMatchId(merged[0].id);
       }
