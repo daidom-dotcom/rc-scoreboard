@@ -301,3 +301,21 @@ export async function releaseLiveControl({ userId, deviceId }) {
   if (error) throw error;
   return data || null;
 }
+
+export async function forceAcquireLiveControl({ userId, email, fullName, deviceId }) {
+  const payload = {
+    controller_user_id: userId,
+    controller_email: email || null,
+    controller_name: fullName || null,
+    controller_device_id: deviceId,
+    heartbeat_at: new Date().toISOString()
+  };
+  const { data, error } = await supabase
+    .from('live_control_lock')
+    .update(payload)
+    .eq('id', 1)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}

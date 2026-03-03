@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import { todayISO } from '../utils/time';
-import { acquireLiveControl, fetchLiveControlLock, fetchLiveGame, heartbeatLiveControl, releaseLiveControl } from '../lib/api';
+import { acquireLiveControl, fetchLiveControlLock, fetchLiveGame, forceAcquireLiveControl, heartbeatLiveControl, releaseLiveControl } from '../lib/api';
 import PasswordModal from '../components/PasswordModal';
 
 export default function GamePage() {
@@ -98,7 +98,26 @@ export default function GamePage() {
           deviceId: deviceIdRef.current
         });
         if (!active) return;
-        setHasControl(!!res.acquired);
+        if (res?.acquired) {
+          setHasControl(true);
+          setControlInfo(res.lock || null);
+          return;
+        }
+        if (res?.lock?.controller_user_id === user.id) {
+          const forced = await forceAcquireLiveControl({
+            userId: user.id,
+            email: user.email,
+            fullName: user.user_metadata?.full_name || null,
+            deviceId: deviceIdRef.current
+          }).catch(() => null);
+          if (!active) return;
+          if (forced) {
+            setHasControl(true);
+            setControlInfo(forced);
+            return;
+          }
+        }
+        setHasControl(false);
         setControlInfo(res.lock || null);
       } catch {
         if (!active) return;
@@ -341,14 +360,14 @@ export default function GamePage() {
             className="btn-controle"
             style={{ margin: 0 }}
             onClick={async () => {
-              const res = await acquireLiveControl({
+              const res = await forceAcquireLiveControl({
                 userId: user.id,
                 email: user.email,
                 fullName: user.user_metadata?.full_name || null,
                 deviceId: deviceIdRef.current
               }).catch(() => null);
-              setHasControl(!!res?.acquired);
-              setControlInfo(res?.lock || null);
+              setHasControl(!!res);
+              setControlInfo(res || null);
             }}
           >
             Tentar assumir controle
