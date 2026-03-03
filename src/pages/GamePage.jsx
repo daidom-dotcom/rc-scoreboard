@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
+import { fetchLiveGame } from '../lib/api';
 import { todayISO } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 
@@ -50,6 +51,21 @@ export default function GamePage() {
   const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
 
+  function parseTimestampMs(value) {
+    if (!value) return 0;
+    const raw = String(value).trim();
+    if (!raw) return 0;
+    const normalized = raw
+      .replace(' ', 'T')
+      .replace(/([+-]\d{2})$/, '$1:00')
+      .replace(/\.(\d{3})\d+/, '.$1')
+      .replace(/\+00:00$/, 'Z');
+    const ms = Date.parse(normalized);
+    if (Number.isFinite(ms)) return ms;
+    const fallback = Date.parse(raw);
+    return Number.isFinite(fallback) ? fallback : 0;
+  }
+
   function askPassword(message) {
     return new Promise((resolve) => {
       setPasswordState({ open: true, message, resolve });
@@ -94,7 +110,7 @@ export default function GamePage() {
     let active = true;
     function applyLiveIfNewer(data) {
       if (!data) return;
-      const ts = data.updated_at ? new Date(data.updated_at).getTime() : Date.now();
+      const ts = data.updated_at ? parseTimestampMs(data.updated_at) : Date.now();
       if (ts >= lastLiveAtRef.current) {
         lastLiveAtRef.current = ts;
         lastGoodLiveRef.current = data;
@@ -127,7 +143,7 @@ export default function GamePage() {
         (payload) => {
           const live = payload?.new;
           if (!live || live.id !== 1) return;
-          const ts = live.updated_at ? new Date(live.updated_at).getTime() : Date.now();
+          const ts = live.updated_at ? parseTimestampMs(live.updated_at) : Date.now();
           if (ts >= lastLiveAtRef.current) {
             lastLiveAtRef.current = ts;
             lastGoodLiveRef.current = live;
@@ -194,7 +210,7 @@ export default function GamePage() {
     if (!safeLive) return totalSeconds;
     const base = Number(safeLive.time_left ?? totalSeconds);
     if (safeLive.status !== 'running') return base;
-    const updatedAtMs = safeLive.updated_at ? new Date(safeLive.updated_at).getTime() : 0;
+    const updatedAtMs = safeLive.updated_at ? parseTimestampMs(safeLive.updated_at) : 0;
     if (!updatedAtMs) return base;
     const elapsed = Math.max(0, Math.floor((observerNowMs - updatedAtMs) / 1000));
     return Math.max(0, base - elapsed);

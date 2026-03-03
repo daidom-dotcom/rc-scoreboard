@@ -14,6 +14,8 @@ export default function Layout() {
   const [timerScale, setTimerScale] = useState(1);
   const [scoreScale, setScoreScale] = useState(1);
   const [logoutPwdOpen, setLogoutPwdOpen] = useState(false);
+  const MIN_FONT_PX = 12;
+  const MIN_SCALE = Math.max(MIN_FONT_PX / 86, MIN_FONT_PX / 200);
 
   useEffect(() => {
     if (isGameRoute) {
@@ -35,8 +37,8 @@ export default function Layout() {
   }, [timerScale, scoreScale]);
 
   function adjustFont(delta) {
-    setTimerScale((v) => Number((v + delta).toFixed(2)));
-    setScoreScale((v) => Number((v + delta).toFixed(2)));
+    setTimerScale((v) => Number(Math.max(MIN_SCALE, v + delta).toFixed(2)));
+    setScoreScale((v) => Number(Math.max(MIN_SCALE, v + delta).toFixed(2)));
   }
 
   function toggleFullScreen() {
@@ -68,7 +70,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.0.44</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.0.47</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
@@ -91,7 +93,7 @@ export default function Layout() {
           ) : null}
         </nav>
         <div className="auth">
-          {isGameRoute && !isScoreboard ? (
+          {isGameRoute ? (
             <>
               <button
                 className="btn-outline btn-ghost topbar-btn"

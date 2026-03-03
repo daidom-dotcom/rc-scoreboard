@@ -125,7 +125,7 @@ export function GameProvider({ children }) {
       score_a: scoreA,
       score_b: scoreB,
       reset_at: null
-    }).catch(() => {});
+    });
   }, [canControlLive, mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
 
   useEffect(() => {
@@ -271,7 +271,7 @@ export function GameProvider({ children }) {
         score_a: scoreA,
         score_b: scoreB,
         reset_at: null
-      }).catch(() => {});
+      });
       return match;
     } catch {
       // ignore
@@ -324,7 +324,7 @@ export function GameProvider({ children }) {
       score_a: 0,
       score_b: 0,
       reset_at: null
-    }).catch(() => {});
+    });
   }
 
   function play() {
@@ -348,7 +348,7 @@ export function GameProvider({ children }) {
       score_a: scoreA,
       score_b: scoreB,
       reset_at: null
-    }).catch(() => {});
+    });
   }
 
   function pause() {
@@ -367,7 +367,7 @@ export function GameProvider({ children }) {
       score_a: scoreA,
       score_b: scoreB,
       reset_at: null
-    }).catch(() => {});
+    });
   }
 
   function addPoint(team, value) {
@@ -393,7 +393,7 @@ export function GameProvider({ children }) {
           score_a: nextScore,
           score_b: scoreB,
           reset_at: null
-        }).catch(() => {});
+        });
         return nextScore;
       });
       setBasketsA((prev) => {
@@ -426,7 +426,7 @@ export function GameProvider({ children }) {
           score_a: scoreA,
           score_b: nextScore,
           reset_at: null
-        }).catch(() => {});
+        });
         return nextScore;
       });
       setBasketsB((prev) => {
@@ -471,7 +471,7 @@ export function GameProvider({ children }) {
           score_a: scoreA,
           score_b: scoreB,
           reset_at: null
-        }).catch(() => {});
+        });
       }
     }
   }
@@ -483,7 +483,7 @@ export function GameProvider({ children }) {
       }
       await saveQuickMatch();
       showAlert('Partida (rápida) salva!');
-      updateLiveGame({ status: 'ended', match_no: quickMatchNumber, time_left: 0, score_a: scoreA, score_b: scoreB }).catch(() => {});
+      updateLiveGame({ status: 'ended', match_no: quickMatchNumber, time_left: 0, score_a: scoreA, score_b: scoreB });
       await prepareNextQuick();
     } catch (err) {
       setLastError(err);
@@ -512,7 +512,7 @@ export function GameProvider({ children }) {
       time_left: settings.quickDurationSeconds,
       score_a: 0,
       score_b: 0
-    }).catch(() => {});
+    });
   }
 
   async function saveQuickMatch() {
@@ -582,7 +582,7 @@ export function GameProvider({ children }) {
       score_a: scoreA,
       score_b: scoreB,
       reset_at: null
-    }).catch(() => {});
+    });
   }
 
   function resetTimer() {
@@ -602,7 +602,7 @@ export function GameProvider({ children }) {
       score_a: scoreA,
       score_b: scoreB,
       reset_at: null
-    }).catch(() => {});
+    });
   }
 
   function endLiveGame() {
@@ -619,7 +619,7 @@ export function GameProvider({ children }) {
       score_a: scoreA,
       score_b: scoreB,
       reset_at: null
-    }).catch(() => {});
+    });
   }
 
   async function finishTournamentMatch(silent = false) {
@@ -642,7 +642,7 @@ export function GameProvider({ children }) {
           score_a: scoreA,
           score_b: scoreB,
           reset_at: null
-        }).catch(() => {});
+        });
         if (!silent) showAlert('Partida 0x0 removida.');
       } catch (err) {
         setLastError(err);
@@ -680,7 +680,7 @@ export function GameProvider({ children }) {
         score_a: scoreA,
         score_b: scoreB,
         reset_at: null
-      }).catch(() => {});
+      });
 
       if (!silent) {
         showAlert('Partida salva no Torneio!');
