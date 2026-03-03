@@ -244,6 +244,7 @@ export default function HistoryPage() {
     .filter((m) => m.match_results?.length)
     .map((m) => ({
       mode: m.mode,
+      match_no: m.match_no,
       player_side: userEntriesMap.get(m.id) || null,
       team_a_name: m.team_a_name,
       team_b_name: m.team_b_name,
@@ -321,7 +322,7 @@ export default function HistoryPage() {
             <div className="label">Tipo</div>
             <SelectField value={mode} onChange={(e) => setMode(e.target.value)}>
               <option value="all">Todos</option>
-              <option value="quick">Quick</option>
+              <option value="quick">Rápido</option>
               <option value="tournament">Torneio</option>
             </SelectField>
           </div>
@@ -390,7 +391,7 @@ export default function HistoryPage() {
                       {(m.mode || 'NA').toUpperCase()} {idx + 1}
                     </td>
                       <td>{formatDateBR(m.date_iso)}</td>
-                      <td>{m.mode}</td>
+                      <td>{m.mode === 'quick' ? 'Rápido' : (m.mode === 'tournament' ? 'Torneio' : m.mode)}</td>
                       <td>
                         <div className={`placar-side ${leftWinner ? 'winner' : ''}`}>
                           <span className="placar-team">{m.team_a_name}</span>

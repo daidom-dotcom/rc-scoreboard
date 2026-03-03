@@ -69,7 +69,7 @@ export default function SettingsPage() {
 
       {tab === 'quick' ? (
         <div className="panel">
-          <div className="label">Duração padrão (Quick) mm:ss</div>
+          <div className="label">Duração padrão (Rápido) mm:ss</div>
           <div className="dur-row">
             <input type="number" min="0" max="99" value={quickMinutes} onChange={(e) => setQuickMinutes(e.target.value)} />
             <div className="colon">:</div>
@@ -85,10 +85,10 @@ export default function SettingsPage() {
             <option value="off">Desativado</option>
           </select>
 
-          <div className="label">Nome Time A (Quick)</div>
+          <div className="label">Nome Time A (Rápido)</div>
           <input type="text" value={defaultTeamA} onChange={(e) => setDefaultTeamA(e.target.value)} />
 
-          <div className="label">Nome Time B (Quick)</div>
+          <div className="label">Nome Time B (Rápido)</div>
           <input type="text" value={defaultTeamB} onChange={(e) => setDefaultTeamB(e.target.value)} />
 
           <div className="actions" style={{ marginTop: 14 }}>

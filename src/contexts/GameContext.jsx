@@ -150,23 +150,24 @@ export function GameProvider({ children }) {
           }
           const ctx = audioCtxRef.current;
           const now = ctx.currentTime;
-          const makeBeep = (start, freq, duration, gainValue) => {
+          const makeHorn = (start, freq, duration, gainValue) => {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            osc.type = 'square';
+            osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(freq, start);
             gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.01);
+            gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(gainValue * 0.75, start + (duration * 0.5));
             gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start(start);
             osc.stop(start + duration + 0.01);
           };
-
-          // Double alternating alarm pulse (more noticeable than single beep).
-          makeBeep(now, 1450, 0.11, 0.2);
-          makeBeep(now + 0.14, 980, 0.13, 0.2);
+          // Loud trumpet-like burst with layered frequencies.
+          makeHorn(now, 460, 0.45, 0.55);
+          makeHorn(now, 690, 0.45, 0.42);
+          makeHorn(now + 0.06, 920, 0.32, 0.25);
         } catch {
           // ignore audio errors
         }
@@ -175,7 +176,7 @@ export function GameProvider({ children }) {
       playAlarmPulse();
       beepIntervalRef.current = setInterval(() => {
         playAlarmPulse();
-      }, 650);
+      }, 1200);
     }
 
     return () => {

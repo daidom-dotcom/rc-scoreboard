@@ -63,7 +63,8 @@ export default function SummaryTable({ title, subtitle, dateISO, partidas }) {
           </thead>
           <tbody>
             {partidas.map((p, i) => {
-              const typeMark = p.mode === 'tournament' ? 'T' : 'Q';
+              const typeMark = p.mode === 'tournament' ? 'T' : 'P';
+              const matchNo = Number(p.match_no || 0) > 0 ? Number(p.match_no) : (i + 1);
               const n1 = p.team_a_name || p.time1_nome || 'Time 1';
               const n2 = p.team_b_name || p.time2_nome || 'Time 2';
               const s1 = Number(p.score_a ?? p.time1_placar ?? 0);
@@ -79,7 +80,7 @@ export default function SummaryTable({ title, subtitle, dateISO, partidas }) {
 
               return (
                 <tr key={`${n1}-${n2}-${i}`}>
-                  <td className="col-partida">[{typeMark}] {i + 1}</td>
+                  <td className="col-partida">[{typeMark}] {matchNo}</td>
                   <td className="col-jogos">
                     <div className="jogos-card">
                       <div className="time-row">
