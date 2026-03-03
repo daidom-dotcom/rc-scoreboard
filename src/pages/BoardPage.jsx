@@ -73,7 +73,7 @@ export default function BoardPage() {
           className="real-board"
           style={{ gridTemplateColumns: `repeat(${board.size}, 1fr)` }}
         >
-          {board.grid.flatMap((cell, idx) => (
+          {board.grid.reduce((acc, row) => acc.concat(row), []).map((cell, idx) => (
             <div key={idx} className={`board-cell ${cell ? 'active' : 'empty'}`}>
               {cell ? (
                 <>
@@ -88,4 +88,3 @@ export default function BoardPage() {
     </div>
   );
 }
-
