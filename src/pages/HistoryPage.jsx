@@ -244,6 +244,7 @@ export default function HistoryPage() {
     .filter((m) => m.match_results?.length)
     .map((m) => ({
       mode: m.mode,
+      player_side: userEntriesMap.get(m.id) || null,
       team_a_name: m.team_a_name,
       team_b_name: m.team_b_name,
       score_a: m.match_results[0].score_a,
@@ -341,7 +342,7 @@ export default function HistoryPage() {
           }
           subtitle={
             showMine
-              ? `Você participou de ${userStats?.total || 0} partidas: venceu ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdeu ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
+              ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
               : 'Rachão dos Crias'
           }
           dateISO={dateISO}

@@ -59,6 +59,8 @@ export default function SummaryTable({ title, subtitle, dateISO, partidas }) {
               const n2 = p.team_b_name || p.time2_nome || 'Time 2';
               const s1 = Number(p.score_a ?? p.time1_placar ?? 0);
               const s2 = Number(p.score_b ?? p.time2_placar ?? 0);
+              const playedA = p.player_side === 'A';
+              const playedB = p.player_side === 'B';
               const t1Venceu = s1 > s2;
               const t2Venceu = s2 > s1;
               const c1 = Number(p.baskets1 ?? p.cestas1 ?? 0);
@@ -73,11 +75,11 @@ export default function SummaryTable({ title, subtitle, dateISO, partidas }) {
                     <div className="jogos-card">
                       <div className="time-row">
                         {nameWithTrophy(n1, t1Venceu)}
-                        <div className="time-pontos">{s1}</div>
+                        <div className="time-pontos">{playedA ? `➤ ${s1}` : s1}</div>
                       </div>
                       <div className="time-row">
                         {nameWithTrophy(n2, t2Venceu)}
-                        <div className="time-pontos">{s2}</div>
+                        <div className="time-pontos">{playedB ? `➤ ${s2}` : s2}</div>
                       </div>
                     </div>
                   </td>
