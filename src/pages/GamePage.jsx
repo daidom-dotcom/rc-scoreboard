@@ -793,15 +793,15 @@ export default function GamePage() {
                   <span className="basket-tabbed-line">
                     {`${idx + 1}. ${s.name}: ${s.totalPoints} pontos 🏀\t(${s.one}) 1 ponto`}
                   </span>
-                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>(remover)</button>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>❌</button>
                   <span className="basket-tabbed-line">
                     {`\t(${s.two}) 2 pontos`}
                   </span>
-                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>(remover)</button>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>❌</button>
                   <span className="basket-tabbed-line">
                     {`\t(${s.three}) 3 pontos`}
                   </span>
-                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>(remover)</button>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>❌</button>
                 </>
               ) : (
                 <>

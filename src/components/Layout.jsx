@@ -78,8 +78,9 @@ export default function Layout() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
+          <img src="/logo.png" alt="Logo Rachão dos Crias" className="brand-logo" />
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.1.22</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.1.23</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
