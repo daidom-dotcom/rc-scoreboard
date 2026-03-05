@@ -69,13 +69,13 @@ a { color: inherit; text-decoration: none; }
 
 .center { text-align: center; padding-top: 40px; }
 .game .center { padding-top: 0; }
-.home-wrapper { min-height: calc(100vh - 140px); display: flex; flex-direction: column; }
+.home-wrapper { min-height: calc(100vh - 140px); display: flex; flex-direction: column; padding-top: 0 !important; }
 .home-main { }
 .home-main-logo {
-  width: min(180px, 42vw);
+  width: min(360px, 84vw);
   height: auto;
   display: block;
-  margin: 0 auto 10px;
+  margin: 0 auto 6px;
 }
 .home-bottom { margin-top: auto; padding-bottom: 24px; opacity: .8; }
 
@@ -785,7 +785,7 @@ select {
   .home-date-row { width: 100%; }
   .home-bottom { padding-bottom: 90px; opacity: .8; }
   .home-date-row .field-unified { flex: 1 1 auto; }
-  .home-main-logo { width: min(140px, 46vw); margin-bottom: 8px; }
+  .home-main-logo { width: min(280px, 72vw); margin-bottom: 6px; }
   .container { max-width: 100%; }
   .panel { width: 100%; }
   .summary { max-width: 100%; width: 100%; }
