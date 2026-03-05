@@ -160,10 +160,13 @@ export function GameProvider({ children }) {
     repairingMatchIdRef.current = true;
     async function repairQuickMatchId() {
       try {
-        const date = dateISO || todayISO();
+        const date = todayISO();
         let found = await findPendingQuickMatch(date, quickMatchNumber);
         if (!found) {
           found = await findLatestPendingQuick(date);
+        }
+        if (!found) {
+          found = await ensureQuickMatch(quickMatchNumber);
         }
         if (!active || !found?.id) return;
         setMatchId(found.id);

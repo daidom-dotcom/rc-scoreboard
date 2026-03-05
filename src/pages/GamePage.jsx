@@ -103,6 +103,15 @@ export default function GamePage() {
         if (!active) return;
         if (live && (live.match_id || live.match_no || live.team_a || live.team_b)) {
           applyLiveSnapshot(live);
+          if (live.mode === 'quick' && !live.match_id) {
+            const repairedMatchId = await ensureActiveQuickMatchId();
+            if (repairedMatchId) {
+              await supabase
+                .from('live_game')
+                .update({ match_id: repairedMatchId, updated_at: new Date().toISOString() })
+                .eq('id', 1);
+            }
+          }
           return;
         }
       } catch {
