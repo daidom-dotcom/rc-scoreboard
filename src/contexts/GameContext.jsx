@@ -154,6 +154,44 @@ export function GameProvider({ children }) {
     if (!canControlLive) return;
     if (mode !== 'quick') return;
     if (matchId) return;
+    // Pregame bootstrap: create/link quick match as soon as scoreboard lands on a new game.
+    // This allows check-ins before pressing PLAY.
+    const isPregameState =
+      !running &&
+      Number(totalSeconds || 0) === Number(settings.quickDurationSeconds || 0) &&
+      Number(scoreARef.current || 0) === 0 &&
+      Number(scoreBRef.current || 0) === 0;
+    if (!isPregameState) return;
+    let cancelled = false;
+    (async () => {
+      const ensured = await ensureQuickMatch(quickMatchNumber);
+      if (cancelled || !ensured?.id) return;
+      setMatchId(ensured.id);
+      currentMatchRef.current = ensured;
+      await updateLiveGame({
+        id: 1,
+        status: 'paused',
+        mode: 'quick',
+        match_id: ensured.id,
+        match_no: ensured.match_no || quickMatchNumber,
+        quarter: 1,
+        time_left: settings.quickDurationSeconds,
+        team_a: quickTeamA,
+        team_b: quickTeamB,
+        score_a: 0,
+        score_b: 0,
+        reset_at: null
+      }).catch(() => {});
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canControlLive, mode, matchId, running, totalSeconds, quickMatchNumber, settings.quickDurationSeconds, quickTeamA, quickTeamB]);
+
+  useEffect(() => {
+    if (!canControlLive) return;
+    if (mode !== 'quick') return;
+    if (matchId) return;
     if (!quickMatchNumber) return;
     if (repairingMatchIdRef.current) return;
     let active = true;
