@@ -675,18 +675,22 @@ export default function GamePage() {
   return (
     <div className="game">
       <div className="center" style={{ position: 'relative' }}>
-        <div className="game-title-center">{viewLabel}</div>
         <div className="game-main-row">
           <div className="game-logo-slot">
             <img src="/logo.png" alt="Logo Rachão dos Crias" className="game-logo-img" />
           </div>
-          <div id="timer" className={timerAlert ? 'timer-alert' : ''}>{formatTime(safeViewTime)}</div>
-          {canEdit ? (
-            <div id="controlesJogos">
-              <button className="btn-controle" onClick={play} disabled={!canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo)}>PLAY</button>
-              <button className="btn-controle" onClick={pause} disabled={!canEdit || !running}>STOP</button>
+          <div className="game-info-col">
+            <div className="game-title-center">{viewLabel}</div>
+            <div className="game-head">
+              <div id="timer" className={timerAlert ? 'timer-alert' : ''}>{formatTime(safeViewTime)}</div>
+              {canEdit ? (
+                <div id="controlesJogos">
+                  <button className="btn-controle" onClick={play} disabled={!canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo)}>PLAY</button>
+                  <button className="btn-controle" onClick={pause} disabled={!canEdit || !running}>STOP</button>
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </div>
         </div>
       </div>
 
