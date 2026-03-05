@@ -103,6 +103,51 @@ export default function GamePage() {
         if (!active) return;
         if (live && (live.match_id || live.match_no || live.team_a || live.team_b)) {
           applyLiveSnapshot(live);
+          // If live is pregame but bound to an old match with data, rotate to a fresh match_id.
+          if (
+            live.mode === 'quick'
+            && Number(live.time_left || 0) === Number(settings.quickDurationSeconds || 420)
+            && Number(live.score_a || 0) === 0
+            && Number(live.score_b || 0) === 0
+          ) {
+            let currentId = live.match_id || null;
+            if (!currentId) {
+              const repairedMatchId = await ensureActiveQuickMatchId();
+              currentId = repairedMatchId || null;
+            }
+            if (currentId) {
+              const [{ count: basketCount }, { count: checkinCount }] = await Promise.all([
+                supabase.from('basket_events').select('id', { count: 'exact', head: true }).eq('match_id', currentId),
+                supabase.from('player_entries').select('id', { count: 'exact', head: true }).eq('match_id', currentId)
+              ]);
+              if ((basketCount || 0) > 0 || (checkinCount || 0) > 0) {
+                const no = Number(live.match_no || quickMatchNumber || 1);
+                const today = todayISO();
+                const { data: fresh } = await supabase
+                  .from('matches')
+                  .insert({
+                    date_iso: today,
+                    mode: 'quick',
+                    team_a_name: live.team_a || 'Com Colete',
+                    team_b_name: live.team_b || 'Sem Colete',
+                    quarters: 1,
+                    durations: [Number(settings.quickDurationSeconds || 420)],
+                    status: 'pending',
+                    match_no: no
+                  })
+                  .select('id')
+                  .single();
+                if (fresh?.id) {
+                  await supabase
+                    .from('live_game')
+                    .update({ match_id: fresh.id, updated_at: new Date().toISOString() })
+                    .eq('id', 1);
+                  setBasketEvents([]);
+                  setTeamEntries({ A: [], B: [] });
+                }
+              }
+            }
+          }
           if (live.mode === 'quick' && !live.match_id) {
             const repairedMatchId = await ensureActiveQuickMatchId();
             if (repairedMatchId) {
@@ -739,17 +784,17 @@ export default function GamePage() {
               {canEdit ? (
                 <>
                   <span className="basket-tabbed-line">
-                    {`${idx + 1}. ${s.name}:\t${s.totalPoints} pontos 🏀\t(${s.one}) 1 ponto`}
+                    {`${idx + 1}. ${s.name}: ${s.totalPoints} pontos 🏀\t(${s.one}) 1 ponto`}
                   </span>
-                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>(x)</button>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>(remover)</button>
                   <span className="basket-tabbed-line">
                     {`\t(${s.two}) 2 pontos`}
                   </span>
-                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>(x)</button>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>(remover)</button>
                   <span className="basket-tabbed-line">
                     {`\t(${s.three}) 3 pontos`}
                   </span>
-                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>(x)</button>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>(remover)</button>
                 </>
               ) : (
                 <>
