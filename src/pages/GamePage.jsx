@@ -769,7 +769,7 @@ export default function GamePage() {
               ) : (
                 <>
                   <strong>{idx + 1}. {s.name}: {s.totalPoints} pontos</strong>
-                  {' - '}({s.one}) 1 ponto {'   '}| ({s.two}) 2 pontos {'   '}| ({s.three}) 3 pontos
+                  {' '}🏀{' '}| ({s.one}) 1 ponto | ({s.two}) 2 pontos | ({s.three}) 3 pontos
                 </>
               )}
             </div>

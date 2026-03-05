@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, deleteMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
@@ -703,6 +703,8 @@ export function GameProvider({ children }) {
     if (!resetDay && nextNo > 1) {
       await settlePreviousPendingQuick(date, nextNo);
     }
+    // Guarantee a fresh match_id per new quick match number.
+    await deletePendingQuickMatch(date, nextNo).catch(() => {});
     setQuickMatchNumber(nextNo);
     setMatchId(null);
     currentMatchRef.current = null;
