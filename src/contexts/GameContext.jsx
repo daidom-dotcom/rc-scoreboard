@@ -55,6 +55,7 @@ export function GameProvider({ children }) {
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
   const repairingMatchIdRef = useRef(false);
+  const freshPregameKeyRef = useRef('');
   async function ensureAudioReady() {
     try {
       if (!audioCtxRef.current) {
@@ -153,7 +154,6 @@ export function GameProvider({ children }) {
   useEffect(() => {
     if (!canControlLive) return;
     if (mode !== 'quick') return;
-    if (matchId) return;
     // Pregame bootstrap: create/link quick match as soon as scoreboard lands on a new game.
     // This allows check-ins before pressing PLAY.
     const isPregameState =
@@ -162,18 +162,32 @@ export function GameProvider({ children }) {
       Number(scoreARef.current || 0) === 0 &&
       Number(scoreBRef.current || 0) === 0;
     if (!isPregameState) return;
+    const date = todayISO();
+    const key = `${date}|${quickMatchNumber}`;
+    if (freshPregameKeyRef.current === key) return;
     let cancelled = false;
     (async () => {
-      const ensured = await ensureQuickMatch(quickMatchNumber);
-      if (cancelled || !ensured?.id) return;
-      setMatchId(ensured.id);
-      currentMatchRef.current = ensured;
+      await deletePendingQuickMatch(date, quickMatchNumber).catch(() => {});
+      const fresh = await createMatch({
+        date_iso: date,
+        mode: 'quick',
+        team_a_name: quickTeamA,
+        team_b_name: quickTeamB,
+        quarters: 1,
+        durations: [settings.quickDurationSeconds],
+        match_no: quickMatchNumber,
+        status: 'pending'
+      }).catch(() => null);
+      if (cancelled || !fresh?.id) return;
+      freshPregameKeyRef.current = key;
+      setMatchId(fresh.id);
+      currentMatchRef.current = fresh;
       await updateLiveGame({
         id: 1,
         status: 'paused',
         mode: 'quick',
-        match_id: ensured.id,
-        match_no: ensured.match_no || quickMatchNumber,
+        match_id: fresh.id,
+        match_no: fresh.match_no || quickMatchNumber,
         quarter: 1,
         time_left: settings.quickDurationSeconds,
         team_a: quickTeamA,
@@ -186,7 +200,7 @@ export function GameProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [canControlLive, mode, matchId, running, totalSeconds, quickMatchNumber, settings.quickDurationSeconds, quickTeamA, quickTeamB]);
+  }, [canControlLive, mode, running, totalSeconds, quickMatchNumber, settings.quickDurationSeconds, quickTeamA, quickTeamB]);
 
   useEffect(() => {
     if (!canControlLive) return;
