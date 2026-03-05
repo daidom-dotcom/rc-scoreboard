@@ -259,15 +259,6 @@ export default function GamePage() {
           .order('created_at', { ascending: false });
         data = byNo.data || [];
       }
-      if ((!data || data.length === 0) && liveModeForBasket === 'quick' && quickNoForBasket > 0) {
-        const byNoAnyDate = await supabase
-          .from('basket_events')
-          .select('id, player_name, points, created_at')
-          .eq('mode', 'quick')
-          .eq('match_no', quickNoForBasket)
-          .order('created_at', { ascending: false });
-        data = byNoAnyDate.data || [];
-      }
       if (active) {
         setBasketEvents(data || []);
       }
@@ -761,9 +752,20 @@ export default function GamePage() {
           basketStats.map((s, idx) => (
             <div className="basket-stats-item" key={s.name}>
               {canEdit ? (
-                <span className="basket-tabbed-line">
-                  {`${idx + 1}. ${s.name}: ${s.totalPoints} pontos\t(${s.one}) 1 ponto | (${s.two}) 2 pontos\t(${s.three}) 3 pontos`}
-                </span>
+                <>
+                  <span className="basket-tabbed-line">
+                    {`${idx + 1}. ${s.name}:\t${s.totalPoints} pontos 🏀\t(${s.one}) 1 ponto`}
+                  </span>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>(x)</button>
+                  <span className="basket-tabbed-line">
+                    {`\t(${s.two}) 2 pontos`}
+                  </span>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>(x)</button>
+                  <span className="basket-tabbed-line">
+                    {`\t(${s.three}) 3 pontos`}
+                  </span>
+                  <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>(x)</button>
+                </>
               ) : (
                 <>
                   <strong>{idx + 1}. {s.name}: {s.totalPoints} pontos</strong>
