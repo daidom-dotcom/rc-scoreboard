@@ -231,34 +231,19 @@ export default function GamePage() {
   useEffect(() => {
     let active = true;
     async function loadBasketEvents() {
-      const liveModeForBasket = liveView?.mode || lastGoodLiveRef.current?.mode || mode;
       let currentMatchId = canEdit
         ? (matchId || liveView?.match_id || lastGoodLiveRef.current?.match_id)
         : (liveView?.match_id || lastGoodLiveRef.current?.match_id || matchId);
-      const quickNoForBasket = Number(liveView?.match_no || lastGoodLiveRef.current?.match_no || quickMatchNumber || 0);
-      const basketDate = canEdit ? (dateISO || todayISO()) : todayISO();
-      if (!currentMatchId && liveModeForBasket === 'quick') {
-        currentMatchId = await resolveActiveQuickMatchId();
+      if (!currentMatchId) {
+        if (active) setBasketEvents([]);
+        return;
       }
-      let data = null;
-      if (currentMatchId) {
-        const byMatch = await supabase
-          .from('basket_events')
-          .select('id, player_name, points, created_at')
-          .eq('match_id', currentMatchId)
-          .order('created_at', { ascending: false });
-        data = byMatch.data || [];
-      }
-      if ((!data || data.length === 0) && liveModeForBasket === 'quick' && quickNoForBasket > 0) {
-        const byNo = await supabase
-          .from('basket_events')
-          .select('id, player_name, points, created_at')
-          .eq('mode', 'quick')
-          .eq('match_no', quickNoForBasket)
-          .eq('date_iso', basketDate)
-          .order('created_at', { ascending: false });
-        data = byNo.data || [];
-      }
+      const byMatch = await supabase
+        .from('basket_events')
+        .select('id, player_name, points, created_at')
+        .eq('match_id', currentMatchId)
+        .order('created_at', { ascending: false });
+      const data = byMatch.data || [];
       if (active) {
         setBasketEvents(data || []);
       }
