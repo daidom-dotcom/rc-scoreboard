@@ -60,6 +60,7 @@ export default function HomePage() {
   return (
     <div className="center home-wrapper">
       <div className="home-main">
+      <img src="/logo.png" alt="Logo Rachão dos Crias" className="home-main-logo" />
       <h1 className="title-small">Rachão dos Crias</h1>
       <h1 className="title-big">Scoreboard</h1>
 
