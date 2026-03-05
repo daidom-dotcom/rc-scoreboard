@@ -71,6 +71,8 @@ export function GameProvider({ children }) {
   function pushLiveGame(payload) {
     if (!canControlLive) return Promise.resolve(null);
     if (remoteResetRef.current) return Promise.resolve(null);
+    // Never overwrite quick live with null match_id.
+    if (payload?.mode === 'quick' && !payload?.match_id) return Promise.resolve(null);
     return upsertLiveGame(payload).catch(() => {});
   }
 
@@ -131,6 +133,7 @@ export function GameProvider({ children }) {
 
   useEffect(() => {
     if (mode !== 'quick') return;
+    if (!matchId) return;
     pushLiveGame({
       id: 1,
       status: running ? 'running' : 'paused',
@@ -476,7 +479,7 @@ export function GameProvider({ children }) {
     });
   }
 
-  function play() {
+  async function play() {
     if (!canControlLive) return;
     if (totalSeconds === 0 && ajusteFinalAtivo) return;
     if (remoteResetRef.current) {
@@ -486,12 +489,16 @@ export function GameProvider({ children }) {
     setRunning(true);
     // Unlock audio on user gesture to guarantee alarm playback.
     ensureAudioReady().catch(() => {});
-    if (mode === 'quick') ensureQuickMatch();
+    let ensuredQuick = null;
+    if (mode === 'quick') {
+      ensuredQuick = await ensureQuickMatch();
+      if (!ensuredQuick?.id && !matchId) return;
+    }
     pushLiveGame({
       id: 1,
       status: 'running',
       mode,
-      match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
+      match_id: mode === 'tournament' ? currentMatchRef.current?.id : (ensuredQuick?.id || matchId),
       match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
       quarter: quarterIndex + 1,
       time_left: totalSeconds,
@@ -506,6 +513,7 @@ export function GameProvider({ children }) {
   function pause() {
     if (!canControlLive) return;
     if (remoteResetRef.current) return;
+    if (mode === 'quick' && !matchId) return;
     setRunning(false);
     pushLiveGame({
       id: 1,
@@ -696,9 +704,10 @@ export function GameProvider({ children }) {
     setMatchId(null);
     currentMatchRef.current = null;
     const nextMatch = await ensureQuickMatch(nextNo);
+    if (!nextMatch?.id) return;
     updateLiveGame({
       status: 'paused',
-      match_id: nextMatch?.id || null,
+      match_id: nextMatch.id,
       match_no: nextNo,
       time_left: settings.quickDurationSeconds,
       score_a: 0,
