@@ -8,10 +8,10 @@ import { formatDateBR, todayISO } from '../utils/time';
 import SelectField from '../components/SelectField';
 
 export default function CheckInPage() {
-  const { dateISO: gameDateISO, showAlert } = useGame();
+  const { showAlert } = useGame();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const [dateISO, setDateISO] = useState(gameDateISO || todayISO());
+  const [dateISO, setDateISO] = useState(todayISO());
   const [matches, setMatches] = useState([]);
   const [matchId, setMatchId] = useState('');
   const [teamSide, setTeamSide] = useState('A');
@@ -24,10 +24,6 @@ export default function CheckInPage() {
     loadMatches();
     loadEntries();
   }, [dateISO, onlyToday]);
-
-  useEffect(() => {
-    if (gameDateISO) setDateISO(gameDateISO);
-  }, [gameDateISO]);
 
   const orderedMatches = useMemo(() => {
     const list = [...matches];
@@ -66,67 +62,78 @@ export default function CheckInPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const qDate = params.get('date');
-    if (qDate) setDateISO(qDate);
-  }, [location.search]);
+    if (qDate && !onlyToday) setDateISO(qDate);
+  }, [location.search, onlyToday]);
+
+  async function resolveLiveMatch(live, targetDate) {
+    if (!live) return null;
+    if (live.match_id) {
+      const { data } = await supabase
+        .from('matches')
+        .select('*, match_results(*)')
+        .eq('id', live.match_id)
+        .maybeSingle();
+      if (data) {
+        return {
+          ...data,
+          match_results: data.match_results && !Array.isArray(data.match_results)
+            ? [data.match_results]
+            : (data.match_results || [])
+        };
+      }
+    }
+    if (live.mode !== 'quick' || !live.match_no) return null;
+    const matchNo = Number(live.match_no);
+    const { data: byNoDate } = await supabase
+      .from('matches')
+      .select('*, match_results(*)')
+      .eq('mode', 'quick')
+      .eq('match_no', matchNo)
+      .eq('date_iso', targetDate)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (byNoDate) {
+      return {
+        ...byNoDate,
+        match_results: byNoDate.match_results && !Array.isArray(byNoDate.match_results)
+          ? [byNoDate.match_results]
+          : (byNoDate.match_results || [])
+      };
+    }
+    const { data: created, error: createErr } = await supabase
+      .from('matches')
+      .insert({
+        date_iso: targetDate,
+        mode: 'quick',
+        team_a_name: live.team_a || 'Com Colete',
+        team_b_name: live.team_b || 'Sem Colete',
+        quarters: 1,
+        durations: [420],
+        status: live.status === 'ended' ? 'done' : 'pending',
+        match_no: matchNo
+      })
+      .select('*, match_results(*)')
+      .single();
+    if (createErr || !created) return null;
+    await supabase
+      .from('live_game')
+      .update({ match_id: created.id, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    return {
+      ...created,
+      match_results: created.match_results && !Array.isArray(created.match_results)
+        ? [created.match_results]
+        : (created.match_results || [])
+    };
+  }
 
   async function loadMatches() {
     setLoading(true);
     try {
       const live = await fetchLiveGame().catch(() => null);
-      let liveMatch = null;
-      if (live?.match_id) {
-        const { data } = await supabase
-          .from('matches')
-          .select('*, match_results(*)')
-          .eq('id', live.match_id)
-          .maybeSingle();
-        if (data) {
-          liveMatch = {
-            ...data,
-            match_results: data.match_results && !Array.isArray(data.match_results)
-              ? [data.match_results]
-              : (data.match_results || [])
-          };
-        }
-      }
-      // Legacy safety: live_game may have match_no but null match_id.
-      if (!liveMatch && live?.mode === 'quick' && live?.match_no) {
-        const preferredDate = gameDateISO || dateISO || todayISO();
-        let fallbackMatch = null;
-        const { data: byDate } = await supabase
-          .from('matches')
-          .select('*, match_results(*)')
-          .eq('mode', 'quick')
-          .eq('match_no', Number(live.match_no))
-          .eq('date_iso', preferredDate)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        fallbackMatch = byDate || null;
-        if (!fallbackMatch) {
-          const { data: byNo } = await supabase
-            .from('matches')
-            .select('*, match_results(*)')
-            .eq('mode', 'quick')
-            .eq('match_no', Number(live.match_no))
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          fallbackMatch = byNo || null;
-        }
-        if (fallbackMatch) {
-          liveMatch = {
-            ...fallbackMatch,
-            match_results: fallbackMatch.match_results && !Array.isArray(fallbackMatch.match_results)
-              ? [fallbackMatch.match_results]
-              : (fallbackMatch.match_results || [])
-          };
-        }
-      }
-
-      const targetDate = onlyToday
-        ? (liveMatch?.date_iso || gameDateISO || dateISO || todayISO())
-        : dateISO;
+      const targetDate = onlyToday ? todayISO() : dateISO;
+      const liveMatch = await resolveLiveMatch(live, targetDate);
       const data = await fetchMatchesByDate(targetDate);
       let merged = [...(data || [])];
 
@@ -138,7 +145,7 @@ export default function CheckInPage() {
 
       setMatches(merged);
       if (liveMatch?.id) {
-        setDateISO(liveMatch.date_iso);
+        setDateISO(targetDate);
         setMatchId(liveMatch.id);
       } else if (merged.length && !matchId) {
         setMatchId(merged[0].id);
@@ -152,7 +159,7 @@ export default function CheckInPage() {
 
   async function loadEntries() {
     if (!user?.id || !dateISO) return;
-    const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
+    const targetDate = onlyToday ? todayISO() : dateISO;
     const { data, error } = await supabase
       .from('player_entries')
       .select('id, team_side, match_id, matches(id, match_no, team_a_name, team_b_name, date_iso)')
@@ -168,17 +175,23 @@ export default function CheckInPage() {
       showAlert('Você precisa estar logado para fazer check-in.');
       return;
     }
-    if (!matchId) {
+    const targetDate = onlyToday ? todayISO() : dateISO;
+    let effectiveMatchId = matchId;
+    if (!effectiveMatchId) {
+      const live = await fetchLiveGame().catch(() => null);
+      const liveMatch = await resolveLiveMatch(live, targetDate);
+      effectiveMatchId = liveMatch?.id || '';
+      if (effectiveMatchId) setMatchId(effectiveMatchId);
+    }
+    if (!effectiveMatchId) {
       showAlert('Informe a partida.');
       return;
     }
-
-    const targetDate = onlyToday ? (gameDateISO || dateISO || todayISO()) : dateISO;
     try {
       const { error } = await supabase
         .from('player_entries')
         .upsert({
-          match_id: matchId,
+          match_id: effectiveMatchId,
           user_id: user.id,
           player_name: profile?.full_name || user.email,
           team_side: teamSide,

@@ -751,10 +751,16 @@ export default function GamePage() {
         ) : (
           basketStats.map((s, idx) => (
             <div className="basket-stats-item" key={s.name}>
-              {idx + 1}. {s.name} - ({s.one}) 1 ponto {canEdit ? <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>(x)</button> : null}
-              {'   '}| ({s.two}) 2 pontos {canEdit ? <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>(x)</button> : null}
-              {'   '}| ({s.three}) 3 pontos {canEdit ? <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>(x)</button> : null}
-              {'   '}| {s.totalPoints} pts
+              {canEdit ? (
+                <span className="basket-tabbed-line">
+                  {`${idx + 1}. ${s.name}: ${s.totalPoints} pontos\t(${s.one}) 1 ponto | (${s.two}) 2 pontos\t(${s.three}) 3 pontos`}
+                </span>
+              ) : (
+                <>
+                  <strong>{idx + 1}. {s.name}: {s.totalPoints} pontos</strong>
+                  {' - '}({s.one}) 1 ponto {'   '}| ({s.two}) 2 pontos {'   '}| ({s.three}) 3 pontos
+                </>
+              )}
             </div>
           ))
         )}

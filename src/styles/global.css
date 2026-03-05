@@ -483,6 +483,9 @@ select {
   font-weight: 800;
   line-height: 1.5;
 }
+.basket-tabbed-line {
+  white-space: pre-wrap;
+}
 .basket-del-btn {
   border: none;
   background: transparent;
