@@ -393,7 +393,19 @@ select {
 .qtag { font-weight: 1000; text-transform: uppercase; letter-spacing: 1px; opacity: .95; width: 160px; }
 .qinputs { display: flex; gap: 10px; align-items: center; }
 
-.game .topBar { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 0 14px; margin-top: 0; flex-wrap: nowrap; }
+.game-title-center {
+  font-size: 36px;
+  font-weight: 900;
+  text-shadow: 0 0 15px var(--verde);
+  margin-bottom: 8px;
+}
+.game-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
 .game-head {
   display: flex;
   align-items: center;
@@ -770,6 +782,8 @@ select {
   .nav { order: 3; width: 100%; justify-content: center; flex-wrap: wrap; gap: 4px; }
   .nav-link { font-size: 12px; height: 28px; padding: 4px 8px; }
   .auth .btn-outline, .btn-ghost { height: 28px; font-size: 12px; padding: 4px 8px; }
+  .game-title-center { font-size: 28px; margin-bottom: 6px; }
+  .game-main-row { flex-direction: column; gap: 10px; }
   .game-head { flex-direction: column; gap: 10px; }
   .game-logo-slot { width: min(260px, 78vw); min-width: 0; }
   #timer { font-size: calc(86px * var(--timer-scale)); }
