@@ -55,6 +55,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(false);
   const [showMine, setShowMine] = useState(false);
   const [userEntriesMap, setUserEntriesMap] = useState(new Map());
+  const [userBasketMap, setUserBasketMap] = useState(new Map());
   const { isMaster, user, profile } = useAuth();
 
   const location = useLocation();
@@ -84,6 +85,7 @@ export default function HistoryPage() {
     if (!user) {
       setShowMine(false);
       setUserEntriesMap(new Map());
+      setUserBasketMap(new Map());
     }
   }, [user]);
 
@@ -134,6 +136,7 @@ export default function HistoryPage() {
       await ensureResultsLoaded(data);
       if (showMine && user?.id) {
         await loadUserMatchIds(normalizeDate(targetDate), normalizeDate(targetDate));
+        await loadUserBasketContrib(data);
       }
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar histórico');
@@ -155,6 +158,7 @@ export default function HistoryPage() {
       await ensureResultsLoaded(data);
       if (showMine && user?.id) {
         await loadUserMatchIds(normalizeDate(dateISO), normalizeDate(dateTo));
+        await loadUserBasketContrib(data);
       }
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar histórico');
@@ -168,9 +172,51 @@ export default function HistoryPage() {
     setShowMine(mine);
     if (mine && user?.id) {
       await loadUserMatchIds(normalizeDate(dateISO), normalizeDate(dateTo));
+      await loadUserBasketContrib(rows);
     } else {
       setUserEntriesMap(new Map());
+      setUserBasketMap(new Map());
     }
+  }
+
+  async function loadUserBasketContrib(matchRows) {
+    if (!user?.id) return;
+    const ids = (matchRows || []).map((m) => m.id).filter(Boolean);
+    if (!ids.length) {
+      setUserBasketMap(new Map());
+      return;
+    }
+    const fullName = String(profile?.full_name || '').trim();
+    const firstName = fullName ? fullName.split(/\s+/)[0] : '';
+    const emailName = String(user?.email || '').split('@')[0] || '';
+    const aliases = new Set(
+      [fullName, firstName, emailName]
+        .map((s) => String(s || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+    if (!aliases.size) {
+      setUserBasketMap(new Map());
+      return;
+    }
+    const { data, error } = await supabase
+      .from('basket_events')
+      .select('match_id,player_name,points')
+      .in('match_id', ids);
+    if (error) {
+      setUserBasketMap(new Map());
+      return;
+    }
+    const map = new Map();
+    (data || []).forEach((e) => {
+      const player = String(e.player_name || '').trim().toLowerCase();
+      if (!aliases.has(player)) return;
+      const current = map.get(e.match_id) || { baskets1: 0, baskets2: 0, baskets3: 0 };
+      if (Number(e.points) === 1) current.baskets1 += 1;
+      if (Number(e.points) === 2) current.baskets2 += 1;
+      if (Number(e.points) === 3) current.baskets3 += 1;
+      map.set(e.match_id, current);
+    });
+    setUserBasketMap(map);
   }
 
   async function loadUserMatchIds(dateFrom, dateEnd) {
@@ -250,10 +296,10 @@ export default function HistoryPage() {
       team_b_name: m.team_b_name,
       score_a: m.match_results[0].score_a,
       score_b: m.match_results[0].score_b,
-      baskets1: m.match_results[0].baskets1,
-      baskets2: m.match_results[0].baskets2,
-      baskets3: m.match_results[0].baskets3
-    })), [visibleRows]);
+      baskets1: (showMine && user?.id) ? (userBasketMap.get(m.id)?.baskets1 || 0) : m.match_results[0].baskets1,
+      baskets2: (showMine && user?.id) ? (userBasketMap.get(m.id)?.baskets2 || 0) : m.match_results[0].baskets2,
+      baskets3: (showMine && user?.id) ? (userBasketMap.get(m.id)?.baskets3 || 0) : m.match_results[0].baskets3
+    })), [visibleRows, showMine, user?.id, userBasketMap]);
 
   const userStats = useMemo(() => {
     if (!showMine || !user?.id) return null;
