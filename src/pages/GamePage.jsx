@@ -101,7 +101,14 @@ export default function GamePage() {
       try {
         const live = await fetchLiveGame();
         if (!active) return;
-        if (live && (live.match_id || live.match_no || live.team_a || live.team_b)) {
+        const hasLivePayload = !!(live && (live.match_id || live.match_no || live.team_a || live.team_b));
+        const defaultQuickSeconds = Number(settings.quickDurationSeconds || 420);
+        const liveQuickSeconds = Number(live?.time_left || 0);
+        const quickInProgress = !!live && live.mode === 'quick' && liveQuickSeconds > 0 && liveQuickSeconds < defaultQuickSeconds;
+        const shouldRestoreLive = !!live && (
+          (live.mode === 'quick' ? quickInProgress : true)
+        );
+        if (hasLivePayload && shouldRestoreLive) {
           applyLiveSnapshot(live);
           // If live is pregame but bound to an old match with data, rotate to a fresh match_id.
           if (

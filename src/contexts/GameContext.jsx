@@ -182,7 +182,12 @@ export function GameProvider({ children }) {
       freshPregameKeyRef.current = key;
       setMatchId(fresh.id);
       currentMatchRef.current = fresh;
-      await updateLiveGame({
+      await supabase
+        .from('live_game')
+        .delete()
+        .eq('id', 1)
+        .catch(() => {});
+      await upsertLiveGame({
         id: 1,
         status: 'paused',
         mode: 'quick',
