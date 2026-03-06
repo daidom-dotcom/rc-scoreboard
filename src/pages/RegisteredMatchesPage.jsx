@@ -151,6 +151,52 @@ export default function RegisteredMatchesPage() {
     }
   }
 
+  async function removeDay(dateISO) {
+    const ok = await askConfirm(`Excluir toda a atividade de ${formatDateBR(dateISO)}?`);
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const { data: dayMatches, error: matchErr } = await supabase
+        .from('matches')
+        .select('id')
+        .eq('date_iso', dateISO);
+      if (matchErr) throw matchErr;
+      const ids = (dayMatches || []).map((m) => m.id).filter(Boolean);
+
+      if (ids.length) {
+        await supabase.from('basket_events').delete().in('match_id', ids);
+        await supabase.from('player_entries').delete().in('match_id', ids);
+        await supabase.from('match_results').delete().in('match_id', ids);
+      }
+
+      await supabase.from('player_entries').delete().eq('date_iso', dateISO).is('match_id', null);
+      const { error: delMatchesErr } = await supabase.from('matches').delete().eq('date_iso', dateISO);
+      if (delMatchesErr) throw delMatchesErr;
+
+      const { data: live } = await supabase.from('live_game').select('id,match_id').eq('id', 1).maybeSingle();
+      if (live?.id && live.match_id && ids.includes(live.match_id)) {
+        await supabase.from('live_game').update({
+          status: 'ended',
+          mode: 'quick',
+          match_id: null,
+          match_no: 1,
+          quarter: 1,
+          time_left: 0,
+          team_a: '',
+          team_b: '',
+          score_a: 0,
+          score_b: 0,
+          updated_at: new Date().toISOString()
+        }).eq('id', 1);
+      }
+
+      await loadAll();
+    } catch (err) {
+      showAlert(err.message || 'Erro ao excluir atividade do dia.');
+      setLoading(false);
+    }
+  }
+
   if (!isMaster) {
     return (
       <div className="panel">
@@ -169,8 +215,23 @@ export default function RegisteredMatchesPage() {
       ) : null}
 
       {groupedByDate.map(([dateISO, dateMatches]) => (
-        <details className="registered-date-block" key={dateISO} open>
-          <summary className="registered-date-title">{formatDateBR(dateISO)} ({dateMatches.length})</summary>
+        <details className="registered-date-block" key={dateISO}>
+          <summary className="registered-date-title">
+            <div className="registered-date-head">
+              <span>{formatDateBR(dateISO)} ({dateMatches.length})</span>
+              <button
+                type="button"
+                className="btn-outline btn-small"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  removeDay(dateISO);
+                }}
+              >
+                Excluir dia
+              </button>
+            </div>
+          </summary>
           <div className="registered-date-list">
             {dateMatches.map((m) => {
               const entries = entriesByMatch.get(m.id) || [];
@@ -240,4 +301,3 @@ export default function RegisteredMatchesPage() {
     </div>
   );
 }
-
