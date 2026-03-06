@@ -253,6 +253,71 @@ select {
 .users-filters label { display: flex; gap: 8px; align-items: center; font-weight: 900; }
 .checkin-table .users-row { grid-template-columns: 1fr 1fr 90px; }
 .cell-label { display: none; }
+.registered-date-block {
+  margin-top: 10px;
+  border: 2px solid rgba(180,240,0,.24);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(180,240,0,.02);
+}
+.registered-date-title {
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 14px;
+}
+.registered-date-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+.registered-match-card {
+  border: 1px solid rgba(180,240,0,.26);
+  border-radius: 10px;
+  padding: 8px;
+}
+.registered-match-head {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.registered-match-title {
+  font-weight: 900;
+  font-size: 13px;
+}
+.registered-match-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  opacity: .9;
+}
+.registered-section {
+  margin-top: 8px;
+}
+.registered-subtitle {
+  font-size: 12px;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+.registered-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.registered-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid rgba(180,240,0,.2);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
 
 @media (max-width: 900px) {
   .users-head { display: none; }
@@ -260,6 +325,10 @@ select {
   .users-row .cell { display: flex; flex-direction: column; gap: 4px; }
   .cell-label { display: block; font-size: 10px; opacity: .6; text-transform: uppercase; letter-spacing: 1px; }
   .user-role-col { flex-direction: row; align-items: center; gap: 10px; }
+  .registered-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 .history-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .history-toggle { display: flex; align-items: center; gap: 12px; }

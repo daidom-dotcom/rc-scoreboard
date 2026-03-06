@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useGame } from '../contexts/GameContext';
 import ManageUsersPage from './ManageUsersPage';
+import RegisteredMatchesPage from './RegisteredMatchesPage';
 import { supabase } from '../lib/supabase';
 
 export default function SettingsPage() {
@@ -65,6 +66,7 @@ export default function SettingsPage() {
       <div className="panel tabs">
         <button className={`btn-outline ${tab === 'quick' ? 'active' : ''}`} onClick={() => setTab('quick')}>Jogo Rápido</button>
         <button className={`btn-outline ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>Usuários</button>
+        <button className={`btn-outline ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>Partidas cadastradas</button>
       </div>
 
       {tab === 'quick' ? (
@@ -96,8 +98,10 @@ export default function SettingsPage() {
             <button className="btn-outline" onClick={resetToday}>Resetar dia atual</button>
           </div>
         </div>
-      ) : (
+      ) : tab === 'users' ? (
         <ManageUsersPage />
+      ) : (
+        <RegisteredMatchesPage />
       )}
     </div>
   );
