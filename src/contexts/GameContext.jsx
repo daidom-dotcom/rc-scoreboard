@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, sendMatchSummaryEmail, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatTime, todayISO } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
@@ -718,12 +718,13 @@ export function GameProvider({ children }) {
       const closingMatchNo = quickMatchNumber;
 
       if (hasNonZeroScore) {
-        await saveQuickMatch(ensuredMatch?.id || null, {
+        const savedMatchId = await saveQuickMatch(ensuredMatch?.id || null, {
           scoreA: snapshotScoreA,
           scoreB: snapshotScoreB,
           basketsA: basketsARef.current,
           basketsB: basketsBRef.current
         });
+        await trySendSummaryEmail(savedMatchId);
       } else if (matchId) {
         // 0x0 should not pollute history/results: discard the open quick match.
         await deleteMatch(matchId);
@@ -755,7 +756,9 @@ export function GameProvider({ children }) {
       ? 1
       : await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
     const localNext = forcedNextNo || (quickMatchNumber + 1);
-    const nextNo = resetDay ? 1 : Math.max(localNext, dbNext);
+    // When a match has just been finalized, trust the explicit n+1 to avoid
+    // jumping to n+2 if a temporary pending row was already observed.
+    const nextNo = resetDay ? 1 : (forcedNextNo || Math.max(localNext, dbNext));
     const date = dateISO || todayISO();
     if (!resetDay && nextNo > 1) {
       await settlePreviousPendingQuick(date, nextNo);
@@ -813,9 +816,20 @@ export function GameProvider({ children }) {
       });
 
       await updateMatch(id, { status: 'done', match_no: quickMatchNumber });
+      return id;
     } catch (err) {
       setLastError(err);
       throw err;
+    }
+  }
+
+  async function trySendSummaryEmail(matchIdToSend) {
+    if (!matchIdToSend) return;
+    try {
+      await sendMatchSummaryEmail(matchIdToSend);
+    } catch (err) {
+      setLastError(err);
+      showAlert('Partida salva, mas o email não foi enviado.');
     }
   }
 
@@ -933,6 +947,7 @@ export function GameProvider({ children }) {
         finished_at: new Date().toISOString()
       });
       await updateMatch(match.id, { status: 'done' });
+      await trySendSummaryEmail(match.id);
 
       pushLiveGame({
         id: 1,
@@ -963,12 +978,13 @@ export function GameProvider({ children }) {
     if (mode === 'quick') {
       try {
         const ensuredMatch = matchId ? null : await ensureQuickMatch(quickMatchNumber);
-        await saveQuickMatch(ensuredMatch?.id || null, {
+        const savedMatchId = await saveQuickMatch(ensuredMatch?.id || null, {
           scoreA: Number(scoreARef.current || 0),
           scoreB: Number(scoreBRef.current || 0),
           basketsA: basketsARef.current,
           basketsB: basketsBRef.current
         });
+        await trySendSummaryEmail(savedMatchId);
       } catch (err) {
         setLastError(err);
         showAlert(err.message || 'Erro ao salvar partida.');

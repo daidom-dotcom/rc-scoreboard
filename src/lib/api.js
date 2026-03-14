@@ -255,6 +255,14 @@ export async function fetchLiveControlLock() {
   return data || null;
 }
 
+export async function sendMatchSummaryEmail(matchId) {
+  const { data, error } = await supabase.functions.invoke('send-match-summary', {
+    body: { matchId }
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function ensureLiveControlLockRow() {
   const { error } = await supabase
     .from('live_control_lock')
