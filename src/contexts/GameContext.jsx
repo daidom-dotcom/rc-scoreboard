@@ -829,7 +829,6 @@ export function GameProvider({ children }) {
       await sendMatchSummaryEmail(matchIdToSend);
     } catch (err) {
       setLastError(err);
-      showAlert('Partida salva, mas o email não foi enviado.');
     }
   }
 

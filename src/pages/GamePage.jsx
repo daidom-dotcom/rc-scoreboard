@@ -671,6 +671,7 @@ export default function GamePage() {
 
 
   const enablePoints = running || ajusteFinalAtivo;
+  const fmtBasketCount = (value) => String(Number(value || 0)).padStart(2, '0');
 
   return (
     <div className="game">
@@ -798,19 +799,19 @@ export default function GamePage() {
               {canEdit ? (
                 <>
                   <span className="basket-tabbed-line">
-                    {`${idx + 1}. ${s.name}: ${s.totalPoints} pontos 🏀\t(${s.one}) 1 ponto`}
+                    {`${idx + 1}. ${s.name}: ${s.totalPoints} pontos 🏀\t(${fmtBasketCount(s.one)}) 1 ponto`}
                   </span>
                   {s.name !== 'Outros' ? (
                     <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 1)}>❌</button>
                   ) : null}
                   <span className="basket-tabbed-line">
-                    {`\t(${s.two}) 2 pontos`}
+                    {`\t(${fmtBasketCount(s.two)}) 2 pontos`}
                   </span>
                   {s.name !== 'Outros' ? (
                     <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 2)}>❌</button>
                   ) : null}
                   <span className="basket-tabbed-line">
-                    {`\t(${s.three}) 3 pontos`}
+                    {`\t(${fmtBasketCount(s.three)}) 3 pontos`}
                   </span>
                   {s.name !== 'Outros' ? (
                     <button className="basket-del-btn" onClick={() => removeBasketByPlayerAndType(s.name, 3)}>❌</button>
@@ -819,7 +820,7 @@ export default function GamePage() {
               ) : (
                 <>
                   <strong>{idx + 1}. {s.name}: {s.totalPoints} pontos</strong>
-                  {' '}🏀{' '}| ({s.one}) 1 ponto | ({s.two}) 2 pontos | ({s.three}) 3 pontos
+                  {' '}🏀{' '}| ({fmtBasketCount(s.one)}) 1 ponto | ({fmtBasketCount(s.two)}) 2 pontos | ({fmtBasketCount(s.three)}) 3 pontos
                 </>
               )}
             </div>
