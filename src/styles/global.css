@@ -531,7 +531,7 @@ select {
   border: 2px solid var(--verde);
   border-radius: 10px;
   display: flex;
-  padding: 56px 20px 20px;
+  padding: 84px 20px 20px;
   min-width: 280px;
   position: relative;
   align-items: center;
@@ -539,12 +539,13 @@ select {
   height: calc(320px + (var(--score-scale) - 1) * 150px);
 }
 
-.nome { font-size: 26px; position: absolute; top: 10px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.05; }
+.nome { font-size: 26px; position: absolute; top: 12px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.05; }
 .nome-btn { border: none; background: transparent; color: var(--verde); cursor: default; pointer-events: none; z-index: 5; transition: opacity .2s ease; display: inline-block; }
 .nome-btn.interactive { cursor: pointer; pointer-events: auto; }
 .nome-btn.faded { opacity: .28; }
 .placar .frame:first-child .nome { text-align: right; padding: 0 12px; width: 58%; right: 8px; left: auto; }
 .placar .frame:last-child .nome { text-align: left; padding: 0 12px; width: 58%; left: 8px; right: auto; }
+.pontos { margin-top: 8px; }
 .placar-checkins {
   position: absolute;
   bottom: 2px;

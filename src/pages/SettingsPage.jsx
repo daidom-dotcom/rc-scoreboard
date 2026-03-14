@@ -3,6 +3,7 @@ import { useGame } from '../contexts/GameContext';
 import ManageUsersPage from './ManageUsersPage';
 import RegisteredMatchesPage from './RegisteredMatchesPage';
 import { supabase } from '../lib/supabase';
+import { todayISOInSaoPaulo } from '../utils/time';
 
 export default function SettingsPage() {
   const { settings, setSettings, showAlert, askConfirm, dateISO, applyRemoteReset } = useGame();
@@ -31,13 +32,15 @@ export default function SettingsPage() {
     const ok = await askConfirm('Deseja apagar todas as partidas e check-ins de hoje?');
     if (!ok) return;
     try {
-      await supabase.from('player_entries').delete().eq('date_iso', dateISO);
-      const { data: matchRows } = await supabase.from('matches').select('id').eq('date_iso', dateISO);
+      const dayISO = todayISOInSaoPaulo();
+      await supabase.from('player_entries').delete().eq('date_iso', dayISO);
+      const { data: matchRows } = await supabase.from('matches').select('id').eq('date_iso', dayISO);
       const ids = (matchRows || []).map((m) => m.id);
       if (ids.length) {
+        await supabase.from('basket_events').delete().in('match_id', ids);
         await supabase.from('match_results').delete().in('match_id', ids);
       }
-      await supabase.from('matches').delete().eq('date_iso', dateISO);
+      await supabase.from('matches').delete().eq('date_iso', dayISO);
       await supabase.from('live_game').upsert({
         id: 1,
         status: 'ended',

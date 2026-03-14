@@ -12,6 +12,16 @@ export function todayISO() {
   return `${y}-${m}-${day}`;
 }
 
+export function todayISOInSaoPaulo() {
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+  return parts;
+}
+
 export function formatDateBR(iso) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
