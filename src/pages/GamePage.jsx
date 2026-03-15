@@ -35,7 +35,9 @@ export default function GamePage() {
     endLiveGame,
     dateISO,
     clearGameState,
-    applyLiveSnapshot
+    applyLiveSnapshot,
+    debugTrail,
+    logDebug
   } = useGame();
 
   const navigate = useNavigate();
@@ -95,6 +97,7 @@ export default function GamePage() {
     let active = true;
     async function bootstrapScoreboard() {
       const today = todayISOInSaoPaulo();
+      logDebug('GamePage.bootstrap.begin', { today, dateISO });
       if (dateISO !== today) {
         setDateISO(today);
       }
@@ -109,16 +112,25 @@ export default function GamePage() {
           (live.mode === 'quick' ? quickInProgress : true)
         );
         if (hasLivePayload && shouldRestoreLive) {
+          logDebug('GamePage.bootstrap.restoreLive', {
+            mode: live.mode,
+            match_id: live.match_id,
+            match_no: live.match_no,
+            time_left: live.time_left
+          });
           applyLiveSnapshot(live);
           return;
         }
       } catch {
+        logDebug('GamePage.bootstrap.liveFetchFailed');
         // fallback inicia quick padrão
       }
       if (active) {
         try {
           await startQuick();
+          logDebug('GamePage.bootstrap.startedQuick');
         } catch {
+          logDebug('GamePage.bootstrap.startQuickFailed');
           // deixa a tela viva, mas sem quebrar a montagem
         }
       }
@@ -350,6 +362,7 @@ export default function GamePage() {
     if (!isRapidMode) return;
     const currentMatchId = await resolveActiveQuickMatchId();
     if (!currentMatchId) {
+      logDebug('toggleMyTeam.noMatch', { side, live_match_id: safeLive?.match_id || null, live_match_no: safeLive?.match_no || null });
       showAlert('Partida ainda não disponível para check-in.');
       return;
     }
@@ -363,6 +376,7 @@ export default function GamePage() {
       .eq('match_id', currentMatchId)
       .eq('user_id', user.id);
     if (delErr) {
+      logDebug('toggleMyTeam.deleteError', delErr.message || 'unknown');
       setOwnTeamSide(previousSide);
       return showAlert(delErr.message || 'Erro ao atualizar check-in.');
     }
@@ -384,9 +398,11 @@ export default function GamePage() {
           date_iso: dateISO || todayISOInSaoPaulo()
         });
     if (inErr) {
+      logDebug('toggleMyTeam.insertError', inErr.message || 'unknown');
       setOwnTeamSide(previousSide);
       return showAlert(inErr.message || 'Erro ao atualizar check-in.');
     }
+    logDebug('toggleMyTeam.success', { currentMatchId, targetSide });
     setTeamEntries((prev) => {
       const a = prev.A.filter((n) => n !== myFirst);
       const b = prev.B.filter((n) => n !== myFirst);
@@ -738,6 +754,25 @@ export default function GamePage() {
           ))
         )}
       </details>
+
+      {(canEdit || !!user) ? (
+        <details className="basket-stats-plain" open>
+          <summary className="basket-stats-title">Rastreador técnico</summary>
+          <div className="debug-panel">
+            <div><b>dateISO:</b> {dateISO || '-'}</div>
+            <div><b>matchId:</b> {matchId || '-'}</div>
+            <div><b>quickMatchNumber:</b> {quickMatchNumber || '-'}</div>
+            <div><b>live.match_id:</b> {safeLive?.match_id || '-'}</div>
+            <div><b>live.match_no:</b> {safeLive?.match_no || '-'}</div>
+            <div><b>live.status:</b> {safeLive?.status || '-'}</div>
+            <div><b>live.time_left:</b> {safeLive?.time_left ?? '-'}</div>
+            <div style={{ marginTop: 8 }}><b>Eventos</b></div>
+            {debugTrail.length ? debugTrail.map((line, idx) => (
+              <div key={`${idx}-${line}`}>{line}</div>
+            )) : <div>Sem eventos ainda.</div>}
+          </div>
+        </details>
+      ) : null}
 
       <PasswordModal
         open={passwordState.open}

@@ -42,6 +42,7 @@ export function GameProvider({ children }) {
   const [confirmState, setConfirmState] = useState({ open: false, message: '', resolve: null });
   const [alertState, setAlertState] = useState({ open: false, message: '' });
   const [lastError, setLastError] = useState(null);
+  const [debugTrail, setDebugTrail] = useState([]);
 
   const intervalRef = useRef(null);
   const currentMatchRef = useRef(null);
@@ -60,6 +61,18 @@ export function GameProvider({ children }) {
     return dateISO || todayISOInSaoPaulo();
   }
 
+  function logDebug(message, extra = null) {
+    const stamp = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+    const line = extra == null
+      ? `[${stamp}] ${message}`
+      : `[${stamp}] ${message} :: ${typeof extra === 'string' ? extra : JSON.stringify(extra)}`;
+    setDebugTrail((prev) => [...prev.slice(-39), line]);
+  }
+
+  function clearDebugTrail() {
+    setDebugTrail([]);
+  }
+
   function syncQuickMatch(match, fallbackNo = null) {
     if (!match?.id) return null;
     setMatchId(match.id);
@@ -72,6 +85,7 @@ export function GameProvider({ children }) {
   async function createQuickMatch(matchNo) {
     const date = getActiveDateISO();
     const targetNo = Number(matchNo || quickMatchNumber || 1);
+    logDebug('createQuickMatch.begin', { date, targetNo });
     const match = await createMatch({
       date_iso: date,
       mode: 'quick',
@@ -82,6 +96,7 @@ export function GameProvider({ children }) {
       match_no: targetNo,
       status: 'pending'
     });
+    logDebug('createQuickMatch.success', { id: match?.id, match_no: match?.match_no });
     return syncQuickMatch(match, targetNo);
   }
   async function ensureAudioReady() {
@@ -318,16 +333,20 @@ export function GameProvider({ children }) {
   async function refreshQuickNumber() {
     try {
       const date = getActiveDateISO();
+      logDebug('refreshQuickNumber.begin', { date });
       const pending = await normalizePendingQuick(date) || await findLatestPendingQuick(date);
       if (pending?.match_no) {
         syncQuickMatch(pending, pending.match_no);
+        logDebug('refreshQuickNumber.pendingFound', { id: pending.id, match_no: pending.match_no });
         return pending.match_no;
       }
       const next = await fetchNextMatchNo({ dateISO: date, mode: 'quick' });
       setQuickMatchNumber(next);
+      logDebug('refreshQuickNumber.nextCalculated', { next });
       return next;
     } catch {
       setQuickMatchNumber(1);
+      logDebug('refreshQuickNumber.fallbackTo1');
       return 1;
     }
   }
@@ -357,24 +376,35 @@ export function GameProvider({ children }) {
     try {
       if (remoteResetRef.current) return;
       const targetNo = Number(desiredNo || quickMatchNumber || 1);
+      logDebug('ensureQuickMatch.begin', {
+        targetNo,
+        matchId,
+        currentMatchNo: currentMatchRef.current?.match_no || null,
+        date: getActiveDateISO()
+      });
       if (matchId && Number(currentMatchRef.current?.match_no || targetNo) === targetNo) {
+        logDebug('ensureQuickMatch.usingCurrent', { matchId, targetNo });
         return currentMatchRef.current || { id: matchId, match_no: targetNo };
       }
       const date = getActiveDateISO();
       const normalizedPending = await normalizePendingQuick(date);
       if (normalizedPending) {
         if (targetNo && Number(normalizedPending.match_no || 0) !== targetNo) {
+          logDebug('ensureQuickMatch.deleteMismatchedPending', { id: normalizedPending.id, pendingNo: normalizedPending.match_no, targetNo });
           await deleteMatch(normalizedPending.id);
         } else {
+          logDebug('ensureQuickMatch.useNormalizedPending', { id: normalizedPending.id, match_no: normalizedPending.match_no });
           return syncQuickMatch(normalizedPending, targetNo);
         }
       }
       const existing = await findPendingQuickMatch(date, targetNo);
       if (existing) {
+        logDebug('ensureQuickMatch.useExistingPending', { id: existing.id, match_no: existing.match_no });
         return syncQuickMatch(existing, targetNo);
       }
       const nextNo = targetNo || (await fetchNextMatchNo({ dateISO: date, mode: 'quick' }));
       const match = await createQuickMatch(nextNo);
+      logDebug('ensureQuickMatch.created', { id: match?.id, match_no: nextNo });
       pushLiveGame({
         id: 1,
         status: running ? 'running' : 'paused',
@@ -390,13 +420,15 @@ export function GameProvider({ children }) {
         reset_at: null
       });
       return match;
-    } catch {
-      // ignore
+    } catch (err) {
+      logDebug('ensureQuickMatch.error', err?.message || 'unknown');
       return null;
     }
   }
 
   async function startQuick() {
+    clearDebugTrail();
+    logDebug('startQuick.begin', { dateISO: getActiveDateISO() });
     setMode('quick');
     setMatchId(null);
     setQuarterIndex(0);
@@ -411,8 +443,10 @@ export function GameProvider({ children }) {
     try {
       const nextNo = await refreshQuickNumber();
       setQuickMatchNumber(nextNo);
+      logDebug('startQuick.nextNo', { nextNo });
       const nextMatch = await ensureQuickMatch(nextNo);
       if (nextMatch?.id) {
+        logDebug('startQuick.matchReady', { id: nextMatch.id, match_no: nextNo });
         await upsertLiveGame({
           id: 1,
           status: 'paused',
@@ -427,9 +461,13 @@ export function GameProvider({ children }) {
           score_b: 0,
           reset_at: null
         });
+        logDebug('startQuick.liveReady', { match_id: nextMatch.id, match_no: nextNo });
+      } else {
+        logDebug('startQuick.matchMissingAfterEnsure');
       }
     } catch (err) {
       setLastError(err);
+      logDebug('startQuick.error', err?.message || 'unknown');
       throw err;
     }
   }
@@ -632,6 +670,12 @@ export function GameProvider({ children }) {
 
   async function finishQuick() {
     try {
+      logDebug('finishQuick.begin', {
+        matchId,
+        quickMatchNumber,
+        scoreA: Number(scoreARef.current || 0),
+        scoreB: Number(scoreBRef.current || 0)
+      });
       let ensuredMatch = null;
       if (mode === 'quick' && !matchId) {
         ensuredMatch = await ensureQuickMatch(quickMatchNumber);
@@ -648,10 +692,12 @@ export function GameProvider({ children }) {
           basketsA: basketsARef.current,
           basketsB: basketsBRef.current
         });
+        logDebug('finishQuick.saved', { savedMatchId });
         await trySendSummaryEmail(savedMatchId);
       } else if (matchId) {
         // 0x0 should not pollute history/results: discard the open quick match.
         await deleteMatch(matchId);
+        logDebug('finishQuick.deletedZeroZero', { matchId });
         setMatchId(null);
         currentMatchRef.current = null;
       }
@@ -664,8 +710,10 @@ export function GameProvider({ children }) {
         score_b: snapshotScoreB
       });
       await prepareNextQuick(false, closingMatchNo + 1);
+      logDebug('finishQuick.nextPrepared', { nextNo: closingMatchNo + 1 });
     } catch (err) {
       setLastError(err);
+      logDebug('finishQuick.error', err?.message || 'unknown');
       showAlert(err.message || 'Erro ao salvar partida rápida.');
     }
   }
@@ -975,7 +1023,10 @@ export function GameProvider({ children }) {
     alertState,
     showAlert,
     closeAlert,
-    lastError
+    lastError,
+    debugTrail,
+    logDebug,
+    clearDebugTrail
   }), [
     settings,
     dateISO,
@@ -996,6 +1047,7 @@ export function GameProvider({ children }) {
     confirmState,
     alertState,
     lastError,
+    debugTrail,
     applyRemoteReset,
     applyLiveSnapshot
   ]);
