@@ -334,6 +334,27 @@ export function GameProvider({ children }) {
     try {
       const date = getActiveDateISO();
       logDebug('refreshQuickNumber.begin', { date });
+      const live = await fetchLiveGame().catch(() => null);
+      if (live?.mode === 'quick' && !live?.match_id) {
+        logDebug('refreshQuickNumber.invalidateLiveWithoutMatch', {
+          live_match_no: live.match_no || null,
+          live_status: live.status || null
+        });
+        await upsertLiveGame({
+          id: 1,
+          status: 'ended',
+          mode: 'quick',
+          match_id: null,
+          match_no: null,
+          quarter: 1,
+          time_left: 0,
+          team_a: '',
+          team_b: '',
+          score_a: 0,
+          score_b: 0,
+          reset_at: null
+        });
+      }
       const pending = await normalizePendingQuick(date) || await findLatestPendingQuick(date);
       if (pending?.match_no) {
         syncQuickMatch(pending, pending.match_no);

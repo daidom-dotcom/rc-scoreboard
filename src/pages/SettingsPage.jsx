@@ -46,7 +46,7 @@ export default function SettingsPage() {
         status: 'ended',
         mode: 'quick',
         match_id: null,
-        match_no: 1,
+        match_no: null,
         quarter: 1,
         time_left: 0,
         team_a: '',

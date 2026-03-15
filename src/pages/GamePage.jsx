@@ -104,13 +104,21 @@ export default function GamePage() {
       try {
         const live = await fetchLiveGame();
         if (!active) return;
-        const hasLivePayload = !!(live && (live.match_id || live.match_no || live.team_a || live.team_b));
+        const liveIsValidQuick = !(live?.mode === 'quick' && !live?.match_id);
+        const hasLivePayload = !!(live && liveIsValidQuick && (live.match_id || live.match_no || live.team_a || live.team_b));
         const defaultQuickSeconds = Number(settings.quickDurationSeconds || 420);
         const liveQuickSeconds = Number(live?.time_left || 0);
         const quickInProgress = !!live && live.mode === 'quick' && liveQuickSeconds > 0 && liveQuickSeconds < defaultQuickSeconds;
         const shouldRestoreLive = !!live && (
           (live.mode === 'quick' ? quickInProgress : true)
         );
+        if (live && !liveIsValidQuick) {
+          logDebug('GamePage.bootstrap.ignoreInvalidQuickLive', {
+            match_id: live.match_id || null,
+            match_no: live.match_no || null,
+            status: live.status || null
+          });
+        }
         if (hasLivePayload && shouldRestoreLive) {
           logDebug('GamePage.bootstrap.restoreLive', {
             mode: live.mode,
@@ -272,7 +280,8 @@ export default function GamePage() {
     };
   }, [canEdit, matchId, liveView?.match_id, liveView?.match_no, liveView?.mode, mode, basketReloadKey]);
 
-  const safeLive = liveView || lastGoodLiveRef.current;
+  const rawLive = liveView || lastGoodLiveRef.current;
+  const safeLive = rawLive && rawLive.mode === 'quick' && !rawLive.match_id ? null : rawLive;
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';
   const quickTeamA = (settings.defaultTeamA || 'Com Colete').trim() || 'Com Colete';
   const quickTeamB = (settings.defaultTeamB || 'Sem Colete').trim() || 'Sem Colete';

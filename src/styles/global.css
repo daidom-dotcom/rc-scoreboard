@@ -565,7 +565,18 @@ select {
   min-height: 22px;
 }
 .nome { font-size: 26px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.05; position: static; flex: 1 1 auto; min-width: 0; }
-.nome-btn { border: none; background: transparent; color: var(--verde); cursor: default; pointer-events: none; z-index: 1; transition: opacity .2s ease; display: block; }
+.nome-btn {
+  border: none;
+  background: var(--preto);
+  color: var(--verde);
+  cursor: default;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity .2s ease;
+  display: inline-block;
+  max-width: 100%;
+  margin: 0 auto;
+}
 .nome-btn.interactive { cursor: pointer; pointer-events: auto; }
 .nome-btn.faded { opacity: .28; }
 .placar .frame:first-child .nome { text-align: right; padding: 0 12px; }
