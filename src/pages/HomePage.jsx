@@ -25,7 +25,10 @@ export default function HomePage() {
     if (user && isScoreboard) {
       navigate('/game', { replace: true });
     }
-  }, [user, isScoreboard, navigate]);
+    if (user && !isMaster && !isScoreboard) {
+      navigate('/game', { replace: true });
+    }
+  }, [user, isMaster, isScoreboard, navigate]);
 
   async function handleQuick() {
     if (!canEdit) {

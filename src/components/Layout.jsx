@@ -32,6 +32,12 @@ export default function Layout() {
   }, [user, isScoreboard, location.pathname, navigate]);
 
   useEffect(() => {
+    if (user && !isMaster && !isScoreboard && (location.pathname === '/' || location.pathname === '/login')) {
+      navigate('/game', { replace: true });
+    }
+  }, [user, isMaster, isScoreboard, location.pathname, navigate]);
+
+  useEffect(() => {
     if (!isScoreboard || !isGameRoute) return;
     setTimerScale((v) => (v < 2 ? 2 : v));
     setScoreScale((v) => (v < 2 ? 2 : v));
@@ -79,7 +85,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.1.58</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.1.59</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
