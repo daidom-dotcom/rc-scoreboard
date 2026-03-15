@@ -50,6 +50,7 @@ export default function GamePage() {
   const lastLiveAtRef = useRef(0);
   const lastGoodLiveRef = useRef(null);
   const initializedScoreboardRef = useRef(false);
+  const quickFallbackStartedRef = useRef(false);
   const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
@@ -154,6 +155,8 @@ export default function GamePage() {
     if (mode !== 'quick') return;
     if (matchId) return;
     if (liveView?.match_id) return;
+    if (quickFallbackStartedRef.current) return;
+    quickFallbackStartedRef.current = true;
     let cancelled = false;
     const t = setTimeout(async () => {
       if (cancelled) return;
@@ -170,6 +173,12 @@ export default function GamePage() {
       clearTimeout(t);
     };
   }, [isScoreboard, mode, matchId, liveView?.match_id, dateISO, quickMatchNumber, startQuick, logDebug]);
+
+  useEffect(() => {
+    if (matchId || liveView?.match_id) {
+      quickFallbackStartedRef.current = false;
+    }
+  }, [matchId, liveView?.match_id]);
 
   useEffect(() => {
     const t = setInterval(() => setObserverNowMs(Date.now()), 1000);

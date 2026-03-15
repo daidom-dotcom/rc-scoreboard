@@ -56,6 +56,7 @@ export function GameProvider({ children }) {
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
+  const startQuickInFlightRef = useRef(null);
 
   function getActiveDateISO() {
     return dateISO || todayISOInSaoPaulo();
@@ -448,6 +449,11 @@ export function GameProvider({ children }) {
   }
 
   async function startQuick() {
+    if (startQuickInFlightRef.current) {
+      logDebug('startQuick.reuseInFlight');
+      return startQuickInFlightRef.current;
+    }
+    const run = (async () => {
     clearDebugTrail();
     logDebug('startQuick.begin', { dateISO: getActiveDateISO() });
     setMode('quick');
@@ -490,6 +496,13 @@ export function GameProvider({ children }) {
       setLastError(err);
       logDebug('startQuick.error', err?.message || 'unknown');
       throw err;
+    }
+    })();
+    startQuickInFlightRef.current = run;
+    try {
+      return await run;
+    } finally {
+      startQuickInFlightRef.current = null;
     }
   }
 
