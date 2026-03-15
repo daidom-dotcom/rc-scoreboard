@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, sendMatchSummaryEmail, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { formatTime, todayISO } from '../utils/time';
+import { formatTime, todayISOInSaoPaulo } from '../utils/time';
 import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
 import { useAuth } from './AuthContext';
 
@@ -15,11 +15,12 @@ const defaultSettings = {
   soundEnabled: true,
   theme: 'dark-green'
 };
+
 export function GameProvider({ children }) {
   const { user, isScoreboard } = useAuth();
   const canControlLive = !!user && isScoreboard;
   const [settings, setSettings] = useState(() => loadSettings() || defaultSettings);
-  const [dateISO, setDateISO] = useState(() => loadAppDate() || todayISO());
+  const [dateISO, setDateISO] = useState(() => loadAppDate() || todayISOInSaoPaulo());
 
   const quickTeamA = (settings.defaultTeamA || 'Com Colete').trim() || 'Com Colete';
   const quickTeamB = (settings.defaultTeamB || 'Sem Colete').trim() || 'Sem Colete';
@@ -54,8 +55,35 @@ export function GameProvider({ children }) {
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
-  const repairingMatchIdRef = useRef(false);
-  const freshPregameKeyRef = useRef('');
+
+  function getActiveDateISO() {
+    return dateISO || todayISOInSaoPaulo();
+  }
+
+  function syncQuickMatch(match, fallbackNo = null) {
+    if (!match?.id) return null;
+    setMatchId(match.id);
+    currentMatchRef.current = match;
+    const resolvedNo = Number(match.match_no || fallbackNo || quickMatchNumber || 1);
+    if (resolvedNo > 0) setQuickMatchNumber(resolvedNo);
+    return match;
+  }
+
+  async function createQuickMatch(matchNo) {
+    const date = getActiveDateISO();
+    const targetNo = Number(matchNo || quickMatchNumber || 1);
+    const match = await createMatch({
+      date_iso: date,
+      mode: 'quick',
+      team_a_name: quickTeamA,
+      team_b_name: quickTeamB,
+      quarters: 1,
+      durations: [settings.quickDurationSeconds],
+      match_no: targetNo,
+      status: 'pending'
+    });
+    return syncQuickMatch(match, targetNo);
+  }
   async function ensureAudioReady() {
     try {
       if (!audioCtxRef.current) {
@@ -150,111 +178,6 @@ export function GameProvider({ children }) {
       reset_at: null
     });
   }, [canControlLive, mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
-
-  useEffect(() => {
-    if (!canControlLive) return;
-    if (mode !== 'quick') return;
-    // Pregame bootstrap: create/link quick match as soon as scoreboard lands on a new game.
-    // This allows check-ins before pressing PLAY.
-    const isPregameState =
-      !running &&
-      Number(totalSeconds || 0) === Number(settings.quickDurationSeconds || 0) &&
-      Number(scoreARef.current || 0) === 0 &&
-      Number(scoreBRef.current || 0) === 0;
-    if (!isPregameState) return;
-    const date = todayISO();
-    const key = `${date}|${quickMatchNumber}`;
-    if (freshPregameKeyRef.current === key) return;
-    let cancelled = false;
-    (async () => {
-      await deletePendingQuickMatch(date, quickMatchNumber).catch(() => {});
-      const fresh = await createMatch({
-        date_iso: date,
-        mode: 'quick',
-        team_a_name: quickTeamA,
-        team_b_name: quickTeamB,
-        quarters: 1,
-        durations: [settings.quickDurationSeconds],
-        match_no: quickMatchNumber,
-        status: 'pending'
-      }).catch(() => null);
-      if (cancelled || !fresh?.id) return;
-      freshPregameKeyRef.current = key;
-      setMatchId(fresh.id);
-      currentMatchRef.current = fresh;
-      await supabase
-        .from('live_game')
-        .delete()
-        .eq('id', 1)
-        .catch(() => {});
-      await upsertLiveGame({
-        id: 1,
-        status: 'paused',
-        mode: 'quick',
-        match_id: fresh.id,
-        match_no: fresh.match_no || quickMatchNumber,
-        quarter: 1,
-        time_left: settings.quickDurationSeconds,
-        team_a: quickTeamA,
-        team_b: quickTeamB,
-        score_a: 0,
-        score_b: 0,
-        reset_at: null
-      }).catch(() => {});
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [canControlLive, mode, running, totalSeconds, quickMatchNumber, settings.quickDurationSeconds, quickTeamA, quickTeamB]);
-
-  useEffect(() => {
-    if (!canControlLive) return;
-    if (mode !== 'quick') return;
-    if (matchId) return;
-    if (!quickMatchNumber) return;
-    if (repairingMatchIdRef.current) return;
-    let active = true;
-    repairingMatchIdRef.current = true;
-    async function repairQuickMatchId() {
-      try {
-        const date = todayISO();
-        let found = await findPendingQuickMatch(date, quickMatchNumber);
-        if (!found) {
-          found = await findLatestPendingQuick(date);
-        }
-        if (!found) {
-          found = await ensureQuickMatch(quickMatchNumber);
-        }
-        if (!active || !found?.id) return;
-        setMatchId(found.id);
-        currentMatchRef.current = found;
-        if (found.match_no) setQuickMatchNumber(found.match_no);
-        await updateLiveGame({
-          id: 1,
-          mode: 'quick',
-          match_id: found.id,
-          match_no: found.match_no || quickMatchNumber,
-          status: running ? 'running' : 'paused',
-          quarter: 1,
-          time_left: totalSeconds,
-          team_a: quickTeamA,
-          team_b: quickTeamB,
-          score_a: scoreARef.current,
-          score_b: scoreBRef.current,
-          reset_at: null
-        });
-      } catch {
-        // ignore repair noise
-      } finally {
-        repairingMatchIdRef.current = false;
-      }
-    }
-    repairQuickMatchId();
-    return () => {
-      active = false;
-      repairingMatchIdRef.current = false;
-    };
-  }, [canControlLive, mode, matchId, quickMatchNumber, dateISO, running, totalSeconds, quickTeamA, quickTeamB]);
 
   useEffect(() => {
     const shouldBeep = canControlLive && running && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
@@ -394,10 +317,10 @@ export function GameProvider({ children }) {
 
   async function refreshQuickNumber() {
     try {
-      const date = dateISO || todayISO();
+      const date = getActiveDateISO();
       const pending = await normalizePendingQuick(date) || await findLatestPendingQuick(date);
       if (pending?.match_no) {
-        setQuickMatchNumber(pending.match_no);
+        syncQuickMatch(pending, pending.match_no);
         return pending.match_no;
       }
       const next = await fetchNextMatchNo({ dateISO: date, mode: 'quick' });
@@ -433,48 +356,30 @@ export function GameProvider({ children }) {
   async function ensureQuickMatch(desiredNo) {
     try {
       if (remoteResetRef.current) return;
-      if (matchId) {
-        return currentMatchRef.current || { id: matchId, match_no: quickMatchNumber };
+      const targetNo = Number(desiredNo || quickMatchNumber || 1);
+      if (matchId && Number(currentMatchRef.current?.match_no || targetNo) === targetNo) {
+        return currentMatchRef.current || { id: matchId, match_no: targetNo };
       }
-      const date = dateISO || todayISO();
+      const date = getActiveDateISO();
       const normalizedPending = await normalizePendingQuick(date);
       if (normalizedPending) {
-        if (desiredNo && Number(normalizedPending.match_no || 0) < Number(desiredNo)) {
+        if (targetNo && Number(normalizedPending.match_no || 0) !== targetNo) {
           await deleteMatch(normalizedPending.id);
         } else {
-          setMatchId(normalizedPending.id);
-          currentMatchRef.current = normalizedPending;
-          if (normalizedPending.match_no) setQuickMatchNumber(normalizedPending.match_no);
-          return normalizedPending;
+          return syncQuickMatch(normalizedPending, targetNo);
         }
       }
-      const targetNo = desiredNo || quickMatchNumber;
       const existing = await findPendingQuickMatch(date, targetNo);
       if (existing) {
-        setMatchId(existing.id);
-        currentMatchRef.current = existing;
-        if (existing.match_no) setQuickMatchNumber(existing.match_no);
-        return existing;
+        return syncQuickMatch(existing, targetNo);
       }
-      const nextNo = desiredNo || (await fetchNextMatchNo({ dateISO: date, mode: 'quick' }));
-      const match = await createMatch({
-        date_iso: date,
-        mode: 'quick',
-        team_a_name: quickTeamA,
-        team_b_name: quickTeamB,
-        quarters: 1,
-        durations: [settings.quickDurationSeconds],
-        match_no: nextNo,
-        status: 'pending'
-      });
-      setQuickMatchNumber(nextNo);
-      setMatchId(match.id);
-      currentMatchRef.current = match;
+      const nextNo = targetNo || (await fetchNextMatchNo({ dateISO: date, mode: 'quick' }));
+      const match = await createQuickMatch(nextNo);
       pushLiveGame({
         id: 1,
         status: running ? 'running' : 'paused',
         mode: 'quick',
-        match_id: match.id,
+        match_id: match?.id || null,
         match_no: nextNo,
         quarter: 1,
         time_left: totalSeconds,
@@ -597,7 +502,6 @@ export function GameProvider({ children }) {
     const canEdit = running || ajusteFinalAtivo || delta < 0;
     if (!canEdit) return;
     if (remoteResetRef.current) return;
-    if (mode === 'quick') ensureQuickMatch();
 
     if (team === 'A') {
       setScoreA((prev) => {
@@ -754,12 +658,12 @@ export function GameProvider({ children }) {
     resetCounters();
     const dbNext = resetDay
       ? 1
-      : await fetchNextMatchNo({ dateISO: dateISO || todayISO(), mode: 'quick' });
+      : await fetchNextMatchNo({ dateISO: getActiveDateISO(), mode: 'quick' });
     const localNext = forcedNextNo || (quickMatchNumber + 1);
     // When a match has just been finalized, trust the explicit n+1 to avoid
     // jumping to n+2 if a temporary pending row was already observed.
     const nextNo = resetDay ? 1 : (forcedNextNo || Math.max(localNext, dbNext));
-    const date = dateISO || todayISO();
+    const date = getActiveDateISO();
     if (!resetDay && nextNo > 1) {
       await settlePreviousPendingQuick(date, nextNo);
     }
@@ -791,18 +695,8 @@ export function GameProvider({ children }) {
       const totalC3 = Number(bA.three || 0) + Number(bB.three || 0);
       let id = forcedMatchId || matchId;
       if (!id) {
-        const match = await createMatch({
-          date_iso: dateISO || todayISO(),
-          mode: 'quick',
-          team_a_name: quickTeamA,
-          team_b_name: quickTeamB,
-          quarters: 1,
-          durations: [settings.quickDurationSeconds],
-          match_no: quickMatchNumber,
-          status: 'pending'
-        });
+        const match = await createQuickMatch(quickMatchNumber);
         id = match.id;
-        setMatchId(id);
       }
 
       await upsertMatchResult({

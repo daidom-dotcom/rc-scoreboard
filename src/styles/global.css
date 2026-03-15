@@ -531,27 +531,45 @@ select {
   border: 2px solid var(--verde);
   border-radius: 10px;
   display: flex;
-  padding: 84px 20px 20px;
+  flex-direction: column;
+  padding: 16px 20px 14px;
   min-width: 280px;
   position: relative;
-  align-items: center;
-  gap: 20px;
+  align-items: stretch;
+  gap: 8px;
   height: calc(320px + (var(--score-scale) - 1) * 150px);
 }
-
-.nome { font-size: 26px; position: absolute; top: 12px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.05; }
-.nome-btn { border: none; background: transparent; color: var(--verde); cursor: default; pointer-events: none; z-index: 5; transition: opacity .2s ease; display: inline-block; }
+.frame-header {
+  flex: 0 0 auto;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.frame-body {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 0;
+  overflow: hidden;
+}
+.frame-footer {
+  flex: 0 0 auto;
+  min-height: 22px;
+}
+.nome { font-size: 26px; font-weight: 900; width: 100%; text-align: center; text-transform: uppercase; box-sizing: border-box; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.05; position: static; flex: 1 1 auto; min-width: 0; }
+.nome-btn { border: none; background: transparent; color: var(--verde); cursor: default; pointer-events: none; z-index: 1; transition: opacity .2s ease; display: block; }
 .nome-btn.interactive { cursor: pointer; pointer-events: auto; }
 .nome-btn.faded { opacity: .28; }
-.placar .frame:first-child .nome { text-align: right; padding: 0 12px; width: 58%; right: 8px; left: auto; }
-.placar .frame:last-child .nome { text-align: left; padding: 0 12px; width: 58%; left: 8px; right: auto; }
-.pontos { margin-top: 8px; }
+.placar .frame:first-child .nome { text-align: right; padding: 0 12px; }
+.placar .frame:last-child .nome { text-align: left; padding: 0 12px; }
 .placar-checkins {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 24px);
+  position: static;
+  transform: none;
+  width: 100%;
   text-align: center;
   font-size: calc(12px * var(--score-scale));
   font-weight: 800;
@@ -559,6 +577,10 @@ select {
   white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.side-spacer {
+  width: 70px;
+  flex: 0 0 70px;
 }
 .checkin-player-btn {
   border: 1px solid transparent;
@@ -764,7 +786,7 @@ select {
   font-size: clamp(10px, 1.2vw, 15px);
   font-weight: 900;
 }
-.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1; text-align: center; pointer-events: none; z-index: 1; line-height: .9; }
+.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1 1 auto; min-width: 0; text-align: center; pointer-events: none; z-index: 1; line-height: .88; align-self: center; overflow: hidden; }
 
 .botoes-esquerda, .botoes-direita { display: flex; flex-direction: column; gap: 12px; justify-content: center; width: 82px; z-index: 2; }
 

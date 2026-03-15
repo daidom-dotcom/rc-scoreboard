@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
-import { formatDateBR, todayISO } from '../utils/time';
+import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
 import DateWheelField from '../components/DateWheelField';
 
 export default function HomePage() {
@@ -18,7 +18,7 @@ export default function HomePage() {
   const canEdit = !!user && isMaster;
 
   useEffect(() => {
-    setDateISO(todayISO());
+    setDateISO(todayISOInSaoPaulo());
   }, [setDateISO]);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function HomePage() {
       showAlert('Faça login para fazer check-in.');
       return;
     }
-    const targetDate = dateISO || todayISO();
+    const targetDate = dateISO || todayISOInSaoPaulo();
     navigate(`/checkin?date=${targetDate}`);
   }
 

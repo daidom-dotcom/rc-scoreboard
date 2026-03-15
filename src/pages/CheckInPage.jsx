@@ -4,14 +4,14 @@ import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchLiveGame, fetchMatchesByDate } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { formatDateBR, todayISO } from '../utils/time';
+import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
 import SelectField from '../components/SelectField';
 
 export default function CheckInPage() {
   const { showAlert } = useGame();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const [dateISO, setDateISO] = useState(todayISO());
+  const [dateISO, setDateISO] = useState(todayISOInSaoPaulo());
   const [matches, setMatches] = useState([]);
   const [matchId, setMatchId] = useState('');
   const [teamSide, setTeamSide] = useState('A');
@@ -101,38 +101,14 @@ export default function CheckInPage() {
           : (byNoDate.match_results || [])
       };
     }
-    const { data: created, error: createErr } = await supabase
-      .from('matches')
-      .insert({
-        date_iso: targetDate,
-        mode: 'quick',
-        team_a_name: live.team_a || 'Com Colete',
-        team_b_name: live.team_b || 'Sem Colete',
-        quarters: 1,
-        durations: [420],
-        status: live.status === 'ended' ? 'done' : 'pending',
-        match_no: matchNo
-      })
-      .select('*, match_results(*)')
-      .single();
-    if (createErr || !created) return null;
-    await supabase
-      .from('live_game')
-      .update({ match_id: created.id, updated_at: new Date().toISOString() })
-      .eq('id', 1);
-    return {
-      ...created,
-      match_results: created.match_results && !Array.isArray(created.match_results)
-        ? [created.match_results]
-        : (created.match_results || [])
-    };
+    return null;
   }
 
   async function loadMatches() {
     setLoading(true);
     try {
       const live = await fetchLiveGame().catch(() => null);
-      const targetDate = onlyToday ? todayISO() : dateISO;
+      const targetDate = onlyToday ? todayISOInSaoPaulo() : dateISO;
       const liveMatch = await resolveLiveMatch(live, targetDate);
       const data = await fetchMatchesByDate(targetDate);
       let merged = [...(data || [])];
@@ -159,7 +135,7 @@ export default function CheckInPage() {
 
   async function loadEntries() {
     if (!user?.id || !dateISO) return;
-    const targetDate = onlyToday ? todayISO() : dateISO;
+    const targetDate = onlyToday ? todayISOInSaoPaulo() : dateISO;
     const { data, error } = await supabase
       .from('player_entries')
       .select('id, team_side, match_id, matches(id, match_no, team_a_name, team_b_name, date_iso)')
@@ -175,7 +151,7 @@ export default function CheckInPage() {
       showAlert('Você precisa estar logado para fazer check-in.');
       return;
     }
-    const targetDate = onlyToday ? todayISO() : dateISO;
+    const targetDate = onlyToday ? todayISOInSaoPaulo() : dateISO;
     let effectiveMatchId = matchId;
     if (!effectiveMatchId) {
       const live = await fetchLiveGame().catch(() => null);

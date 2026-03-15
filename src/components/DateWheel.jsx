@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import Modal from './Modal';
-import { todayISO } from '../utils/time';
+import { todayISOInSaoPaulo } from '../utils/time';
 
 function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate();
@@ -46,7 +46,7 @@ export default function DateWheel({ value, onChange, displayValue }) {
   }
 
   function setToday() {
-    const t = todayISO();
+    const t = todayISOInSaoPaulo();
     const [y, m, d] = t.split('-').map((v) => Number(v));
     setTmpYear(y);
     setTmpMonth(m);

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import { fetchLiveGame } from '../lib/api';
-import { todayISO } from '../utils/time';
+import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 
 export default function GamePage() {
@@ -94,7 +94,7 @@ export default function GamePage() {
     initializedScoreboardRef.current = true;
     let active = true;
     async function bootstrapScoreboard() {
-      const today = todayISO();
+      const today = todayISOInSaoPaulo();
       if (dateISO !== today) {
         setDateISO(today);
       }
@@ -110,60 +110,6 @@ export default function GamePage() {
         );
         if (hasLivePayload && shouldRestoreLive) {
           applyLiveSnapshot(live);
-          // If live is pregame but bound to an old match with data, rotate to a fresh match_id.
-          if (
-            live.mode === 'quick'
-            && Number(live.time_left || 0) === Number(settings.quickDurationSeconds || 420)
-            && Number(live.score_a || 0) === 0
-            && Number(live.score_b || 0) === 0
-          ) {
-            let currentId = live.match_id || null;
-            if (!currentId) {
-              const repairedMatchId = await ensureActiveQuickMatchId();
-              currentId = repairedMatchId || null;
-            }
-            if (currentId) {
-              const [{ count: basketCount }, { count: checkinCount }] = await Promise.all([
-                supabase.from('basket_events').select('id', { count: 'exact', head: true }).eq('match_id', currentId),
-                supabase.from('player_entries').select('id', { count: 'exact', head: true }).eq('match_id', currentId)
-              ]);
-              if ((basketCount || 0) > 0 || (checkinCount || 0) > 0) {
-                const no = Number(live.match_no || quickMatchNumber || 1);
-                const today = todayISO();
-                const { data: fresh } = await supabase
-                  .from('matches')
-                  .insert({
-                    date_iso: today,
-                    mode: 'quick',
-                    team_a_name: live.team_a || 'Com Colete',
-                    team_b_name: live.team_b || 'Sem Colete',
-                    quarters: 1,
-                    durations: [Number(settings.quickDurationSeconds || 420)],
-                    status: 'pending',
-                    match_no: no
-                  })
-                  .select('id')
-                  .single();
-                if (fresh?.id) {
-                  await supabase
-                    .from('live_game')
-                    .update({ match_id: fresh.id, updated_at: new Date().toISOString() })
-                    .eq('id', 1);
-                  setBasketEvents([]);
-                  setTeamEntries({ A: [], B: [] });
-                }
-              }
-            }
-          }
-          if (live.mode === 'quick' && !live.match_id) {
-            const repairedMatchId = await ensureActiveQuickMatchId();
-            if (repairedMatchId) {
-              await supabase
-                .from('live_game')
-                .update({ match_id: repairedMatchId, updated_at: new Date().toISOString() })
-                .eq('id', 1);
-            }
-          }
           return;
         }
       } catch {
@@ -364,7 +310,7 @@ export default function GamePage() {
   async function resolveActiveQuickMatchId() {
     let currentMatchId = safeLive?.match_id || matchId || null;
     if (currentMatchId) return currentMatchId;
-    const preferredDate = canEdit ? (dateISO || todayISO()) : todayISO();
+    const preferredDate = dateISO || todayISOInSaoPaulo();
     const liveNo = Number(safeLive?.match_no || quickMatchNumber || 0);
     if (liveNo > 0) {
       const { data: byNoDate } = await supabase
@@ -378,71 +324,12 @@ export default function GamePage() {
         .maybeSingle();
       currentMatchId = byNoDate?.id || null;
       if (currentMatchId) return currentMatchId;
-      const { data: byNoAnyDate } = await supabase
-        .from('matches')
-        .select('id')
-        .eq('mode', 'quick')
-        .eq('match_no', liveNo)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      currentMatchId = byNoAnyDate?.id || null;
-      if (currentMatchId) return currentMatchId;
     }
-    const { data: latestQuick } = await supabase
-      .from('matches')
-      .select('id')
-      .eq('mode', 'quick')
-      .eq('status', 'pending')
-      .order('date_iso', { ascending: false })
-      .order('match_no', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-    return latestQuick?.id || null;
+    return null;
   }
 
   async function ensureActiveQuickMatchId() {
-    let currentMatchId = await resolveActiveQuickMatchId();
-    if (currentMatchId) return currentMatchId;
-    if (!canEdit) return null;
-    const no = Number(safeLive?.match_no || quickMatchNumber || 1);
-    const date = dateISO || todayISO();
-    const { data: existing } = await supabase
-      .from('matches')
-      .select('id')
-      .eq('date_iso', date)
-      .eq('mode', 'quick')
-      .eq('status', 'pending')
-      .eq('match_no', no)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    currentMatchId = existing?.id || null;
-    if (!currentMatchId) {
-      const { data: created, error: createErr } = await supabase
-        .from('matches')
-        .insert({
-          date_iso: date,
-          mode: 'quick',
-          team_a_name: viewTeamA || 'Com Colete',
-          team_b_name: viewTeamB || 'Sem Colete',
-          quarters: 1,
-          durations: [settings.quickDurationSeconds || 420],
-          status: 'pending',
-          match_no: no
-        })
-        .select('id')
-        .single();
-      if (createErr) return null;
-      currentMatchId = created?.id || null;
-    }
-    if (currentMatchId) {
-      await supabase
-        .from('live_game')
-        .update({ match_id: currentMatchId, updated_at: new Date().toISOString() })
-        .eq('id', 1);
-    }
-    return currentMatchId;
+    return await resolveActiveQuickMatchId();
   }
 
   async function toggleMyTeam(side) {
@@ -483,13 +370,13 @@ export default function GamePage() {
     }
     const { error: inErr } = await supabase
       .from('player_entries')
-      .insert({
-        match_id: currentMatchId,
-        user_id: user.id,
-        player_name: (profile?.full_name || user?.email || 'Jogador').trim(),
-        team_side: targetSide,
-        date_iso: dateISO || todayISO()
-      });
+        .insert({
+          match_id: currentMatchId,
+          user_id: user.id,
+          player_name: (profile?.full_name || user?.email || 'Jogador').trim(),
+          team_side: targetSide,
+          date_iso: dateISO || todayISOInSaoPaulo()
+        });
     if (inErr) {
       setOwnTeamSide(previousSide);
       return showAlert(inErr.message || 'Erro ao atualizar check-in.');
@@ -522,9 +409,9 @@ export default function GamePage() {
     }
     const { data, error } = await supabase
       .from('basket_events')
-      .insert({
+        .insert({
         match_id: currentMatchId,
-        date_iso: dateISO || todayISO(),
+        date_iso: dateISO || todayISOInSaoPaulo(),
         mode: (safeLive?.mode || mode || 'quick'),
         match_no: Number(safeLive?.match_no || quickMatchNumber || null),
         team_side: side,
@@ -697,80 +584,98 @@ export default function GamePage() {
 
       <div className="placar">
         <div className="frame">
-          <button
-            type="button"
-            className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'B' ? 'faded' : ''}`}
-            onClick={() => toggleMyTeam('A')}
-          >
-            {viewTeamA}
-          </button>
-          {canEdit ? (
-            <div className="botoes-esquerda">
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 1)}>+1</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 2)}>+2</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 3)}>+3</button>
-              <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', -1)}>-1</button>
+          <div className="frame-header">
+            <button
+              type="button"
+              className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'B' ? 'faded' : ''}`}
+              onClick={() => toggleMyTeam('A')}
+            >
+              {viewTeamA}
+            </button>
+          </div>
+          <div className="frame-body">
+            {canEdit ? (
+              <div className="botoes-esquerda">
+                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 1)}>+1</button>
+                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 2)}>+2</button>
+                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 3)}>+3</button>
+                <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', -1)}>-1</button>
+              </div>
+            ) : (
+              <div className="side-spacer" />
+            )}
+            <div className="pontos">{viewScoreA}</div>
+            {canEdit ? <div className="side-spacer" /> : null}
+          </div>
+          <div className="frame-footer">
+            <div className="placar-checkins">
+              {(teamEntries.A || []).length ? (
+                canEdit ? (
+                  teamEntries.A.map((name, idx) => (
+                    <span key={`A-${name}-${idx}`}>
+                      <button
+                        type="button"
+                        className={`checkin-player-btn ${selectedScorer.A === name ? 'active' : ''}`}
+                        onClick={() => setSelectedScorer((prev) => ({ ...prev, A: prev.A === name ? '' : name }))}
+                      >
+                        {name}
+                      </button>
+                      {idx < teamEntries.A.length - 1 ? ' / ' : ''}
+                    </span>
+                  ))
+                ) : (
+                  teamEntries.A.join(' / ')
+                )
+              ) : 'Sem check-in registrado.'}
             </div>
-          ) : null}
-          <div className="pontos">{viewScoreA}</div>
-          <div className="placar-checkins">
-            {(teamEntries.A || []).length ? (
-              canEdit ? (
-                teamEntries.A.map((name, idx) => (
-                  <span key={`A-${name}-${idx}`}>
-                    <button
-                      type="button"
-                      className={`checkin-player-btn ${selectedScorer.A === name ? 'active' : ''}`}
-                      onClick={() => setSelectedScorer((prev) => ({ ...prev, A: prev.A === name ? '' : name }))}
-                    >
-                      {name}
-                    </button>
-                    {idx < teamEntries.A.length - 1 ? ' / ' : ''}
-                  </span>
-                ))
-              ) : (
-                teamEntries.A.join(' / ')
-              )
-            ) : 'Sem check-in registrado.'}
           </div>
         </div>
 
         <div className="frame">
-          <button
-            type="button"
-            className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'A' ? 'faded' : ''}`}
-            onClick={() => toggleMyTeam('B')}
-          >
-            {viewTeamB}
-          </button>
-          <div className="pontos">{viewScoreB}</div>
-          {canEdit ? (
-            <div className="botoes-direita">
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 1)}>+1</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 2)}>+2</button>
-              <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 3)}>+3</button>
-              <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', -1)}>-1</button>
+          <div className="frame-header">
+            <button
+              type="button"
+              className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'A' ? 'faded' : ''}`}
+              onClick={() => toggleMyTeam('B')}
+            >
+              {viewTeamB}
+            </button>
+          </div>
+          <div className="frame-body">
+            {canEdit ? <div className="side-spacer" /> : null}
+            <div className="pontos">{viewScoreB}</div>
+            {canEdit ? (
+              <div className="botoes-direita">
+                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 1)}>+1</button>
+                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 2)}>+2</button>
+                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 3)}>+3</button>
+                <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', -1)}>-1</button>
+              </div>
+            ) : (
+              <div className="side-spacer" />
+            )}
+          </div>
+          <div className="frame-footer">
+            <div className="placar-checkins">
+              {(teamEntries.B || []).length ? (
+                canEdit ? (
+                  teamEntries.B.map((name, idx) => (
+                    <span key={`B-${name}-${idx}`}>
+                      <button
+                        type="button"
+                        className={`checkin-player-btn ${selectedScorer.B === name ? 'active' : ''}`}
+                        onClick={() => setSelectedScorer((prev) => ({ ...prev, B: prev.B === name ? '' : name }))}
+                      >
+                        {name}
+                      </button>
+                      {idx < teamEntries.B.length - 1 ? ' / ' : ''}
+                    </span>
+                  ))
+                ) : (
+                  teamEntries.B.join(' / ')
+                )
+              ) : 'Sem check-in registrado.'}
             </div>
-          ) : null}
-          <div className="placar-checkins">
-            {(teamEntries.B || []).length ? (
-              canEdit ? (
-                teamEntries.B.map((name, idx) => (
-                  <span key={`B-${name}-${idx}`}>
-                    <button
-                      type="button"
-                      className={`checkin-player-btn ${selectedScorer.B === name ? 'active' : ''}`}
-                      onClick={() => setSelectedScorer((prev) => ({ ...prev, B: prev.B === name ? '' : name }))}
-                    >
-                      {name}
-                    </button>
-                    {idx < teamEntries.B.length - 1 ? ' / ' : ''}
-                  </span>
-                ))
-              ) : (
-                teamEntries.B.join(' / ')
-              )
-            ) : 'Sem check-in registrado.'}
           </div>
         </div>
       </div>

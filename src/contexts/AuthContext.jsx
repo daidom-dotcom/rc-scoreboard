@@ -17,14 +17,14 @@ export function AuthProvider({ children }) {
       .from('profiles')
       .select('id,email,role,full_name,is_active')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
     if (error) {
       console.warn('Profile load error', error.message);
-      setProfile(null);
       return null;
     }
-    setProfile(data || null);
-    return data || null;
+    if (!data) return null;
+    setProfile(data);
+    return data;
   }
 
   useEffect(() => {

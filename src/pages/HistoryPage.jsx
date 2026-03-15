@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import SummaryTable from '../components/SummaryTable';
 import { fetchMatchesByDate, fetchMatchesByRange, fetchTeams } from '../lib/api';
-import { formatDateBR, toSaoPauloDateTime, todayISO } from '../utils/time';
+import { formatDateBR, toSaoPauloDateTime, todayISOInSaoPaulo } from '../utils/time';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
 import DateWheelField from '../components/DateWheelField';
@@ -46,8 +46,8 @@ function normalizeDate(input) {
 
 export default function HistoryPage() {
   const { dateISO: gameDateISO, showAlert, askConfirm } = useGame();
-  const [dateISO, setDateISO] = useState(gameDateISO || todayISO());
-  const [dateTo, setDateTo] = useState(gameDateISO || todayISO());
+  const [dateISO, setDateISO] = useState(gameDateISO || todayISOInSaoPaulo());
+  const [dateTo, setDateTo] = useState(gameDateISO || todayISOInSaoPaulo());
   const [mode, setMode] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
   const [teams, setTeams] = useState([]);
@@ -186,15 +186,26 @@ export default function HistoryPage() {
       setUserBasketMap(new Map());
       return;
     }
-    const fullName = String(profile?.full_name || '').trim();
-    const firstName = fullName ? fullName.split(/\s+/)[0] : '';
-    const emailName = String(user?.email || '').split('@')[0] || '';
-    const aliases = new Set(
-      [fullName, firstName, emailName]
-        .map((s) => String(s || '').trim().toLowerCase())
-        .filter(Boolean)
-    );
-    if (!aliases.size) {
+    const { data: entriesData, error: entriesError } = await supabase
+      .from('player_entries')
+      .select('match_id, player_name')
+      .eq('user_id', user.id)
+      .in('match_id', ids);
+    if (entriesError) {
+      setUserBasketMap(new Map());
+      return;
+    }
+    const playerNamesByMatch = new Map();
+    (entriesData || []).forEach((entry) => {
+      const matchKey = entry.match_id;
+      const normalized = String(entry.player_name || '').trim().toLowerCase();
+      if (!matchKey || !normalized) return;
+      if (!playerNamesByMatch.has(matchKey)) {
+        playerNamesByMatch.set(matchKey, new Set());
+      }
+      playerNamesByMatch.get(matchKey).add(normalized);
+    });
+    if (!playerNamesByMatch.size) {
       setUserBasketMap(new Map());
       return;
     }
@@ -209,7 +220,8 @@ export default function HistoryPage() {
     const map = new Map();
     (data || []).forEach((e) => {
       const player = String(e.player_name || '').trim().toLowerCase();
-      if (!aliases.has(player)) return;
+      const allowedNames = playerNamesByMatch.get(e.match_id);
+      if (!allowedNames?.has(player)) return;
       const current = map.get(e.match_id) || { baskets1: 0, baskets2: 0, baskets3: 0 };
       if (Number(e.points) === 1) current.baskets1 += 1;
       if (Number(e.points) === 2) current.baskets2 += 1;
