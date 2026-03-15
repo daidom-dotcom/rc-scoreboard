@@ -832,6 +832,10 @@ export default function GamePage() {
             <div><b>live.match_no:</b> {safeLive?.match_no || '-'}</div>
             <div><b>live.status:</b> {safeLive?.status || '-'}</div>
             <div><b>live.time_left:</b> {safeLive?.time_left ?? '-'}</div>
+            <div><b>teamAName:</b> {JSON.stringify(viewTeamA)}</div>
+            <div><b>teamBName:</b> {JSON.stringify(viewTeamB)}</div>
+            <div><b>teamB.length:</b> {String(viewTeamB || '').length}</div>
+            <div><b>teamB.lastCharCode:</b> {String(viewTeamB || '').length ? String(viewTeamB).charCodeAt(String(viewTeamB).length - 1) : '-'}</div>
             <div style={{ marginTop: 8 }}><b>Eventos</b></div>
             {debugTrail.length ? debugTrail.map((line, idx) => (
               <div key={`${idx}-${line}`}>{line}</div>
