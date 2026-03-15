@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { toSaoPauloDateTime } from '../utils/time';
+import { sanitizeQuickTeamName } from '../utils/storage';
 
 function normalizeMatchRows(data) {
   return (data || []).map((m) => {
@@ -10,6 +11,8 @@ function normalizeMatchRows(data) {
     }));
     return {
       ...m,
+      team_a_name: sanitizeQuickTeamName(m.team_a_name, 'Com Colete'),
+      team_b_name: sanitizeQuickTeamName(m.team_b_name, 'Sem Colete'),
       match_results: withTz
     };
   });

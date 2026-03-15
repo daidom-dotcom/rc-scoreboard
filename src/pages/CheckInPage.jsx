@@ -4,6 +4,7 @@ import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchLiveGame, fetchMatchesByDate } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { sanitizeQuickTeamName } from '../utils/storage';
 import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
 import SelectField from '../components/SelectField';
 
@@ -76,6 +77,8 @@ export default function CheckInPage() {
       if (data) {
         return {
           ...data,
+          team_a_name: sanitizeQuickTeamName(data.team_a_name, 'Com Colete'),
+          team_b_name: sanitizeQuickTeamName(data.team_b_name, 'Sem Colete'),
           match_results: data.match_results && !Array.isArray(data.match_results)
             ? [data.match_results]
             : (data.match_results || [])
@@ -96,6 +99,8 @@ export default function CheckInPage() {
     if (byNoDate) {
       return {
         ...byNoDate,
+        team_a_name: sanitizeQuickTeamName(byNoDate.team_a_name, 'Com Colete'),
+        team_b_name: sanitizeQuickTeamName(byNoDate.team_b_name, 'Sem Colete'),
         match_results: byNoDate.match_results && !Array.isArray(byNoDate.match_results)
           ? [byNoDate.match_results]
           : (byNoDate.match_results || [])

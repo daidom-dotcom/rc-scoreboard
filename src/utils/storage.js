@@ -2,7 +2,7 @@ const SETTINGS_KEY = 'rc_settings_v1';
 const APP_DATE_KEY = 'rc_app_date_v1';
 const QUICK_COUNTER_KEY = 'rc_quick_counter_v1';
 
-function sanitizeQuickTeamName(value, fallback) {
+export function sanitizeQuickTeamName(value, fallback) {
   const raw = String(value || '').trim();
   if (!raw) return fallback;
   const normalized = raw.replace(/\s+/g, ' ');

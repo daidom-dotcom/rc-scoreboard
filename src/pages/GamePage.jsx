@@ -303,6 +303,23 @@ export default function GamePage() {
   }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber, entriesReloadKey]);
 
   useEffect(() => {
+    const channel = supabase
+      .channel('player-entries-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'player_entries' },
+        () => {
+          setEntriesReloadKey((k) => k + 1);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
     entriesRequestRef.current += 1;
     setTeamEntries({ A: [], B: [] });
     setOwnTeamSide(null);
