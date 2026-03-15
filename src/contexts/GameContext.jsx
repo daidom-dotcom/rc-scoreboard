@@ -46,6 +46,7 @@ export function GameProvider({ children }) {
 
   const intervalRef = useRef(null);
   const currentMatchRef = useRef(null);
+  const matchIdRef = useRef(null);
   const scoreARef = useRef(0);
   const scoreBRef = useRef(0);
   const basketsARef = useRef({ one: 0, two: 0, three: 0 });
@@ -62,6 +63,10 @@ export function GameProvider({ children }) {
     return dateISO || todayISOInSaoPaulo();
   }
 
+  useEffect(() => {
+    matchIdRef.current = matchId;
+  }, [matchId]);
+
   function logDebug(message, extra = null) {
     const stamp = new Date().toLocaleTimeString('pt-BR', { hour12: false });
     const line = extra == null
@@ -77,6 +82,7 @@ export function GameProvider({ children }) {
   function syncQuickMatch(match, fallbackNo = null) {
     if (!match?.id) return null;
     setMatchId(match.id);
+    matchIdRef.current = match.id;
     currentMatchRef.current = match;
     const resolvedNo = Number(match.match_no || fallbackNo || quickMatchNumber || 1);
     if (resolvedNo > 0) setQuickMatchNumber(resolvedNo);
@@ -426,13 +432,17 @@ export function GameProvider({ children }) {
       const targetNo = Number(desiredNo || quickMatchNumber || 1);
       logDebug('ensureQuickMatch.begin', {
         targetNo,
-        matchId,
+        matchId: matchIdRef.current,
         currentMatchNo: currentMatchRef.current?.match_no || null,
         date: getActiveDateISO()
       });
-      if (matchId && Number(currentMatchRef.current?.match_no || targetNo) === targetNo) {
-        logDebug('ensureQuickMatch.usingCurrent', { matchId, targetNo });
-        return currentMatchRef.current || { id: matchId, match_no: targetNo };
+      if (
+        matchIdRef.current &&
+        currentMatchRef.current?.id === matchIdRef.current &&
+        Number(currentMatchRef.current?.match_no || 0) === targetNo
+      ) {
+        logDebug('ensureQuickMatch.usingCurrent', { matchId: matchIdRef.current, targetNo });
+        return currentMatchRef.current;
       }
       const date = getActiveDateISO();
       const normalizedPending = await normalizePendingQuick(date);
@@ -759,6 +769,7 @@ export function GameProvider({ children }) {
         await deleteMatch(matchId);
         logDebug('finishQuick.deletedZeroZero', { matchId });
         setMatchId(null);
+        matchIdRef.current = null;
         currentMatchRef.current = null;
       }
 
@@ -799,6 +810,7 @@ export function GameProvider({ children }) {
     await deletePendingQuickMatch(date, nextNo).catch(() => {});
     setQuickMatchNumber(nextNo);
     setMatchId(null);
+    matchIdRef.current = null;
     currentMatchRef.current = null;
     const nextMatch = await ensureQuickMatch(nextNo);
     if (!nextMatch?.id) return;
