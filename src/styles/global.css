@@ -541,11 +541,14 @@ select {
 }
 .frame-header {
   flex: 0 0 auto;
-  min-height: 42px;
+  min-height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  position: relative;
+  z-index: 2;
+  background: var(--preto);
 }
 .frame-body {
   flex: 1 1 auto;
@@ -555,6 +558,7 @@ select {
   gap: 20px;
   min-height: 0;
   overflow: hidden;
+  padding-top: 4px;
 }
 .frame-footer {
   flex: 0 0 auto;
@@ -786,7 +790,7 @@ select {
   font-size: clamp(10px, 1.2vw, 15px);
   font-weight: 900;
 }
-.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1 1 auto; min-width: 0; text-align: center; pointer-events: none; z-index: 1; line-height: .88; align-self: center; overflow: hidden; }
+.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1 1 auto; min-width: 0; text-align: center; pointer-events: none; z-index: 1; line-height: 1; align-self: center; overflow: hidden; white-space: nowrap; }
 
 .botoes-esquerda, .botoes-direita { display: flex; flex-direction: column; gap: 12px; justify-content: center; width: 82px; z-index: 2; }
 

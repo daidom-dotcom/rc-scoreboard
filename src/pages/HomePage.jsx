@@ -27,13 +27,17 @@ export default function HomePage() {
     }
   }, [user, isScoreboard, navigate]);
 
-  function handleQuick() {
+  async function handleQuick() {
     if (!canEdit) {
       showAlert('Faça login para iniciar e salvar partidas.');
       return;
     }
-    startQuick();
-    navigate('/game');
+    try {
+      await startQuick();
+      navigate('/game');
+    } catch (err) {
+      showAlert(err.message || 'Erro ao preparar a partida rápida.');
+    }
   }
 
   function handleTournament() {

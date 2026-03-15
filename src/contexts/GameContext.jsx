@@ -396,7 +396,7 @@ export function GameProvider({ children }) {
     }
   }
 
-  function startQuick() {
+  async function startQuick() {
     setMode('quick');
     setMatchId(null);
     setQuarterIndex(0);
@@ -408,10 +408,30 @@ export function GameProvider({ children }) {
     setAjusteFinalAtivo(false);
     setRunning(false);
     remoteResetRef.current = false;
-    refreshQuickNumber().then((nextNo) => {
+    try {
+      const nextNo = await refreshQuickNumber();
       setQuickMatchNumber(nextNo);
-      ensureQuickMatch(nextNo);
-    });
+      const nextMatch = await ensureQuickMatch(nextNo);
+      if (nextMatch?.id) {
+        await upsertLiveGame({
+          id: 1,
+          status: 'paused',
+          mode: 'quick',
+          match_id: nextMatch.id,
+          match_no: nextNo,
+          quarter: 1,
+          time_left: settings.quickDurationSeconds,
+          team_a: quickTeamA,
+          team_b: quickTeamB,
+          score_a: 0,
+          score_b: 0,
+          reset_at: null
+        });
+      }
+    } catch (err) {
+      setLastError(err);
+      throw err;
+    }
   }
 
   function startTournamentMatch(match) {

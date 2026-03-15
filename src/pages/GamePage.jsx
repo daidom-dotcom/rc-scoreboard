@@ -115,7 +115,13 @@ export default function GamePage() {
       } catch {
         // fallback inicia quick padrão
       }
-      if (active) startQuick();
+      if (active) {
+        try {
+          await startQuick();
+        } catch {
+          // deixa a tela viva, mas sem quebrar a montagem
+        }
+      }
     }
     bootstrapScoreboard();
     return () => {
