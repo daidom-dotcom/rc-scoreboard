@@ -51,6 +51,9 @@ export default function GamePage() {
   const lastGoodLiveRef = useRef(null);
   const initializedScoreboardRef = useRef(false);
   const quickFallbackStartedRef = useRef(false);
+  const startQuickRef = useRef(startQuick);
+  const applyLiveSnapshotRef = useRef(applyLiveSnapshot);
+  const logDebugRef = useRef(logDebug);
   const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
@@ -92,13 +95,19 @@ export default function GamePage() {
   }
 
   useEffect(() => {
+    startQuickRef.current = startQuick;
+    applyLiveSnapshotRef.current = applyLiveSnapshot;
+    logDebugRef.current = logDebug;
+  }, [startQuick, applyLiveSnapshot, logDebug]);
+
+  useEffect(() => {
     if (!isScoreboard) return;
     if (initializedScoreboardRef.current) return;
     initializedScoreboardRef.current = true;
     let active = true;
     async function bootstrapScoreboard() {
       const today = todayISOInSaoPaulo();
-      logDebug('GamePage.bootstrap.begin', { today, dateISO });
+      logDebugRef.current('GamePage.bootstrap.begin', { today, dateISO });
       if (dateISO !== today) {
         setDateISO(today);
       }
@@ -114,32 +123,32 @@ export default function GamePage() {
           (live.mode === 'quick' ? quickInProgress : true)
         );
         if (live && !liveIsValidQuick) {
-          logDebug('GamePage.bootstrap.ignoreInvalidQuickLive', {
+          logDebugRef.current('GamePage.bootstrap.ignoreInvalidQuickLive', {
             match_id: live.match_id || null,
             match_no: live.match_no || null,
             status: live.status || null
           });
         }
         if (hasLivePayload && shouldRestoreLive) {
-          logDebug('GamePage.bootstrap.restoreLive', {
+          logDebugRef.current('GamePage.bootstrap.restoreLive', {
             mode: live.mode,
             match_id: live.match_id,
             match_no: live.match_no,
             time_left: live.time_left
           });
-          applyLiveSnapshot(live);
+          applyLiveSnapshotRef.current(live);
           return;
         }
       } catch {
-        logDebug('GamePage.bootstrap.liveFetchFailed');
+        logDebugRef.current('GamePage.bootstrap.liveFetchFailed');
         // fallback inicia quick padrão
       }
       if (active) {
         try {
-          await startQuick();
-          logDebug('GamePage.bootstrap.startedQuick');
+          await startQuickRef.current();
+          logDebugRef.current('GamePage.bootstrap.startedQuick');
         } catch {
-          logDebug('GamePage.bootstrap.startQuickFailed');
+          logDebugRef.current('GamePage.bootstrap.startQuickFailed');
           // deixa a tela viva, mas sem quebrar a montagem
         }
       }
@@ -148,7 +157,7 @@ export default function GamePage() {
     return () => {
       active = false;
     };
-  }, [isScoreboard, dateISO, setDateISO, startQuick, applyLiveSnapshot]);
+  }, [isScoreboard, dateISO, setDateISO]);
 
   useEffect(() => {
     if (!isScoreboard) return;
@@ -160,19 +169,19 @@ export default function GamePage() {
     let cancelled = false;
     const t = setTimeout(async () => {
       if (cancelled) return;
-      logDebug('GamePage.quickFallback.begin', { dateISO, quickMatchNumber });
+      logDebugRef.current('GamePage.quickFallback.begin', { dateISO, quickMatchNumber });
       try {
-        await startQuick();
-        logDebug('GamePage.quickFallback.success');
+        await startQuickRef.current();
+        logDebugRef.current('GamePage.quickFallback.success');
       } catch (err) {
-        logDebug('GamePage.quickFallback.error', err?.message || 'unknown');
+        logDebugRef.current('GamePage.quickFallback.error', err?.message || 'unknown');
       }
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [isScoreboard, mode, matchId, liveView?.match_id, dateISO, quickMatchNumber, startQuick, logDebug]);
+  }, [isScoreboard, mode, matchId, liveView?.match_id, dateISO, quickMatchNumber]);
 
   useEffect(() => {
     if (matchId || liveView?.match_id) {
