@@ -324,14 +324,6 @@ export default function GamePage() {
   }, []);
 
   useEffect(() => {
-    entriesRequestRef.current += 1;
-    setTeamEntries({ A: [], B: [] });
-    setOwnTeamSide(null);
-    setSelectedScorer({ A: '', B: '' });
-    setEntriesDebug({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
-  }, [matchId, liveView?.match_id, quickMatchNumber]);
-
-  useEffect(() => {
     let active = true;
     async function loadBasketEvents() {
       let currentMatchId = canEdit
