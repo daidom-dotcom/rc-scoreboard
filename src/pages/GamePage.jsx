@@ -150,6 +150,28 @@ export default function GamePage() {
   }, [isScoreboard, dateISO, setDateISO, startQuick, applyLiveSnapshot]);
 
   useEffect(() => {
+    if (!isScoreboard) return;
+    if (mode !== 'quick') return;
+    if (matchId) return;
+    if (liveView?.match_id) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (cancelled) return;
+      logDebug('GamePage.quickFallback.begin', { dateISO, quickMatchNumber });
+      try {
+        await startQuick();
+        logDebug('GamePage.quickFallback.success');
+      } catch (err) {
+        logDebug('GamePage.quickFallback.error', err?.message || 'unknown');
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [isScoreboard, mode, matchId, liveView?.match_id, dateISO, quickMatchNumber, startQuick, logDebug]);
+
+  useEffect(() => {
     const t = setInterval(() => setObserverNowMs(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
