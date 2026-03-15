@@ -549,6 +549,7 @@ select {
   position: relative;
   z-index: 2;
   background: var(--preto);
+  padding-bottom: 6px;
 }
 .frame-body {
   flex: 1 1 auto;
@@ -558,7 +559,7 @@ select {
   gap: 20px;
   min-height: 0;
   overflow: hidden;
-  padding-top: 4px;
+  padding-top: 12px;
 }
 .frame-footer {
   flex: 0 0 auto;
@@ -576,6 +577,7 @@ select {
   display: inline-block;
   max-width: 100%;
   margin: 0 auto;
+  position: relative;
 }
 .nome-btn.interactive { cursor: pointer; pointer-events: auto; }
 .nome-btn.faded { opacity: .28; }

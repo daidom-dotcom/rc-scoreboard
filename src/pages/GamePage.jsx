@@ -293,6 +293,12 @@ export default function GamePage() {
   }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber, entriesReloadKey]);
 
   useEffect(() => {
+    setTeamEntries({ A: [], B: [] });
+    setOwnTeamSide(null);
+    setSelectedScorer({ A: '', B: '' });
+  }, [matchId, liveView?.match_id, quickMatchNumber]);
+
+  useEffect(() => {
     let active = true;
     async function loadBasketEvents() {
       let currentMatchId = canEdit
