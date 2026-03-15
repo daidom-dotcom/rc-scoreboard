@@ -51,6 +51,7 @@ export default function GamePage() {
   const lastGoodLiveRef = useRef(null);
   const initializedScoreboardRef = useRef(false);
   const quickFallbackStartedRef = useRef(false);
+  const entriesRequestRef = useRef(0);
   const startQuickRef = useRef(startQuick);
   const applyLiveSnapshotRef = useRef(applyLiveSnapshot);
   const logDebugRef = useRef(logDebug);
@@ -247,6 +248,7 @@ export default function GamePage() {
 
   useEffect(() => {
     let active = true;
+    const requestId = ++entriesRequestRef.current;
     setTeamEntries({ A: [], B: [] });
     async function loadEntries() {
       const modeForEntries = canEdit ? mode : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
@@ -255,7 +257,11 @@ export default function GamePage() {
         liveMatchId = await resolveActiveQuickMatchId();
       }
       if (!liveMatchId) {
-        if (active) setTeamEntries({ A: [], B: [] });
+        if (active && requestId === entriesRequestRef.current) {
+          setTeamEntries({ A: [], B: [] });
+          setOwnTeamSide(null);
+          setSelectedScorer({ A: '', B: '' });
+        }
         return;
       }
       const { data, error } = await supabase
@@ -263,7 +269,11 @@ export default function GamePage() {
         .select('player_name, team_side, user_id')
         .eq('match_id', liveMatchId);
       if (error) {
-        if (active) setTeamEntries({ A: [], B: [] });
+        if (active && requestId === entriesRequestRef.current) {
+          setTeamEntries({ A: [], B: [] });
+          setOwnTeamSide(null);
+          setSelectedScorer({ A: '', B: '' });
+        }
         return;
       }
       const a = [];
@@ -275,7 +285,7 @@ export default function GamePage() {
         if (e.team_side === 'B') b.push(first);
         if (user?.id && e.user_id === user.id) mine = e.team_side;
       });
-      if (active) {
+      if (active && requestId === entriesRequestRef.current) {
         setTeamEntries({ A: a, B: b });
         setOwnTeamSide(mine);
         setSelectedScorer((prev) => ({
@@ -293,6 +303,7 @@ export default function GamePage() {
   }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber, entriesReloadKey]);
 
   useEffect(() => {
+    entriesRequestRef.current += 1;
     setTeamEntries({ A: [], B: [] });
     setOwnTeamSide(null);
     setSelectedScorer({ A: '', B: '' });

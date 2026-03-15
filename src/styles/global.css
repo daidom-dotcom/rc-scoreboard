@@ -541,7 +541,7 @@ select {
 }
 .frame-header {
   flex: 0 0 auto;
-  min-height: 38px;
+  min-height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -549,7 +549,7 @@ select {
   position: relative;
   z-index: 2;
   background: var(--preto);
-  padding-bottom: 6px;
+  padding-bottom: 10px;
 }
 .frame-body {
   flex: 1 1 auto;
@@ -559,7 +559,7 @@ select {
   gap: 20px;
   min-height: 0;
   overflow: hidden;
-  padding-top: 12px;
+  padding-top: 22px;
 }
 .frame-footer {
   flex: 0 0 auto;
@@ -803,7 +803,7 @@ select {
   font-size: clamp(10px, 1.2vw, 15px);
   font-weight: 900;
 }
-.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1 1 auto; min-width: 0; text-align: center; pointer-events: none; z-index: 1; line-height: 1; align-self: center; overflow: hidden; white-space: nowrap; }
+.pontos { font-size: calc(200px * var(--score-scale)); text-shadow: 0 0 20px var(--verde); font-weight: 900; flex: 1 1 auto; min-width: 0; text-align: center; pointer-events: none; z-index: 1; line-height: 1; align-self: center; overflow: hidden; white-space: nowrap; transform: translateY(10px); }
 
 .botoes-esquerda, .botoes-direita { display: flex; flex-direction: column; gap: 12px; justify-content: center; width: 82px; z-index: 2; }
 
