@@ -63,6 +63,7 @@ export default function GamePage() {
   const [basketReloadKey, setBasketReloadKey] = useState(0);
   const [entriesReloadKey, setEntriesReloadKey] = useState(0);
   const [selectedScorer, setSelectedScorer] = useState({ A: '', B: '' });
+  const [entriesDebug, setEntriesDebug] = useState({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -261,6 +262,7 @@ export default function GamePage() {
           setTeamEntries({ A: [], B: [] });
           setOwnTeamSide(null);
           setSelectedScorer({ A: '', B: '' });
+          setEntriesDebug({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
         }
         return;
       }
@@ -273,6 +275,7 @@ export default function GamePage() {
           setTeamEntries({ A: [], B: [] });
           setOwnTeamSide(null);
           setSelectedScorer({ A: '', B: '' });
+          setEntriesDebug({ matchId: liveMatchId, count: 0, error: error.message || 'unknown', namesA: [], namesB: [] });
         }
         return;
       }
@@ -288,6 +291,7 @@ export default function GamePage() {
       if (active && requestId === entriesRequestRef.current) {
         setTeamEntries({ A: a, B: b });
         setOwnTeamSide(mine);
+        setEntriesDebug({ matchId: liveMatchId, count: (data || []).length, error: null, namesA: a, namesB: b });
         setSelectedScorer((prev) => ({
           A: (prev.A && a.includes(prev.A)) ? prev.A : '',
           B: (prev.B && b.includes(prev.B)) ? prev.B : ''
@@ -324,6 +328,7 @@ export default function GamePage() {
     setTeamEntries({ A: [], B: [] });
     setOwnTeamSide(null);
     setSelectedScorer({ A: '', B: '' });
+    setEntriesDebug({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
   }, [matchId, liveView?.match_id, quickMatchNumber]);
 
   useEffect(() => {
@@ -853,6 +858,11 @@ export default function GamePage() {
             <div><b>teamBName:</b> {JSON.stringify(viewTeamB)}</div>
             <div><b>teamB.length:</b> {String(viewTeamB || '').length}</div>
             <div><b>teamB.lastCharCode:</b> {String(viewTeamB || '').length ? String(viewTeamB).charCodeAt(String(viewTeamB).length - 1) : '-'}</div>
+            <div><b>entries.matchId:</b> {entriesDebug.matchId || '-'}</div>
+            <div><b>entries.count:</b> {entriesDebug.count}</div>
+            <div><b>entries.error:</b> {entriesDebug.error || '-'}</div>
+            <div><b>entries.A:</b> {entriesDebug.namesA.join(' / ') || '-'}</div>
+            <div><b>entries.B:</b> {entriesDebug.namesB.join(' / ') || '-'}</div>
             <div style={{ marginTop: 8 }}><b>Eventos</b></div>
             {debugTrail.length ? debugTrail.map((line, idx) => (
               <div key={`${idx}-${line}`}>{line}</div>
