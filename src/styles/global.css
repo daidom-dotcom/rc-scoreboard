@@ -526,30 +526,23 @@ select {
 #controlesJogos { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; min-width: 160px; }
 
 .placar { display: flex; justify-content: space-between; margin: 40px; gap: 20px; position: relative; }
-.frame {
+.team-panel {
   flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.frame {
   border: 2px solid var(--verde);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  padding: 16px 20px 14px;
-  min-width: 280px;
+  padding: 20px 20px 14px;
   position: relative;
   align-items: stretch;
   gap: 8px;
   height: calc(320px + (var(--score-scale) - 1) * 150px);
-}
-.frame-header {
-  flex: 0 0 auto;
-  min-height: 52px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  z-index: 2;
-  background: var(--preto);
-  padding-bottom: 10px;
 }
 .frame-body {
   flex: 1 1 auto;
@@ -579,10 +572,20 @@ select {
   margin: 0 auto;
   position: relative;
 }
+.team-title-btn {
+  background: transparent;
+  display: block;
+  width: 100%;
+  padding: 0 14px;
+}
+.team-title-btn.left {
+  text-align: right;
+}
+.team-title-btn.right {
+  text-align: left;
+}
 .nome-btn.interactive { cursor: pointer; pointer-events: auto; }
 .nome-btn.faded { opacity: .28; }
-.placar .frame:first-child .nome { text-align: right; padding: 0 12px; }
-.placar .frame:last-child .nome { text-align: left; padding: 0 12px; }
 .placar-checkins {
   position: static;
   transform: none;
@@ -916,7 +919,7 @@ select {
   #partidaLabel { font-size: 22px; min-width: 140px; }
   #controlesJogos { min-width: 140px; }
   .placar { margin: 25px 16px; flex-wrap: wrap; }
-  .frame { min-width: 260px; }
+  .team-panel { min-width: 260px; }
   .modal-title { font-size: 28px; }
   .col-40, .col-30 { flex: 1 1 100%; }
   .home-date { max-width: 90%; }

@@ -671,16 +671,15 @@ export default function GamePage() {
       </div>
 
       <div className="placar">
-        <div className="frame">
-          <div className="frame-header">
-            <button
-              type="button"
-              className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'B' ? 'faded' : ''}`}
-              onClick={() => toggleMyTeam('A')}
-            >
-              {viewTeamA}
-            </button>
-          </div>
+        <div className="team-panel">
+          <button
+            type="button"
+            className={`nome nome-btn team-title-btn left ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'B' ? 'faded' : ''}`}
+            onClick={() => toggleMyTeam('A')}
+          >
+            {viewTeamA}
+          </button>
+          <div className="frame">
           <div className="frame-body">
             {canEdit ? (
               <div className="botoes-esquerda">
@@ -718,17 +717,17 @@ export default function GamePage() {
             </div>
           </div>
         </div>
+        </div>
 
-        <div className="frame">
-          <div className="frame-header">
-            <button
-              type="button"
-              className={`nome nome-btn ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'A' ? 'faded' : ''}`}
-              onClick={() => toggleMyTeam('B')}
-            >
-              {viewTeamB}
-            </button>
-          </div>
+        <div className="team-panel">
+          <button
+            type="button"
+            className={`nome nome-btn team-title-btn right ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'A' ? 'faded' : ''}`}
+            onClick={() => toggleMyTeam('B')}
+          >
+            {viewTeamB}
+          </button>
+          <div className="frame">
           <div className="frame-body">
             {canEdit ? <div className="side-spacer" /> : null}
             <div className="pontos">{viewScoreB}</div>
@@ -765,6 +764,7 @@ export default function GamePage() {
               ) : 'Sem check-in registrado.'}
             </div>
           </div>
+        </div>
         </div>
       </div>
 
