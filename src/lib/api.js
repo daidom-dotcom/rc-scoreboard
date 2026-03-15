@@ -24,6 +24,26 @@ export async function fetchTeams() {
   return data || [];
 }
 
+export async function fetchAppSettings() {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('*')
+    .eq('id', 1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+export async function upsertAppSettings(payload) {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .upsert({ id: 1, ...payload })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function createTeam(name) {
   const { data, error } = await supabase
     .from('teams')

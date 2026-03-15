@@ -11,7 +11,7 @@ function sanitizeQuickTeamName(value, fallback) {
   return normalized;
 }
 
-function sanitizeSettings(settings) {
+export function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object') return settings;
   return {
     ...settings,

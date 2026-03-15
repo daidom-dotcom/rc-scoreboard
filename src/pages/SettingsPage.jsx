@@ -3,6 +3,8 @@ import { useGame } from '../contexts/GameContext';
 import ManageUsersPage from './ManageUsersPage';
 import RegisteredMatchesPage from './RegisteredMatchesPage';
 import { supabase } from '../lib/supabase';
+import { upsertAppSettings } from '../lib/api';
+import { sanitizeSettings } from '../utils/storage';
 import { todayISOInSaoPaulo } from '../utils/time';
 
 export default function SettingsPage() {
@@ -15,9 +17,9 @@ export default function SettingsPage() {
   const [defaultTeamA, setDefaultTeamA] = useState(settings.defaultTeamA);
   const [defaultTeamB, setDefaultTeamB] = useState(settings.defaultTeamB);
 
-  function save() {
+  async function save() {
     const duration = Math.max(0, Number(quickMinutes) * 60 + Number(quickSeconds));
-    setSettings({
+    const nextSettings = sanitizeSettings({
       ...settings,
       quickDurationSeconds: duration || 7 * 60,
       alertSeconds: Number(alertSeconds) || 20,
@@ -25,7 +27,19 @@ export default function SettingsPage() {
       defaultTeamA: defaultTeamA || 'Com Colete',
       defaultTeamB: defaultTeamB || 'Sem Colete'
     });
-    showAlert('Configurações salvas.');
+    try {
+      await upsertAppSettings({
+        quick_duration_seconds: nextSettings.quickDurationSeconds,
+        alert_seconds: nextSettings.alertSeconds,
+        sound_enabled: nextSettings.soundEnabled,
+        default_team_a: nextSettings.defaultTeamA,
+        default_team_b: nextSettings.defaultTeamB
+      });
+      setSettings(nextSettings);
+      showAlert('Configurações salvas.');
+    } catch (err) {
+      showAlert(err.message || 'Erro ao salvar configurações.');
+    }
   }
 
   async function resetToday() {

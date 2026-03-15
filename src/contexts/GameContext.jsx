@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { createMatch, deleteMatch, deletePendingQuickMatch, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, sendMatchSummaryEmail, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
+import { createMatch, deleteMatch, deletePendingQuickMatch, fetchAppSettings, fetchLiveGame, fetchNextMatchNo, findLatestPendingQuick, findPendingQuickMatch, sendMatchSummaryEmail, updateMatch, updateLiveGame, upsertLiveGame, upsertMatchResult } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatTime, todayISOInSaoPaulo } from '../utils/time';
-import { loadAppDate, loadSettings, saveAppDate, saveSettings } from '../utils/storage';
+import { loadAppDate, loadSettings, sanitizeSettings, saveAppDate, saveSettings } from '../utils/storage';
 import { useAuth } from './AuthContext';
 
 const GameContext = createContext(null);
@@ -124,6 +124,32 @@ export function GameProvider({ children }) {
   useEffect(() => {
     saveSettings(settings);
   }, [settings]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadRemoteSettings() {
+      try {
+        const remote = await fetchAppSettings();
+        if (!active || !remote) return;
+        const merged = sanitizeSettings({
+          ...defaultSettings,
+          ...settings,
+          quickDurationSeconds: Number(remote.quick_duration_seconds ?? settings.quickDurationSeconds ?? defaultSettings.quickDurationSeconds),
+          alertSeconds: Number(remote.alert_seconds ?? settings.alertSeconds ?? defaultSettings.alertSeconds),
+          soundEnabled: remote.sound_enabled ?? settings.soundEnabled ?? defaultSettings.soundEnabled,
+          defaultTeamA: remote.default_team_a ?? settings.defaultTeamA ?? defaultSettings.defaultTeamA,
+          defaultTeamB: remote.default_team_b ?? settings.defaultTeamB ?? defaultSettings.defaultTeamB
+        });
+        setSettings(merged);
+      } catch {
+        // fallback local
+      }
+    }
+    loadRemoteSettings();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     saveAppDate(dateISO);
