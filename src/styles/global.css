@@ -732,8 +732,8 @@ select {
   background: transparent;
   color: var(--verde);
   border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 7px 12px;
+  font-size: 14px;
   font-weight: 900;
 }
 .attendance-pill.interactive {

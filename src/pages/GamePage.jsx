@@ -280,7 +280,9 @@ export default function GamePage() {
     setAssignmentSide(null);
     async function loadEntries() {
       const modeForEntries = canEdit ? mode : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
-      let liveMatchId = canEdit ? (matchId || null) : (liveView?.match_id || lastGoodLiveRef.current?.match_id || null);
+      let liveMatchId = canEdit
+        ? (matchId || liveView?.match_id || lastGoodLiveRef.current?.match_id || null)
+        : (liveView?.match_id || lastGoodLiveRef.current?.match_id || matchId || null);
       if (!liveMatchId && modeForEntries === 'quick') {
         liveMatchId = await resolveActiveQuickMatchId();
       }
@@ -894,7 +896,7 @@ export default function GamePage() {
         </div>
         {attendanceList.length ? (
           <div className="attendance-list">
-            {(canEdit && isRapidMode ? availableAttendance : attendanceList).map((person) => (
+            {attendanceList.map((person) => (
               <button
                 key={person.user_id}
                 type="button"
@@ -908,42 +910,11 @@ export default function GamePage() {
                 {String(person.player_name || '').trim().split(' ')[0] || person.player_name}
               </button>
             ))}
-            {canEdit && isRapidMode && !availableAttendance.length ? (
-              <span className="muted">Todos os presentes já estão em algum time.</span>
-            ) : null}
           </div>
         ) : (
           <div className="muted">Nenhuma presença registrada hoje.</div>
         )}
       </div>
-
-      {(canEdit || !!user) ? (
-        <details className="basket-stats-plain" open>
-          <summary className="basket-stats-title">Rastreador técnico</summary>
-          <div className="debug-panel">
-            <div><b>dateISO:</b> {dateISO || '-'}</div>
-            <div><b>matchId:</b> {matchId || '-'}</div>
-            <div><b>quickMatchNumber:</b> {quickMatchNumber || '-'}</div>
-            <div><b>live.match_id:</b> {safeLive?.match_id || '-'}</div>
-            <div><b>live.match_no:</b> {safeLive?.match_no || '-'}</div>
-            <div><b>live.status:</b> {safeLive?.status || '-'}</div>
-            <div><b>live.time_left:</b> {safeLive?.time_left ?? '-'}</div>
-            <div><b>teamAName:</b> {JSON.stringify(viewTeamA)}</div>
-            <div><b>teamBName:</b> {JSON.stringify(viewTeamB)}</div>
-            <div><b>teamB.length:</b> {String(viewTeamB || '').length}</div>
-            <div><b>teamB.lastCharCode:</b> {String(viewTeamB || '').length ? String(viewTeamB).charCodeAt(String(viewTeamB).length - 1) : '-'}</div>
-            <div><b>entries.matchId:</b> {entriesDebug.matchId || '-'}</div>
-            <div><b>entries.count:</b> {entriesDebug.count}</div>
-            <div><b>entries.error:</b> {entriesDebug.error || '-'}</div>
-            <div><b>entries.A:</b> {entriesDebug.namesA.join(' / ') || '-'}</div>
-            <div><b>entries.B:</b> {entriesDebug.namesB.join(' / ') || '-'}</div>
-            <div style={{ marginTop: 8 }}><b>Eventos</b></div>
-            {debugTrail.length ? debugTrail.map((line, idx) => (
-              <div key={`${idx}-${line}`}>{line}</div>
-            )) : <div>Sem eventos ainda.</div>}
-          </div>
-        </details>
-      ) : null}
 
       <PasswordModal
         open={passwordState.open}
