@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchLiveGame, fetchMatchesByDate } from '../lib/api';
+import { fetchMatchesByDate } from '../lib/api';
 import { supabase } from '../lib/supabase';
-import { sanitizeQuickTeamName } from '../utils/storage';
 import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
-import SelectField from '../components/SelectField';
 
 export default function CheckInPage() {
   const { showAlert } = useGame();
@@ -14,8 +12,6 @@ export default function CheckInPage() {
   const navigate = useNavigate();
   const [dateISO, setDateISO] = useState(todayISOInSaoPaulo());
   const [matches, setMatches] = useState([]);
-  const [matchId, setMatchId] = useState('');
-  const [teamSide, setTeamSide] = useState('A');
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState([]);
   const [onlyToday, setOnlyToday] = useState(true);
@@ -37,16 +33,6 @@ export default function CheckInPage() {
     return list;
   }, [matches]);
 
-  const displayMatches = useMemo(() => {
-    const map = new Map();
-    orderedMatches.forEach((m) => {
-      const key = m.match_no ? `${m.mode || 'x'}-n-${m.match_no}` : `id-${m.id}`;
-      if (!map.has(key)) map.set(key, m);
-    });
-    return Array.from(map.values());
-  }, [orderedMatches]);
-
-  const currentMatch = useMemo(() => orderedMatches.find((m) => m.id === matchId), [orderedMatches, matchId]);
   const orderMap = useMemo(() => new Map(orderedMatches.map((m, idx) => [m.id, idx + 1])), [orderedMatches]);
 
   const orderedEntries = useMemo(() => {
@@ -66,71 +52,12 @@ export default function CheckInPage() {
     if (qDate && !onlyToday) setDateISO(qDate);
   }, [location.search, onlyToday]);
 
-  async function resolveLiveMatch(live, targetDate) {
-    if (!live) return null;
-    if (live.match_id) {
-      const { data } = await supabase
-        .from('matches')
-        .select('*, match_results(*)')
-        .eq('id', live.match_id)
-        .maybeSingle();
-      if (data) {
-        return {
-          ...data,
-          team_a_name: sanitizeQuickTeamName(data.team_a_name, 'Com Colete'),
-          team_b_name: sanitizeQuickTeamName(data.team_b_name, 'Sem Colete'),
-          match_results: data.match_results && !Array.isArray(data.match_results)
-            ? [data.match_results]
-            : (data.match_results || [])
-        };
-      }
-    }
-    if (live.mode !== 'quick' || !live.match_no) return null;
-    const matchNo = Number(live.match_no);
-    const { data: byNoDate } = await supabase
-      .from('matches')
-      .select('*, match_results(*)')
-      .eq('mode', 'quick')
-      .eq('match_no', matchNo)
-      .eq('date_iso', targetDate)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (byNoDate) {
-      return {
-        ...byNoDate,
-        team_a_name: sanitizeQuickTeamName(byNoDate.team_a_name, 'Com Colete'),
-        team_b_name: sanitizeQuickTeamName(byNoDate.team_b_name, 'Sem Colete'),
-        match_results: byNoDate.match_results && !Array.isArray(byNoDate.match_results)
-          ? [byNoDate.match_results]
-          : (byNoDate.match_results || [])
-      };
-    }
-    return null;
-  }
-
   async function loadMatches() {
     setLoading(true);
     try {
-      const live = await fetchLiveGame().catch(() => null);
       const targetDate = onlyToday ? todayISOInSaoPaulo() : dateISO;
-      const liveMatch = await resolveLiveMatch(live, targetDate);
       const data = await fetchMatchesByDate(targetDate);
-      let merged = [...(data || [])];
-
-      // Guarantee that the currently active live match is selectable for check-in.
-      if (liveMatch) {
-        const exists = merged.some((m) => m.id === liveMatch.id);
-        if (!exists) merged.unshift(liveMatch);
-      }
-
-      setMatches(merged);
-      if (liveMatch?.id) {
-        setDateISO(targetDate);
-        setMatchId(liveMatch.id);
-      } else if (merged.length && !matchId) {
-        setMatchId(merged[0].id);
-      }
+      setMatches(data || []);
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar partidas');
     } finally {
@@ -149,41 +76,6 @@ export default function CheckInPage() {
       .order('created_at', { ascending: false });
     if (error) return;
     setEntries(data || []);
-  }
-
-  async function submit() {
-    if (!user?.id) {
-      showAlert('Você precisa estar logado para fazer check-in.');
-      return;
-    }
-    const targetDate = onlyToday ? todayISOInSaoPaulo() : dateISO;
-    let effectiveMatchId = matchId;
-    if (!effectiveMatchId) {
-      const live = await fetchLiveGame().catch(() => null);
-      const liveMatch = await resolveLiveMatch(live, targetDate);
-      effectiveMatchId = liveMatch?.id || '';
-      if (effectiveMatchId) setMatchId(effectiveMatchId);
-    }
-    if (!effectiveMatchId) {
-      showAlert('Informe a partida.');
-      return;
-    }
-    try {
-      const { error } = await supabase
-        .from('player_entries')
-        .upsert({
-          match_id: effectiveMatchId,
-          user_id: user.id,
-          player_name: profile?.full_name || user.email,
-          team_side: teamSide,
-          date_iso: targetDate
-        }, { onConflict: 'user_id,match_id' });
-      if (error) throw error;
-      showAlert('Check-in registrado!');
-      await loadEntries();
-    } catch (err) {
-      showAlert(err.message || 'Erro ao registrar check-in');
-    }
   }
 
   async function removeEntry(entryId) {
@@ -210,40 +102,21 @@ export default function CheckInPage() {
 
   return (
     <div className="container">
-      <h1 className="hTitle">Check‑in</h1>
+      <h1 className="hTitle">Minhas Partidas</h1>
       <div className="panel">
         <div className="label">Olá, {profile?.full_name || user?.email}.</div>
-        <div>Informe em quais partidas você jogou no dia {formatDateBR(dateISO)} e obtenha resultados personalizados.</div>
+        <div>Aqui você acompanha em quais partidas jogou no dia {formatDateBR(dateISO)}.</div>
       </div>
 
       <div className="panel">
-        <div className="label">Partida</div>
+        <div className="label">Filtro</div>
         <div className="users-filters">
           <label>
             <input type="checkbox" checked={onlyToday} onChange={(e) => setOnlyToday(e.target.checked)} />
             Apenas partidas do dia atual
           </label>
         </div>
-        <SelectField value={matchId} onChange={(e) => setMatchId(e.target.value)}>
-          {displayMatches.length === 0 ? (
-            <option value="">Nenhuma partida registrada</option>
-          ) : null}
-          {displayMatches.map((m, idx) => (
-            <option key={m.id} value={m.id}>
-              Partida {m.match_no || (idx + 1)} · {m.team_a_name} vs {m.team_b_name}
-            </option>
-          ))}
-        </SelectField>
-
-        <div className="label">Vou jogar pelo time... / Joguei pelo time...</div>
-        <SelectField value={teamSide} onChange={(e) => setTeamSide(e.target.value)}>
-          <option value="A">{currentMatch?.team_a_name || 'Time 1'}</option>
-          <option value="B">{currentMatch?.team_b_name || 'Time 2'}</option>
-        </SelectField>
-
-        <div className="actions" style={{ marginTop: 14 }}>
-          <button className="btn-controle" onClick={submit} disabled={loading}>Registrar</button>
-        </div>
+        <div>{loading ? 'Carregando...' : `${matches.length} partidas encontradas no dia.`}</div>
       </div>
 
       <div className="panel">

@@ -37,6 +37,26 @@ export async function fetchAppSettings() {
   return data || null;
 }
 
+export async function fetchDailyAttendance(dateISO) {
+  const { data, error } = await supabase
+    .from('daily_attendance')
+    .select('id,user_id,player_name,date_iso,checked_at')
+    .eq('date_iso', dateISO)
+    .order('player_name', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function upsertDailyAttendance(payload) {
+  const { data, error } = await supabase
+    .from('daily_attendance')
+    .upsert(payload, { onConflict: 'user_id,date_iso' })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function upsertAppSettings(payload) {
   const { data, error } = await supabase
     .from('app_settings')

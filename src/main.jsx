@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import CheckInPage from './pages/CheckInPage';
 import BoardPage from './pages/BoardPage';
+import PresencePage from './pages/PresencePage';
 import './styles/global.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/presence" element={<PresencePage />} />
               <Route path="/checkin" element={<CheckInPage />} />
               <Route path="/tournament" element={<TournamentPage />} />
               <Route path="/game" element={<GamePage />} />

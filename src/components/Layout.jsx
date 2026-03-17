@@ -85,14 +85,17 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.1.59</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.1.60</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
             <NavLink to="/" className="nav-link">Home</NavLink>
           ) : null}
           {user ? (
-            <NavLink to="/checkin" className="nav-link">Check-in</NavLink>
+            <NavLink to="/presence" className="nav-link">Presença</NavLink>
+          ) : null}
+          {user ? (
+            <NavLink to="/checkin" className="nav-link">Minhas Partidas</NavLink>
           ) : null}
           {user && !isMaster && !isScoreboard ? (
             <NavLink to="/game" className="nav-link">🔥 Ao Vivo</NavLink>

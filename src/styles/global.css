@@ -686,6 +686,58 @@ select {
   text-align: left;
   word-break: break-word;
 }
+.presence-panel {
+  max-width: 620px;
+  margin: 40px auto 0;
+  text-align: center;
+}
+.presence-message {
+  font-size: 22px;
+  font-weight: 900;
+}
+.attendance-panel {
+  margin-top: 14px;
+}
+.attendance-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.attendance-pill {
+  border: 1px solid rgba(180,240,0,.45);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+.attendance-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 48vh;
+  overflow: auto;
+  margin: 12px 0;
+}
+.attendance-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+}
+.qr-panel {
+  margin-top: 18px;
+  text-align: center;
+}
+.qr-image {
+  width: 220px;
+  height: 220px;
+  max-width: 100%;
+  display: block;
+  margin: 8px auto 10px;
+  background: #fff;
+  padding: 8px;
+  border-radius: 10px;
+}
 
 .board-panel {
   max-width: 980px;

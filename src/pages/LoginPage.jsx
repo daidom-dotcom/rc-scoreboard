@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useGame } from '../contexts/GameContext';
@@ -15,14 +15,16 @@ export default function LoginPage() {
   const [createObserver, setCreateObserver] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { showAlert } = useGame();
+  const redirectTo = new URLSearchParams(location.search).get('redirect') || '/';
 
   async function handleLogin() {
     const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
     try {
       await signIn(normalizedEmail, password);
-      navigate('/');
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       const { data } = await supabase
         .from('pending_invites')
@@ -72,7 +74,7 @@ export default function LoginPage() {
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
       await signUp(email, password, fullName);
       await supabase.from('pending_invites').delete().eq('email', email.trim().toLowerCase());
-      navigate('/');
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       const msg = err?.message || '';
       if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('registered')) {

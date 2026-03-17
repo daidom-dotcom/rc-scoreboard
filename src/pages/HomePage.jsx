@@ -55,13 +55,12 @@ export default function HomePage() {
     navigate('/history');
   }
 
-  function handleCheckIn() {
+  function handlePresence() {
     if (!user) {
-      showAlert('Faça login para fazer check-in.');
+      showAlert('Faça login para registrar presença.');
       return;
     }
-    const targetDate = dateISO || todayISOInSaoPaulo();
-    navigate(`/checkin?date=${targetDate}`);
+    navigate('/presence');
   }
 
   return (
@@ -95,7 +94,7 @@ export default function HomePage() {
 
       <div className="actions home-actions">
         {user ? (
-          <button className="btn-controle" onClick={handleCheckIn}>Check-in</button>
+          <button className="btn-controle" onClick={handlePresence}>Presença</button>
         ) : null}
         {canEdit ? (
           <>

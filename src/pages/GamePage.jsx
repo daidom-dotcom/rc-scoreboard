@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
-import { fetchLiveGame } from '../lib/api';
+import { fetchDailyAttendance, fetchLiveGame } from '../lib/api';
 import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
+import Modal from '../components/Modal';
 
 export default function GamePage() {
   const { user, isScoreboard, profile } = useAuth();
@@ -58,12 +59,13 @@ export default function GamePage() {
   const [observerNowMs, setObserverNowMs] = useState(Date.now());
   const [passwordState, setPasswordState] = useState({ open: false, message: '', resolve: null });
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
-  const [ownTeamSide, setOwnTeamSide] = useState(null);
   const [basketEvents, setBasketEvents] = useState([]);
   const [basketReloadKey, setBasketReloadKey] = useState(0);
   const [entriesReloadKey, setEntriesReloadKey] = useState(0);
   const [selectedScorer, setSelectedScorer] = useState({ A: '', B: '' });
   const [entriesDebug, setEntriesDebug] = useState({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
+  const [attendanceList, setAttendanceList] = useState([]);
+  const [teamPicker, setTeamPicker] = useState({ open: false, side: 'A', selectedIds: [] });
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -198,6 +200,31 @@ export default function GamePage() {
 
   useEffect(() => {
     let active = true;
+    async function loadAttendance() {
+      try {
+        const data = await fetchDailyAttendance(dateISO || todayISOInSaoPaulo());
+        if (active) setAttendanceList(data || []);
+      } catch {
+        if (active) setAttendanceList([]);
+      }
+    }
+    loadAttendance();
+    const channel = supabase
+      .channel('daily-attendance-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'daily_attendance' },
+        () => loadAttendance()
+      )
+      .subscribe();
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, [dateISO]);
+
+  useEffect(() => {
+    let active = true;
     function applyLiveIfNewer(data) {
       if (!data) return;
       const ts = data.updated_at ? parseTimestampMs(data.updated_at) : Date.now();
@@ -260,7 +287,6 @@ export default function GamePage() {
       if (!liveMatchId) {
         if (active && requestId === entriesRequestRef.current) {
           setTeamEntries({ A: [], B: [] });
-          setOwnTeamSide(null);
           setSelectedScorer({ A: '', B: '' });
           setEntriesDebug({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
         }
@@ -273,7 +299,6 @@ export default function GamePage() {
       if (error) {
         if (active && requestId === entriesRequestRef.current) {
           setTeamEntries({ A: [], B: [] });
-          setOwnTeamSide(null);
           setSelectedScorer({ A: '', B: '' });
           setEntriesDebug({ matchId: liveMatchId, count: 0, error: error.message || 'unknown', namesA: [], namesB: [] });
         }
@@ -281,16 +306,13 @@ export default function GamePage() {
       }
       const a = [];
       const b = [];
-      let mine = null;
       (data || []).forEach((e) => {
         const first = String(e.player_name || '').trim().split(' ')[0] || e.player_name;
         if (e.team_side === 'A') a.push(first);
         if (e.team_side === 'B') b.push(first);
-        if (user?.id && e.user_id === user.id) mine = e.team_side;
       });
       if (active && requestId === entriesRequestRef.current) {
         setTeamEntries({ A: a, B: b });
-        setOwnTeamSide(mine);
         setEntriesDebug({ matchId: liveMatchId, count: (data || []).length, error: null, namesA: a, namesB: b });
         setSelectedScorer((prev) => ({
           A: (prev.A && a.includes(prev.A)) ? prev.A : '',
@@ -380,7 +402,6 @@ export default function GamePage() {
       ? `Quarter ${safeLive?.quarter || 1}`
       : `Partida ${safeLive?.match_no || 1}`);
   const isRapidMode = (safeLive?.mode || mode) === 'quick';
-  const canInteractionUser = !!user && !isScoreboard;
   const basketStats = useMemo(() => {
     const mergedEvents = [...basketEvents];
     const map = new Map();
@@ -430,67 +451,67 @@ export default function GamePage() {
     return await resolveActiveQuickMatchId();
   }
 
-  async function toggleMyTeam(side) {
-    if (!user) {
-      showAlert('Faça login para fazer check-in.');
-      return;
-    }
-    if (isScoreboard) {
-      showAlert('Check-in por time não é permitido no usuário placar.');
-      return;
-    }
-    if (!isRapidMode) return;
-    const currentMatchId = await resolveActiveQuickMatchId();
+  function openTeamPicker(side) {
+    if (!canEdit || !isRapidMode) return;
+    const selectedNames = side === 'A' ? teamEntries.A : teamEntries.B;
+    const selectedIds = attendanceList
+      .filter((person) => selectedNames.includes(String(person.player_name || '').trim().split(' ')[0] || person.player_name))
+      .map((person) => person.user_id);
+    setTeamPicker({ open: true, side, selectedIds });
+  }
+
+  function togglePickerUser(userId) {
+    setTeamPicker((prev) => ({
+      ...prev,
+      selectedIds: prev.selectedIds.includes(userId)
+        ? prev.selectedIds.filter((id) => id !== userId)
+        : [...prev.selectedIds, userId]
+    }));
+  }
+
+  async function saveTeamPicker() {
+    const currentMatchId = await ensureActiveQuickMatchId();
     if (!currentMatchId) {
-      logDebug('toggleMyTeam.noMatch', { side, live_match_id: safeLive?.match_id || null, live_match_no: safeLive?.match_no || null });
-      showAlert('Partida ainda não disponível para check-in.');
+      showAlert('Partida ainda não disponível.');
       return;
     }
-    const targetSide = ownTeamSide === side ? null : side;
-    const previousSide = ownTeamSide;
-    const myFirst = String((profile?.full_name || user?.email || 'Jogador').trim()).split(' ')[0];
-    setOwnTeamSide(targetSide);
-    const { error: delErr } = await supabase
-      .from('player_entries')
-      .delete()
-      .eq('match_id', currentMatchId)
-      .eq('user_id', user.id);
-    if (delErr) {
-      logDebug('toggleMyTeam.deleteError', delErr.message || 'unknown');
-      setOwnTeamSide(previousSide);
-      return showAlert(delErr.message || 'Erro ao atualizar check-in.');
-    }
-    if (!targetSide) {
-      setTeamEntries((prev) => ({
-        A: prev.A.filter((n) => n !== myFirst),
-        B: prev.B.filter((n) => n !== myFirst)
-      }));
-      setEntriesReloadKey((k) => k + 1);
-      return;
-    }
-    const { error: inErr } = await supabase
-      .from('player_entries')
-        .insert({
+    const selectedPeople = attendanceList.filter((person) => teamPicker.selectedIds.includes(person.user_id));
+    const selectedIds = selectedPeople.map((person) => person.user_id);
+    try {
+      if (selectedIds.length) {
+        const { error: clearSelectedError } = await supabase
+          .from('player_entries')
+          .delete()
+          .eq('match_id', currentMatchId)
+          .in('user_id', selectedIds);
+        if (clearSelectedError) throw clearSelectedError;
+      }
+
+      const { error: clearSideError } = await supabase
+        .from('player_entries')
+        .delete()
+        .eq('match_id', currentMatchId)
+        .eq('team_side', teamPicker.side);
+      if (clearSideError) throw clearSideError;
+
+      if (selectedPeople.length) {
+        const rows = selectedPeople.map((person) => ({
           match_id: currentMatchId,
-          user_id: user.id,
-          player_name: (profile?.full_name || user?.email || 'Jogador').trim(),
-          team_side: targetSide,
+          user_id: person.user_id,
+          player_name: person.player_name,
+          team_side: teamPicker.side,
           date_iso: dateISO || todayISOInSaoPaulo()
-        });
-    if (inErr) {
-      logDebug('toggleMyTeam.insertError', inErr.message || 'unknown');
-      setOwnTeamSide(previousSide);
-      return showAlert(inErr.message || 'Erro ao atualizar check-in.');
+        }));
+        const { error: insertError } = await supabase
+          .from('player_entries')
+          .insert(rows);
+        if (insertError) throw insertError;
+      }
+      setTeamPicker({ open: false, side: 'A', selectedIds: [] });
+      setEntriesReloadKey((k) => k + 1);
+    } catch (err) {
+      showAlert(err.message || 'Erro ao salvar time.');
     }
-    logDebug('toggleMyTeam.success', { currentMatchId, targetSide });
-    setTeamEntries((prev) => {
-      const a = prev.A.filter((n) => n !== myFirst);
-      const b = prev.B.filter((n) => n !== myFirst);
-      if (targetSide === 'A') a.push(myFirst);
-      if (targetSide === 'B') b.push(myFirst);
-      return { A: a, B: b };
-    });
-    setEntriesReloadKey((k) => k + 1);
   }
 
   async function resolveCurrentMatchIdForEvents() {
@@ -688,8 +709,8 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn left ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'B' ? 'faded' : ''}`}
-            onClick={() => toggleMyTeam('A')}
+            className={`nome nome-btn team-title-btn left ${canEdit && isRapidMode ? 'interactive' : ''}`}
+            onClick={() => openTeamPicker('A')}
           >
             {viewTeamA}
           </button>
@@ -736,8 +757,8 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn right ${canInteractionUser && isRapidMode ? 'interactive' : ''} ${!!user && ownTeamSide === 'A' ? 'faded' : ''}`}
-            onClick={() => toggleMyTeam('B')}
+            className={`nome nome-btn team-title-btn right ${canEdit && isRapidMode ? 'interactive' : ''}`}
+            onClick={() => openTeamPicker('B')}
           >
             {viewTeamB}
           </button>
@@ -835,6 +856,21 @@ export default function GamePage() {
         )}
       </details>
 
+      <div className="panel attendance-panel">
+        <div className="label">Presentes no dia</div>
+        {attendanceList.length ? (
+          <div className="attendance-list">
+            {attendanceList.map((person) => (
+              <span key={person.user_id} className="attendance-pill">
+                {String(person.player_name || '').trim().split(' ')[0] || person.player_name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="muted">Nenhuma presença registrada hoje.</div>
+        )}
+      </div>
+
       {(canEdit || !!user) ? (
         <details className="basket-stats-plain" open>
           <summary className="basket-stats-title">Rastreador técnico</summary>
@@ -870,6 +906,31 @@ export default function GamePage() {
         onClose={closePasswordModal}
         onConfirm={confirmPassword}
       />
+      <Modal
+        open={teamPicker.open}
+        onClose={() => setTeamPicker({ open: false, side: 'A', selectedIds: [] })}
+        title={`Selecionar ${teamPicker.side === 'A' ? viewTeamA : viewTeamB}`}
+      >
+        <div className="attendance-picker-list">
+          {attendanceList.length ? attendanceList.map((person) => {
+            const checked = teamPicker.selectedIds.includes(person.user_id);
+            return (
+              <label key={person.user_id} className="attendance-picker-item">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => togglePickerUser(person.user_id)}
+                />
+                <span>{person.player_name}</span>
+              </label>
+            );
+          }) : <div>Ninguém presente no dia.</div>}
+        </div>
+        <div className="actions">
+          <button className="btn-outline" onClick={() => setTeamPicker({ open: false, side: 'A', selectedIds: [] })}>Cancelar</button>
+          <button className="btn-controle" onClick={saveTeamPicker}>Salvar time</button>
+        </div>
+      </Modal>
 
       {actionsMenuOpen ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">

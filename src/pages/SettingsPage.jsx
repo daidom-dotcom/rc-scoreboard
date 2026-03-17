@@ -16,6 +16,8 @@ export default function SettingsPage() {
   const [soundEnabled, setSoundEnabled] = useState(settings.soundEnabled);
   const [defaultTeamA, setDefaultTeamA] = useState(settings.defaultTeamA);
   const [defaultTeamB, setDefaultTeamB] = useState(settings.defaultTeamB);
+  const presenceUrl = typeof window !== 'undefined' ? `${window.location.origin}/presence` : '/presence';
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(presenceUrl)}`;
 
   async function save() {
     const duration = Math.max(0, Number(quickMinutes) * 60 + Number(quickSeconds));
@@ -113,6 +115,12 @@ export default function SettingsPage() {
           <div className="actions" style={{ marginTop: 14 }}>
             <button className="btn-controle" onClick={save}>Salvar</button>
             <button className="btn-outline" onClick={resetToday}>Resetar dia atual</button>
+          </div>
+
+          <div className="panel qr-panel">
+            <div className="label">QR de Presença</div>
+            <img src={qrUrl} alt="QR Code de presença" className="qr-image" />
+            <div className="muted">{presenceUrl}</div>
           </div>
         </div>
       ) : tab === 'users' ? (
