@@ -54,6 +54,7 @@ export function GameProvider({ children }) {
   const beepIntervalRef = useRef(null);
   const audioCtxRef = useRef(null);
   const lastAlertSecondRef = useRef(null);
+  const lastHornSecondRef = useRef(null);
   const lastResetRef = useRef(null);
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
@@ -235,6 +236,7 @@ export function GameProvider({ children }) {
         beepIntervalRef.current = null;
       }
       lastAlertSecondRef.current = null;
+      lastHornSecondRef.current = null;
       return;
     }
 
@@ -266,10 +268,43 @@ export function GameProvider({ children }) {
       }
     };
 
+    const playFinalHorn = async () => {
+      try {
+        const ctx = await ensureAudioReady();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const makeLongHorn = (start, freq, duration, gainValue) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, start);
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.92, start + duration);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.03);
+          gain.gain.exponentialRampToValueAtTime(gainValue * 0.9, start + duration * 0.55);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + duration + 0.02);
+        };
+        makeLongHorn(now, 330, 1.2, 1.1);
+        makeLongHorn(now + 0.02, 495, 1.15, 0.85);
+        makeLongHorn(now + 0.04, 660, 1.05, 0.55);
+      } catch {
+        // ignore audio errors
+      }
+    };
+
     // Ensure immediate trigger exactly when entering alert window.
     if (lastAlertSecondRef.current !== totalSeconds) {
       lastAlertSecondRef.current = totalSeconds;
       playAlarmPulse();
+    }
+
+    if (totalSeconds === 1 && lastHornSecondRef.current !== totalSeconds) {
+      lastHornSecondRef.current = totalSeconds;
+      playFinalHorn();
     }
 
     if (!beepIntervalRef.current) {
