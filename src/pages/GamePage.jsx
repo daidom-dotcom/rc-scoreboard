@@ -294,6 +294,14 @@ export default function GamePage() {
             lastLiveAtRef.current = ts;
             lastGoodLiveRef.current = live;
             setLiveView(live);
+            if (
+              isScoreboard &&
+              live.mode === 'tournament' &&
+              live.match_id &&
+              (mode !== 'tournament' || matchId !== live.match_id)
+            ) {
+              applyLiveSnapshotRef.current(live);
+            }
           }
         }
       )
@@ -302,7 +310,7 @@ export default function GamePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isScoreboard, mode, matchId]);
 
   useEffect(() => {
     let active = true;
