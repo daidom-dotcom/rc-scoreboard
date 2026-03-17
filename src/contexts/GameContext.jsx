@@ -1044,8 +1044,8 @@ export function GameProvider({ children }) {
     setMode(liveMode);
     setQuarterIndex(Math.max(0, Number(live.quarter || 1) - 1));
     const isQuick = liveMode === 'quick';
-    const fallbackA = isQuick ? quickTeamA : 'TIME 1';
-    const fallbackB = isQuick ? quickTeamB : 'TIME 2';
+    const fallbackA = isQuick ? quickTeamA : (currentMatchRef.current?.team_a_name || currentMatchRef.current?.teamA || teamAName || 'TIME 1');
+    const fallbackB = isQuick ? quickTeamB : (currentMatchRef.current?.team_b_name || currentMatchRef.current?.teamB || teamBName || 'TIME 2');
     // In quick mode, names are fixed and must never fallback to TIME 1/TIME 2.
     setTeamAName(isQuick ? quickTeamA : (live.team_a || fallbackA));
     setTeamBName(isQuick ? quickTeamB : (live.team_b || fallbackB));

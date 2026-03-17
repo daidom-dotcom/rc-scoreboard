@@ -399,8 +399,13 @@ export default function GamePage() {
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';
   const quickTeamA = (settings.defaultTeamA || 'Com Colete').trim() || 'Com Colete';
   const quickTeamB = (settings.defaultTeamB || 'Sem Colete').trim() || 'Sem Colete';
-  const viewTeamA = quickViewMode ? quickTeamA : (canEdit ? teamAName : (safeLive?.team_a || teamAName));
-  const viewTeamB = quickViewMode ? quickTeamB : (canEdit ? teamBName : (safeLive?.team_b || teamBName));
+  const liveModeForView = safeLive?.mode || mode;
+  const viewTeamA = quickViewMode
+    ? quickTeamA
+    : (liveModeForView === 'tournament' ? (safeLive?.team_a || teamAName) : (canEdit ? teamAName : (safeLive?.team_a || teamAName)));
+  const viewTeamB = quickViewMode
+    ? quickTeamB
+    : (liveModeForView === 'tournament' ? (safeLive?.team_b || teamBName) : (canEdit ? teamBName : (safeLive?.team_b || teamBName)));
   const viewScoreA = canEdit ? scoreA : (safeLive?.score_a ?? scoreA);
   const viewScoreB = canEdit ? scoreB : (safeLive?.score_b ?? scoreB);
   const syncedObserverTime = useMemo(() => {
