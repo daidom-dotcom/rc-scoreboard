@@ -279,7 +279,6 @@ export default function GamePage() {
     let active = true;
     const requestId = ++entriesRequestRef.current;
     setTeamEntryRows({ A: [], B: [] });
-    setAssignmentSide(null);
     async function loadEntries() {
       const modeForEntries = canEdit ? mode : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
       let liveMatchId = canEdit
@@ -340,6 +339,10 @@ export default function GamePage() {
       clearInterval(t);
     };
   }, [canEdit, dateISO, liveView?.mode, liveView?.match_no, liveView?.match_id, matchId, mode, quickMatchNumber, entriesReloadKey]);
+
+  useEffect(() => {
+    setAssignmentSide(null);
+  }, [matchId, liveView?.match_id, quickMatchNumber]);
 
   useEffect(() => {
     const channel = supabase
@@ -926,9 +929,12 @@ export default function GamePage() {
                 key={person.user_id}
                 type="button"
                 className={`attendance-pill ${canEdit && isRapidMode && assignmentSide ? 'interactive' : ''} ${assignedSideByUserId.get(person.user_id) === assignmentSide ? 'active' : ''}`}
-                disabled={canEdit && isRapidMode && !assignmentSide}
                 onClick={() => {
-                  if (!(canEdit && isRapidMode && assignmentSide)) return;
+                  if (!(canEdit && isRapidMode)) return;
+                  if (!assignmentSide) {
+                    showAlert('Selecione primeiro o Time 1 ou o Time 2.');
+                    return;
+                  }
                   assignAttendanceToTeam(person, assignmentSide);
                 }}
               >

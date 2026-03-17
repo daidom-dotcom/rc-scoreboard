@@ -736,17 +736,14 @@ select {
   font-size: 14px;
   font-weight: 900;
 }
-.attendance-pill.interactive {
+.attendance-pill.interactive,
+.attendance-pill {
   cursor: pointer;
 }
 .attendance-pill.active {
   background: var(--verde);
   color: var(--preto);
   border-color: var(--verde);
-}
-.attendance-pill:disabled {
-  opacity: .5;
-  cursor: default;
 }
 .attendance-picker-list {
   display: flex;
