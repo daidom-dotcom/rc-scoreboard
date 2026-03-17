@@ -30,10 +30,34 @@ create policy "public read entries" on public.player_entries
 create policy "insert own entries" on public.player_entries
   for insert with check (auth.uid() is not null and user_id = auth.uid());
 
+drop policy if exists "master insert entries" on public.player_entries;
+create policy "master insert entries" on public.player_entries
+  for insert with check (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role in ('master', 'scoreboard')
+    )
+  );
+
 drop policy if exists "update own entries" on public.player_entries;
 create policy "update own entries" on public.player_entries
   for update using (auth.uid() is not null and user_id = auth.uid())
   with check (auth.uid() is not null and user_id = auth.uid());
+
+drop policy if exists "master update entries" on public.player_entries;
+create policy "master update entries" on public.player_entries
+  for update using (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role in ('master', 'scoreboard')
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.profiles p
+      where p.id = auth.uid() and p.role in ('master', 'scoreboard')
+    )
+  );
 
 drop policy if exists "delete own entries" on public.player_entries;
 create policy "delete own entries" on public.player_entries
@@ -44,6 +68,6 @@ create policy "master delete entries" on public.player_entries
   for delete using (
     exists (
       select 1 from public.profiles p
-      where p.id = auth.uid() and p.role = 'master'
+      where p.id = auth.uid() and p.role in ('master', 'scoreboard')
     )
   );

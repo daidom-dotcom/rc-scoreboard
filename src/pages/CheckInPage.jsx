@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchMatchesByDate } from '../lib/api';
@@ -9,7 +9,6 @@ import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
 export default function CheckInPage() {
   const { showAlert } = useGame();
   const { user, profile } = useAuth();
-  const navigate = useNavigate();
   const [dateISO, setDateISO] = useState(todayISOInSaoPaulo());
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -146,16 +145,6 @@ export default function CheckInPage() {
           })}
           </div>
         )}
-      </div>
-
-      <div className="actions" style={{ marginTop: 18 }}>
-        <button
-          className="btn-controle"
-          onClick={() => navigate(`/history?scope=mine&date=${dateISO}&dateTo=${dateISO}`)}
-          style={{ textAlign: 'center' }}
-        >
-          Resultados
-        </button>
       </div>
     </div>
   );

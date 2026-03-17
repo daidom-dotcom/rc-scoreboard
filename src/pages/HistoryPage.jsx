@@ -215,12 +215,15 @@ export default function HistoryPage() {
     const playerNamesByMatch = new Map();
     (entriesData || []).forEach((entry) => {
       const matchKey = entry.match_id;
-      const normalized = String(entry.player_name || '').trim().toLowerCase();
-      if (!matchKey || !normalized) return;
+      const rawName = String(entry.player_name || '').trim();
+      const normalized = rawName.toLowerCase();
+      const firstName = rawName.split(/\s+/)[0]?.toLowerCase() || '';
+      if (!matchKey || (!normalized && !firstName)) return;
       if (!playerNamesByMatch.has(matchKey)) {
         playerNamesByMatch.set(matchKey, new Set());
       }
-      playerNamesByMatch.get(matchKey).add(normalized);
+      if (normalized) playerNamesByMatch.get(matchKey).add(normalized);
+      if (firstName) playerNamesByMatch.get(matchKey).add(firstName);
     });
     if (!playerNamesByMatch.size) {
       setUserBasketMap(new Map());
@@ -424,8 +427,8 @@ export default function HistoryPage() {
           }
           subtitle={
             showMine
-              ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\n${dailyParticipantsCount} participantes.\nRachão dos Crias`
-              : 'Rachão dos Crias'
+              ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
+              : `${dailyParticipantsCount} participantes.\nRachão dos Crias`
           }
           dateISO={dateISO}
           partidas={doneMatches}
