@@ -427,6 +427,16 @@ export default function GamePage() {
     () => attendanceList.filter((person) => !assignedUserIds.has(person.user_id)),
     [attendanceList, assignedUserIds]
   );
+  const assignedSideByUserId = useMemo(() => {
+    const map = new Map();
+    (teamEntryRows.A || []).forEach((entry) => {
+      if (entry.user_id) map.set(entry.user_id, 'A');
+    });
+    (teamEntryRows.B || []).forEach((entry) => {
+      if (entry.user_id) map.set(entry.user_id, 'B');
+    });
+    return map;
+  }, [teamEntryRows]);
   const basketStats = useMemo(() => {
     const mergedEvents = [...basketEvents];
     const map = new Map();
@@ -500,6 +510,15 @@ export default function GamePage() {
           date_iso: dateISO || todayISOInSaoPaulo()
         });
       if (insertError) throw insertError;
+      const firstName = String(person.player_name || '').trim().split(' ')[0] || person.player_name;
+      const normalized = { user_id: person.user_id, player_name: person.player_name, firstName };
+      setTeamEntryRows((prev) => {
+        const nextA = (prev.A || []).filter((entry) => entry.user_id !== person.user_id);
+        const nextB = (prev.B || []).filter((entry) => entry.user_id !== person.user_id);
+        if (side === 'A') nextA.push(normalized);
+        if (side === 'B') nextB.push(normalized);
+        return { A: nextA, B: nextB };
+      });
       setEntriesReloadKey((k) => k + 1);
     } catch (err) {
       showAlert(err.message || 'Erro ao salvar time.');
@@ -517,6 +536,10 @@ export default function GamePage() {
         .eq('match_id', currentMatchId)
         .eq('user_id', entry.user_id);
       if (error) throw error;
+      setTeamEntryRows((prev) => ({
+        A: (prev.A || []).filter((item) => item.user_id !== entry.user_id),
+        B: (prev.B || []).filter((item) => item.user_id !== entry.user_id)
+      }));
       setEntriesReloadKey((k) => k + 1);
       setSelectedScorer((prev) => ({
         A: prev.A === entry.firstName ? '' : prev.A,
@@ -722,8 +745,8 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn left ${canEdit && isRapidMode ? 'interactive' : ''}`}
-            onClick={() => canEdit && isRapidMode && setAssignmentSide('A')}
+            className={`nome nome-btn team-title-btn left ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'B' ? 'faded' : ''}`}
+            onClick={() => canEdit && isRapidMode && setAssignmentSide((prev) => prev === 'A' ? null : 'A')}
           >
             {viewTeamA}
           </button>
@@ -779,8 +802,8 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn right ${canEdit && isRapidMode ? 'interactive' : ''}`}
-            onClick={() => canEdit && isRapidMode && setAssignmentSide('B')}
+            className={`nome nome-btn team-title-btn right ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'A' ? 'faded' : ''}`}
+            onClick={() => canEdit && isRapidMode && setAssignmentSide((prev) => prev === 'B' ? null : 'B')}
           >
             {viewTeamB}
           </button>
@@ -902,7 +925,7 @@ export default function GamePage() {
               <button
                 key={person.user_id}
                 type="button"
-                className={`attendance-pill ${canEdit && isRapidMode && assignmentSide ? 'interactive' : ''}`}
+                className={`attendance-pill ${canEdit && isRapidMode && assignmentSide ? 'interactive' : ''} ${assignedSideByUserId.get(person.user_id) === assignmentSide ? 'active' : ''}`}
                 disabled={canEdit && isRapidMode && !assignmentSide}
                 onClick={() => {
                   if (!(canEdit && isRapidMode && assignmentSide)) return;

@@ -739,6 +739,11 @@ select {
 .attendance-pill.interactive {
   cursor: pointer;
 }
+.attendance-pill.active {
+  background: var(--verde);
+  color: var(--preto);
+  border-color: var(--verde);
+}
 .attendance-pill:disabled {
   opacity: .5;
   cursor: default;
