@@ -17,7 +17,7 @@ const defaultSettings = {
 };
 
 export function GameProvider({ children }) {
-  const { user, isScoreboard } = useAuth();
+  const { user, isScoreboard, isMaster } = useAuth();
   const canControlLive = !!user && isScoreboard;
   const [settings, setSettings] = useState(() => loadSettings() || defaultSettings);
   const [dateISO, setDateISO] = useState(() => loadAppDate() || todayISOInSaoPaulo());
@@ -559,7 +559,7 @@ export function GameProvider({ children }) {
     setAjusteFinalAtivo(false);
     setRunning(false);
     remoteResetRef.current = false;
-    await pushLiveGame({
+    const tournamentLivePayload = {
       id: 1,
       status: 'paused',
       mode: 'tournament',
@@ -572,7 +572,10 @@ export function GameProvider({ children }) {
       score_a: 0,
       score_b: 0,
       reset_at: null
-    });
+    };
+    if (user && (isScoreboard || isMaster)) {
+      await upsertLiveGame(tournamentLivePayload);
+    }
   }
 
   async function play() {
