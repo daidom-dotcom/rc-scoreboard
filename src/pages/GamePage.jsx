@@ -110,6 +110,10 @@ export default function GamePage() {
     initializedScoreboardRef.current = true;
     let active = true;
     async function bootstrapScoreboard() {
+      if (mode === 'tournament' && matchId) {
+        logDebugRef.current('GamePage.bootstrap.keepTournamentState', { matchId, quarterIndex: quarterIndex + 1 });
+        return;
+      }
       const today = todayISOInSaoPaulo();
       logDebugRef.current('GamePage.bootstrap.begin', { today, dateISO });
       if (dateISO !== today) {
@@ -161,7 +165,7 @@ export default function GamePage() {
     return () => {
       active = false;
     };
-  }, [isScoreboard, dateISO, setDateISO]);
+  }, [isScoreboard, dateISO, setDateISO, mode, matchId, quarterIndex]);
 
   useEffect(() => {
     if (!isScoreboard) return;
