@@ -491,7 +491,7 @@ export default function GamePage() {
   }
 
   async function assignAttendanceToTeam(person, side) {
-    const currentMatchId = await ensureActiveQuickMatchId();
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) {
       showAlert('Partida ainda não disponível.');
       return;
@@ -531,7 +531,7 @@ export default function GamePage() {
 
   async function removePlayerFromTeam(entry) {
     if (!canEdit || !entry?.user_id) return;
-    const currentMatchId = await ensureActiveQuickMatchId();
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) return;
     try {
       const { error } = await supabase
@@ -749,8 +749,8 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn left ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'A' ? 'selected-target' : ''} ${assignmentSide === 'B' ? 'faded' : ''}`}
-            onClick={() => canEdit && isRapidMode && setAssignmentSide((prev) => prev === 'A' ? null : 'A')}
+            className={`nome nome-btn team-title-btn left ${canEdit ? 'interactive' : ''} ${assignmentSide === 'A' ? 'selected-target' : ''} ${assignmentSide === 'B' ? 'faded' : ''}`}
+            onClick={() => canEdit && setAssignmentSide((prev) => prev === 'A' ? null : 'A')}
           >
             {viewTeamA}
           </button>
@@ -806,8 +806,8 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn right ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'B' ? 'selected-target' : ''} ${assignmentSide === 'A' ? 'faded' : ''}`}
-            onClick={() => canEdit && isRapidMode && setAssignmentSide((prev) => prev === 'B' ? null : 'B')}
+            className={`nome nome-btn team-title-btn right ${canEdit ? 'interactive' : ''} ${assignmentSide === 'B' ? 'selected-target' : ''} ${assignmentSide === 'A' ? 'faded' : ''}`}
+            onClick={() => canEdit && setAssignmentSide((prev) => prev === 'B' ? null : 'B')}
           >
             {viewTeamB}
           </button>
@@ -917,7 +917,7 @@ export default function GamePage() {
       <div className="panel attendance-panel">
         <div className="attendance-header-row">
           <div className="label">Presentes no dia</div>
-          {canEdit && isRapidMode ? (
+          {canEdit ? (
             <div className="attendance-target">
               Adicionando em: <strong>{assignmentSide === 'A' ? viewTeamA : assignmentSide === 'B' ? viewTeamB : 'nenhum time'}</strong>
             </div>
@@ -929,9 +929,9 @@ export default function GamePage() {
               <button
                 key={person.user_id}
                 type="button"
-                className={`attendance-pill ${canEdit && isRapidMode ? 'interactive' : ''} ${assignedSideByUserId.get(person.user_id) === 'A' ? 'team-a' : ''} ${assignedSideByUserId.get(person.user_id) === 'B' ? 'team-b' : ''} ${assignedSideByUserId.get(person.user_id) === assignmentSide ? 'active' : ''}`}
+                className={`attendance-pill ${canEdit ? 'interactive' : ''} ${assignedSideByUserId.get(person.user_id) === 'A' ? 'team-a' : ''} ${assignedSideByUserId.get(person.user_id) === 'B' ? 'team-b' : ''} ${assignedSideByUserId.get(person.user_id) === assignmentSide ? 'active' : ''}`}
                 onClick={() => {
-                  if (!(canEdit && isRapidMode)) return;
+                  if (!canEdit) return;
                   if (!assignmentSide) {
                     showAlert('Selecione primeiro o Time 1 ou o Time 2.');
                     return;

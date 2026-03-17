@@ -544,6 +544,9 @@ export function GameProvider({ children }) {
 
   function startTournamentMatch(match) {
     setMode('tournament');
+    if (match.date_iso) {
+      setDateISO(match.date_iso);
+    }
     setMatchId(match.id);
     setQuarterIndex(0);
     currentMatchRef.current = match;
