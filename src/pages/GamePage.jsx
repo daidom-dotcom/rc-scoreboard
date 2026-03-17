@@ -109,8 +109,17 @@ export default function GamePage() {
   useEffect(() => {
     const navMatch = location.state?.tournamentMatch;
     if (!navMatch?.id) return;
-    startTournamentMatch(navMatch);
-    navigate(location.pathname, { replace: true, state: {} });
+    let active = true;
+    async function applyTournamentNavigation() {
+      await startTournamentMatch(navMatch);
+      if (active) {
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+    applyTournamentNavigation();
+    return () => {
+      active = false;
+    };
   }, [location.state, location.pathname, navigate, startTournamentMatch]);
 
   useEffect(() => {
@@ -119,6 +128,10 @@ export default function GamePage() {
     initializedScoreboardRef.current = true;
     let active = true;
     async function bootstrapScoreboard() {
+      if (location.state?.tournamentMatch?.id) {
+        logDebugRef.current('GamePage.bootstrap.skipForTournamentNavigation', { matchId: location.state.tournamentMatch.id });
+        return;
+      }
       if (mode === 'tournament' && matchId) {
         logDebugRef.current('GamePage.bootstrap.keepTournamentState', { matchId, quarterIndex: quarterIndex + 1 });
         return;
@@ -174,10 +187,12 @@ export default function GamePage() {
     return () => {
       active = false;
     };
-  }, [isScoreboard, dateISO, setDateISO, mode, matchId, quarterIndex]);
+  }, [isScoreboard, dateISO, setDateISO, mode, matchId, quarterIndex, location.state]);
 
   useEffect(() => {
     if (!isScoreboard) return;
+    if (location.state?.tournamentMatch?.id) return;
+    if (mode === 'tournament' || liveView?.mode === 'tournament') return;
     if (mode !== 'quick') return;
     if (matchId) return;
     if (liveView?.match_id) return;

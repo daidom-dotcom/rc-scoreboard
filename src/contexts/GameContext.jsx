@@ -542,7 +542,7 @@ export function GameProvider({ children }) {
     }
   }
 
-  function startTournamentMatch(match) {
+  async function startTournamentMatch(match) {
     setMode('tournament');
     if (match.date_iso) {
       setDateISO(match.date_iso);
@@ -559,7 +559,7 @@ export function GameProvider({ children }) {
     setAjusteFinalAtivo(false);
     setRunning(false);
     remoteResetRef.current = false;
-    pushLiveGame({
+    await pushLiveGame({
       id: 1,
       status: 'paused',
       mode: 'tournament',

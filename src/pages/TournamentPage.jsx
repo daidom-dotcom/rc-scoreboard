@@ -181,8 +181,8 @@ export default function TournamentPage() {
     }
   }
 
-  function handlePlay(match) {
-    startTournamentMatch(match);
+  async function handlePlay(match) {
+    await startTournamentMatch(match);
     navigate('/game', { state: { tournamentMatch: match } });
   }
 
