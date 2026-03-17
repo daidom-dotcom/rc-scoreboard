@@ -586,6 +586,12 @@ select {
 }
 .nome-btn.interactive { cursor: pointer; pointer-events: auto; }
 .nome-btn.faded { opacity: .28; }
+.team-title-btn.selected-target {
+  background: var(--verde);
+  color: var(--preto);
+  border-radius: 999px;
+  padding-inline: 14px;
+}
 .placar-checkins {
   position: static;
   transform: none;
@@ -744,6 +750,10 @@ select {
   background: var(--verde);
   color: var(--preto);
   border-color: var(--verde);
+}
+.attendance-pill.team-a,
+.attendance-pill.team-b {
+  opacity: 1;
 }
 .attendance-picker-list {
   display: flex;

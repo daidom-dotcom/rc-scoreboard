@@ -26,6 +26,7 @@ export default function GamePage() {
     startQuick,
     setDateISO,
     askConfirm,
+    showAlert,
     play,
     pause,
     addPoint,
@@ -748,7 +749,7 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn left ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'B' ? 'faded' : ''}`}
+            className={`nome nome-btn team-title-btn left ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'A' ? 'selected-target' : ''} ${assignmentSide === 'B' ? 'faded' : ''}`}
             onClick={() => canEdit && isRapidMode && setAssignmentSide((prev) => prev === 'A' ? null : 'A')}
           >
             {viewTeamA}
@@ -805,7 +806,7 @@ export default function GamePage() {
         <div className="team-panel">
           <button
             type="button"
-            className={`nome nome-btn team-title-btn right ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'A' ? 'faded' : ''}`}
+            className={`nome nome-btn team-title-btn right ${canEdit && isRapidMode ? 'interactive' : ''} ${assignmentSide === 'B' ? 'selected-target' : ''} ${assignmentSide === 'A' ? 'faded' : ''}`}
             onClick={() => canEdit && isRapidMode && setAssignmentSide((prev) => prev === 'B' ? null : 'B')}
           >
             {viewTeamB}
@@ -928,7 +929,7 @@ export default function GamePage() {
               <button
                 key={person.user_id}
                 type="button"
-                className={`attendance-pill ${canEdit && isRapidMode && assignmentSide ? 'interactive' : ''} ${assignedSideByUserId.get(person.user_id) === assignmentSide ? 'active' : ''}`}
+                className={`attendance-pill ${canEdit && isRapidMode ? 'interactive' : ''} ${assignedSideByUserId.get(person.user_id) === 'A' ? 'team-a' : ''} ${assignedSideByUserId.get(person.user_id) === 'B' ? 'team-b' : ''} ${assignedSideByUserId.get(person.user_id) === assignmentSide ? 'active' : ''}`}
                 onClick={() => {
                   if (!(canEdit && isRapidMode)) return;
                   if (!assignmentSide) {
