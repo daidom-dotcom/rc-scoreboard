@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase';
 import { fetchDailyAttendance, fetchLiveGame } from '../lib/api';
 import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
-import Modal from '../components/Modal';
 
 export default function GamePage() {
   const { user, isScoreboard, profile } = useAuth();
@@ -46,7 +45,7 @@ export default function GamePage() {
 
   const canEdit = !!user && isScoreboard;
   const controlsDisabled = !canEdit;
-  const [teamEntries, setTeamEntries] = useState({ A: [], B: [] });
+  const [teamEntryRows, setTeamEntryRows] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
   const lastLiveAtRef = useRef(0);
   const lastGoodLiveRef = useRef(null);
@@ -65,7 +64,7 @@ export default function GamePage() {
   const [selectedScorer, setSelectedScorer] = useState({ A: '', B: '' });
   const [entriesDebug, setEntriesDebug] = useState({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
   const [attendanceList, setAttendanceList] = useState([]);
-  const [teamPicker, setTeamPicker] = useState({ open: false, side: 'A', selectedIds: [] });
+  const [assignmentSide, setAssignmentSide] = useState(null);
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -277,7 +276,8 @@ export default function GamePage() {
   useEffect(() => {
     let active = true;
     const requestId = ++entriesRequestRef.current;
-    setTeamEntries({ A: [], B: [] });
+    setTeamEntryRows({ A: [], B: [] });
+    setAssignmentSide(null);
     async function loadEntries() {
       const modeForEntries = canEdit ? mode : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
       let liveMatchId = canEdit ? (matchId || null) : (liveView?.match_id || lastGoodLiveRef.current?.match_id || null);
@@ -286,7 +286,7 @@ export default function GamePage() {
       }
       if (!liveMatchId) {
         if (active && requestId === entriesRequestRef.current) {
-          setTeamEntries({ A: [], B: [] });
+          setTeamEntryRows({ A: [], B: [] });
           setSelectedScorer({ A: '', B: '' });
           setEntriesDebug({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
         }
@@ -298,7 +298,7 @@ export default function GamePage() {
         .eq('match_id', liveMatchId);
       if (error) {
         if (active && requestId === entriesRequestRef.current) {
-          setTeamEntries({ A: [], B: [] });
+          setTeamEntryRows({ A: [], B: [] });
           setSelectedScorer({ A: '', B: '' });
           setEntriesDebug({ matchId: liveMatchId, count: 0, error: error.message || 'unknown', namesA: [], namesB: [] });
         }
@@ -306,13 +306,22 @@ export default function GamePage() {
       }
       const a = [];
       const b = [];
+      const rowsA = [];
+      const rowsB = [];
       (data || []).forEach((e) => {
         const first = String(e.player_name || '').trim().split(' ')[0] || e.player_name;
-        if (e.team_side === 'A') a.push(first);
-        if (e.team_side === 'B') b.push(first);
+        const normalized = { user_id: e.user_id, player_name: e.player_name, firstName: first };
+        if (e.team_side === 'A') {
+          a.push(first);
+          rowsA.push(normalized);
+        }
+        if (e.team_side === 'B') {
+          b.push(first);
+          rowsB.push(normalized);
+        }
       });
       if (active && requestId === entriesRequestRef.current) {
-        setTeamEntries({ A: a, B: b });
+        setTeamEntryRows({ A: rowsA, B: rowsB });
         setEntriesDebug({ matchId: liveMatchId, count: (data || []).length, error: null, namesA: a, namesB: b });
         setSelectedScorer((prev) => ({
           A: (prev.A && a.includes(prev.A)) ? prev.A : '',
@@ -402,6 +411,18 @@ export default function GamePage() {
       ? `Quarter ${safeLive?.quarter || 1}`
       : `Partida ${safeLive?.match_no || 1}`);
   const isRapidMode = (safeLive?.mode || mode) === 'quick';
+  const teamEntries = useMemo(() => ({
+    A: (teamEntryRows.A || []).map((entry) => entry.firstName),
+    B: (teamEntryRows.B || []).map((entry) => entry.firstName)
+  }), [teamEntryRows]);
+  const assignedUserIds = useMemo(
+    () => new Set([...(teamEntryRows.A || []), ...(teamEntryRows.B || [])].map((entry) => entry.user_id).filter(Boolean)),
+    [teamEntryRows]
+  );
+  const availableAttendance = useMemo(
+    () => attendanceList.filter((person) => !assignedUserIds.has(person.user_id)),
+    [attendanceList, assignedUserIds]
+  );
   const basketStats = useMemo(() => {
     const mergedEvents = [...basketEvents];
     const map = new Map();
@@ -451,66 +472,54 @@ export default function GamePage() {
     return await resolveActiveQuickMatchId();
   }
 
-  function openTeamPicker(side) {
-    if (!canEdit || !isRapidMode) return;
-    const selectedNames = side === 'A' ? teamEntries.A : teamEntries.B;
-    const selectedIds = attendanceList
-      .filter((person) => selectedNames.includes(String(person.player_name || '').trim().split(' ')[0] || person.player_name))
-      .map((person) => person.user_id);
-    setTeamPicker({ open: true, side, selectedIds });
-  }
-
-  function togglePickerUser(userId) {
-    setTeamPicker((prev) => ({
-      ...prev,
-      selectedIds: prev.selectedIds.includes(userId)
-        ? prev.selectedIds.filter((id) => id !== userId)
-        : [...prev.selectedIds, userId]
-    }));
-  }
-
-  async function saveTeamPicker() {
+  async function assignAttendanceToTeam(person, side) {
     const currentMatchId = await ensureActiveQuickMatchId();
     if (!currentMatchId) {
       showAlert('Partida ainda não disponível.');
       return;
     }
-    const selectedPeople = attendanceList.filter((person) => teamPicker.selectedIds.includes(person.user_id));
-    const selectedIds = selectedPeople.map((person) => person.user_id);
     try {
-      if (selectedIds.length) {
-        const { error: clearSelectedError } = await supabase
-          .from('player_entries')
-          .delete()
-          .eq('match_id', currentMatchId)
-          .in('user_id', selectedIds);
-        if (clearSelectedError) throw clearSelectedError;
-      }
-
-      const { error: clearSideError } = await supabase
+      const { error: clearSelectedError } = await supabase
         .from('player_entries')
         .delete()
         .eq('match_id', currentMatchId)
-        .eq('team_side', teamPicker.side);
-      if (clearSideError) throw clearSideError;
+        .eq('user_id', person.user_id);
+      if (clearSelectedError) throw clearSelectedError;
 
-      if (selectedPeople.length) {
-        const rows = selectedPeople.map((person) => ({
+      const { error: insertError } = await supabase
+        .from('player_entries')
+        .insert({
           match_id: currentMatchId,
           user_id: person.user_id,
           player_name: person.player_name,
-          team_side: teamPicker.side,
+          team_side: side,
           date_iso: dateISO || todayISOInSaoPaulo()
-        }));
-        const { error: insertError } = await supabase
-          .from('player_entries')
-          .insert(rows);
-        if (insertError) throw insertError;
-      }
-      setTeamPicker({ open: false, side: 'A', selectedIds: [] });
+        });
+      if (insertError) throw insertError;
       setEntriesReloadKey((k) => k + 1);
     } catch (err) {
       showAlert(err.message || 'Erro ao salvar time.');
+    }
+  }
+
+  async function removePlayerFromTeam(entry) {
+    if (!canEdit || !entry?.user_id) return;
+    const currentMatchId = await ensureActiveQuickMatchId();
+    if (!currentMatchId) return;
+    try {
+      const { error } = await supabase
+        .from('player_entries')
+        .delete()
+        .eq('match_id', currentMatchId)
+        .eq('user_id', entry.user_id);
+      if (error) throw error;
+      setEntriesReloadKey((k) => k + 1);
+      setSelectedScorer((prev) => ({
+        A: prev.A === entry.firstName ? '' : prev.A,
+        B: prev.B === entry.firstName ? '' : prev.B
+      }));
+    } catch (err) {
+      showAlert(err.message || 'Erro ao remover jogador do time.');
     }
   }
 
@@ -710,7 +719,7 @@ export default function GamePage() {
           <button
             type="button"
             className={`nome nome-btn team-title-btn left ${canEdit && isRapidMode ? 'interactive' : ''}`}
-            onClick={() => openTeamPicker('A')}
+            onClick={() => canEdit && isRapidMode && setAssignmentSide('A')}
           >
             {viewTeamA}
           </button>
@@ -733,16 +742,25 @@ export default function GamePage() {
             <div className="placar-checkins">
               {(teamEntries.A || []).length ? (
                 canEdit ? (
-                  teamEntries.A.map((name, idx) => (
-                    <span key={`A-${name}-${idx}`}>
+                  teamEntryRows.A.map((entry, idx) => (
+                    <span key={`A-${entry.user_id || entry.firstName}-${idx}`}>
                       <button
                         type="button"
-                        className={`checkin-player-btn ${selectedScorer.A === name ? 'active' : ''}`}
-                        onClick={() => setSelectedScorer((prev) => ({ ...prev, A: prev.A === name ? '' : name }))}
+                        className={`checkin-player-btn ${selectedScorer.A === entry.firstName ? 'active' : ''}`}
+                        onClick={() => setSelectedScorer((prev) => ({ ...prev, A: prev.A === entry.firstName ? '' : entry.firstName }))}
                       >
-                        {name}
+                        {entry.firstName}
                       </button>
-                      {idx < teamEntries.A.length - 1 ? ' / ' : ''}
+                      <button
+                        type="button"
+                        className="checkin-player-remove"
+                        onClick={() => removePlayerFromTeam(entry)}
+                        title={`Remover ${entry.firstName}`}
+                        aria-label={`Remover ${entry.firstName}`}
+                      >
+                        ❌
+                      </button>
+                      {idx < teamEntryRows.A.length - 1 ? ' / ' : ''}
                     </span>
                   ))
                 ) : (
@@ -758,7 +776,7 @@ export default function GamePage() {
           <button
             type="button"
             className={`nome nome-btn team-title-btn right ${canEdit && isRapidMode ? 'interactive' : ''}`}
-            onClick={() => openTeamPicker('B')}
+            onClick={() => canEdit && isRapidMode && setAssignmentSide('B')}
           >
             {viewTeamB}
           </button>
@@ -781,16 +799,25 @@ export default function GamePage() {
             <div className="placar-checkins">
               {(teamEntries.B || []).length ? (
                 canEdit ? (
-                  teamEntries.B.map((name, idx) => (
-                    <span key={`B-${name}-${idx}`}>
+                  teamEntryRows.B.map((entry, idx) => (
+                    <span key={`B-${entry.user_id || entry.firstName}-${idx}`}>
                       <button
                         type="button"
-                        className={`checkin-player-btn ${selectedScorer.B === name ? 'active' : ''}`}
-                        onClick={() => setSelectedScorer((prev) => ({ ...prev, B: prev.B === name ? '' : name }))}
+                        className={`checkin-player-btn ${selectedScorer.B === entry.firstName ? 'active' : ''}`}
+                        onClick={() => setSelectedScorer((prev) => ({ ...prev, B: prev.B === entry.firstName ? '' : entry.firstName }))}
                       >
-                        {name}
+                        {entry.firstName}
                       </button>
-                      {idx < teamEntries.B.length - 1 ? ' / ' : ''}
+                      <button
+                        type="button"
+                        className="checkin-player-remove"
+                        onClick={() => removePlayerFromTeam(entry)}
+                        title={`Remover ${entry.firstName}`}
+                        aria-label={`Remover ${entry.firstName}`}
+                      >
+                        ❌
+                      </button>
+                      {idx < teamEntryRows.B.length - 1 ? ' / ' : ''}
                     </span>
                   ))
                 ) : (
@@ -857,14 +884,33 @@ export default function GamePage() {
       </details>
 
       <div className="panel attendance-panel">
-        <div className="label">Presentes no dia</div>
+        <div className="attendance-header-row">
+          <div className="label">Presentes no dia</div>
+          {canEdit && isRapidMode ? (
+            <div className="attendance-target">
+              Adicionando em: <strong>{assignmentSide === 'A' ? viewTeamA : assignmentSide === 'B' ? viewTeamB : 'nenhum time'}</strong>
+            </div>
+          ) : null}
+        </div>
         {attendanceList.length ? (
           <div className="attendance-list">
-            {attendanceList.map((person) => (
-              <span key={person.user_id} className="attendance-pill">
+            {(canEdit && isRapidMode ? availableAttendance : attendanceList).map((person) => (
+              <button
+                key={person.user_id}
+                type="button"
+                className={`attendance-pill ${canEdit && isRapidMode && assignmentSide ? 'interactive' : ''}`}
+                disabled={canEdit && isRapidMode && !assignmentSide}
+                onClick={() => {
+                  if (!(canEdit && isRapidMode && assignmentSide)) return;
+                  assignAttendanceToTeam(person, assignmentSide);
+                }}
+              >
                 {String(person.player_name || '').trim().split(' ')[0] || person.player_name}
-              </span>
+              </button>
             ))}
+            {canEdit && isRapidMode && !availableAttendance.length ? (
+              <span className="muted">Todos os presentes já estão em algum time.</span>
+            ) : null}
           </div>
         ) : (
           <div className="muted">Nenhuma presença registrada hoje.</div>
@@ -906,31 +952,6 @@ export default function GamePage() {
         onClose={closePasswordModal}
         onConfirm={confirmPassword}
       />
-      <Modal
-        open={teamPicker.open}
-        onClose={() => setTeamPicker({ open: false, side: 'A', selectedIds: [] })}
-        title={`Selecionar ${teamPicker.side === 'A' ? viewTeamA : viewTeamB}`}
-      >
-        <div className="attendance-picker-list">
-          {attendanceList.length ? attendanceList.map((person) => {
-            const checked = teamPicker.selectedIds.includes(person.user_id);
-            return (
-              <label key={person.user_id} className="attendance-picker-item">
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => togglePickerUser(person.user_id)}
-                />
-                <span>{person.player_name}</span>
-              </label>
-            );
-          }) : <div>Ninguém presente no dia.</div>}
-        </div>
-        <div className="actions">
-          <button className="btn-outline" onClick={() => setTeamPicker({ open: false, side: 'A', selectedIds: [] })}>Cancelar</button>
-          <button className="btn-controle" onClick={saveTeamPicker}>Salvar time</button>
-        </div>
-      </Modal>
 
       {actionsMenuOpen ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">
