@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import SummaryTable from '../components/SummaryTable';
-import { fetchMatchesByDate, fetchMatchesByRange, fetchTeams } from '../lib/api';
+import { fetchDailyAttendance, fetchMatchesByDate, fetchMatchesByRange, fetchTeams } from '../lib/api';
 import { formatDateBR, toSaoPauloDateTime, todayISOInSaoPaulo } from '../utils/time';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
@@ -56,6 +56,7 @@ export default function HistoryPage() {
   const [showMine, setShowMine] = useState(false);
   const [userEntriesMap, setUserEntriesMap] = useState(new Map());
   const [userBasketMap, setUserBasketMap] = useState(new Map());
+  const [dailyParticipantsCount, setDailyParticipantsCount] = useState(0);
   const { isMaster, user, profile } = useAuth();
 
   const location = useLocation();
@@ -96,6 +97,22 @@ export default function HistoryPage() {
     setDateTo(gameDateISO);
     loadDay(gameDateISO);
   }, [gameDateISO]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadParticipants() {
+      try {
+        const data = await fetchDailyAttendance(normalizeDate(dateISO));
+        if (active) setDailyParticipantsCount((data || []).length);
+      } catch {
+        if (active) setDailyParticipantsCount(0);
+      }
+    }
+    loadParticipants();
+    return () => {
+      active = false;
+    };
+  }, [dateISO]);
 
   async function loadTournament(id) {
     setLoading(true);
@@ -407,7 +424,7 @@ export default function HistoryPage() {
           }
           subtitle={
             showMine
-              ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
+              ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\n${dailyParticipantsCount} participantes.\nRachão dos Crias`
               : 'Rachão dos Crias'
           }
           dateISO={dateISO}

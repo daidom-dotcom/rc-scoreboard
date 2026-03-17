@@ -208,6 +208,7 @@ export default function GamePage() {
       }
     }
     loadAttendance();
+    const t = setInterval(loadAttendance, 3000);
     const channel = supabase
       .channel('daily-attendance-sync')
       .on(
@@ -218,6 +219,7 @@ export default function GamePage() {
       .subscribe();
     return () => {
       active = false;
+      clearInterval(t);
       supabase.removeChannel(channel);
     };
   }, [dateISO]);
