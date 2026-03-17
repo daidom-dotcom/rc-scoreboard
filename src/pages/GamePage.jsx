@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { supabase } from '../lib/supabase';
@@ -24,6 +24,7 @@ export default function GamePage() {
     settings,
     formatTime,
     startQuick,
+    startTournamentMatch,
     setDateISO,
     askConfirm,
     showAlert,
@@ -42,6 +43,7 @@ export default function GamePage() {
   } = useGame();
 
   const navigate = useNavigate();
+  const location = useLocation();
   const label = mode === 'quick' ? `Partida ${quickMatchNumber}` : `Quarter ${quarterIndex + 1}`;
 
   const canEdit = !!user && isScoreboard;
@@ -103,6 +105,13 @@ export default function GamePage() {
     applyLiveSnapshotRef.current = applyLiveSnapshot;
     logDebugRef.current = logDebug;
   }, [startQuick, applyLiveSnapshot, logDebug]);
+
+  useEffect(() => {
+    const navMatch = location.state?.tournamentMatch;
+    if (!navMatch?.id) return;
+    startTournamentMatch(navMatch);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.pathname, navigate, startTournamentMatch]);
 
   useEffect(() => {
     if (!isScoreboard) return;

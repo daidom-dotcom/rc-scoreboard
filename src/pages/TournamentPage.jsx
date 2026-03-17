@@ -183,7 +183,7 @@ export default function TournamentPage() {
 
   function handlePlay(match) {
     startTournamentMatch(match);
-    navigate('/game');
+    navigate('/game', { state: { tournamentMatch: match } });
   }
 
   const doneMatches = useMemo(() => matches.filter((m) => m.status === 'done'), [matches]);
