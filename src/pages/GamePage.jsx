@@ -12,6 +12,10 @@ export default function GamePage() {
   const {
     mode,
     quarterIndex,
+    currentMatchQuarters,
+    overtimeCount,
+    currentTournamentId,
+    tournamentSummaryTarget,
     totalSeconds,
     running,
     ajusteFinalAtivo,
@@ -28,6 +32,7 @@ export default function GamePage() {
     setDateISO,
     askConfirm,
     showAlert,
+    setTournamentSummaryTarget,
     play,
     pause,
     addPoint,
@@ -44,7 +49,9 @@ export default function GamePage() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const label = mode === 'quick' ? `Partida ${quickMatchNumber}` : `Quarter ${quarterIndex + 1}`;
+  const label = mode === 'quick'
+    ? `Partida ${quickMatchNumber}`
+    : (quarterIndex < currentMatchQuarters ? `Quarter ${quarterIndex + 1}` : `P${overtimeCount || Math.max(1, quarterIndex - currentMatchQuarters + 1)}`);
 
   const canEdit = !!user && isScoreboard;
   const controlsDisabled = !canEdit;
@@ -105,6 +112,12 @@ export default function GamePage() {
     applyLiveSnapshotRef.current = applyLiveSnapshot;
     logDebugRef.current = logDebug;
   }, [startQuick, applyLiveSnapshot, logDebug]);
+
+  useEffect(() => {
+    if (!tournamentSummaryTarget) return;
+    navigate(`/history?tournament=${tournamentSummaryTarget}&summary=1`, { replace: true });
+    setTournamentSummaryTarget(null);
+  }, [tournamentSummaryTarget, navigate, setTournamentSummaryTarget]);
 
   useEffect(() => {
     const navMatch = location.state?.tournamentMatch;
@@ -724,8 +737,10 @@ export default function GamePage() {
     if (mode === 'tournament') {
       const ok = await askConfirm('Deseja encerrar a partida inteira agora?');
       if (!ok) return;
-      await finishTournamentMatch(true);
-      navigate('/tournament');
+      const startedNext = await finishTournamentMatch(true);
+      if (!startedNext) {
+        navigate(currentTournamentId ? `/history?tournament=${currentTournamentId}&summary=1` : '/tournament');
+      }
     } else {
       const ok = await askConfirm('Deseja encerrar a partida?');
       if (!ok) return;

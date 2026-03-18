@@ -57,6 +57,7 @@ export default function HistoryPage() {
   const [userEntriesMap, setUserEntriesMap] = useState(new Map());
   const [userBasketMap, setUserBasketMap] = useState(new Map());
   const [dailyParticipantsCount, setDailyParticipantsCount] = useState(0);
+  const [tournamentInsights, setTournamentInsights] = useState(null);
   const { isMaster, user, profile } = useAuth();
 
   const location = useLocation();
@@ -129,11 +130,93 @@ export default function HistoryPage() {
           .map((r) => ({ ...r, finished_at_sp: toSaoPauloDateTime(r.finished_at) }))
       }));
       setRows(rows);
+      if (user?.id) {
+        await loadUserMatchIds(rows[0]?.date_iso || normalizeDate(dateISO), rows[rows.length - 1]?.date_iso || normalizeDate(dateTo));
+        await loadUserBasketContrib(rows);
+      }
+      await loadTournamentInsights(rows);
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar torneio');
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadTournamentInsights(matchRows) {
+    const ids = (matchRows || []).map((m) => m.id).filter(Boolean);
+    if (!ids.length) {
+      setTournamentInsights(null);
+      return;
+    }
+    const [{ data: entriesData }, { data: basketsData }] = await Promise.all([
+      supabase.from('player_entries').select('match_id,user_id,player_name').in('match_id', ids),
+      supabase.from('basket_events').select('match_id,player_name,points').in('match_id', ids)
+    ]);
+
+    const winners = new Map();
+    (matchRows || []).forEach((m) => {
+      const res = m.match_results?.[0];
+      if (!res) return;
+      const teamA = String(m.team_a_name || '').trim();
+      const teamB = String(m.team_b_name || '').trim();
+      const scoreA = Number(res.score_a || 0);
+      const scoreB = Number(res.score_b || 0);
+      const addTeam = (team, wins, diff, pointsFor) => {
+        const current = winners.get(team) || { wins: 0, diff: 0, pointsFor: 0 };
+        winners.set(team, {
+          wins: current.wins + wins,
+          diff: current.diff + diff,
+          pointsFor: current.pointsFor + pointsFor
+        });
+      };
+      addTeam(teamA, scoreA > scoreB ? 1 : 0, scoreA - scoreB, scoreA);
+      addTeam(teamB, scoreB > scoreA ? 1 : 0, scoreB - scoreA, scoreB);
+    });
+    const champion = Array.from(winners.entries())
+      .sort((a, b) => b[1].wins - a[1].wins || b[1].diff - a[1].diff || b[1].pointsFor - a[1].pointsFor)[0]?.[0] || '-';
+
+    const rankingMap = new Map();
+    (basketsData || []).forEach((basket) => {
+      const name = String(basket.player_name || 'Outros').trim();
+      const current = rankingMap.get(name) || { name, one: 0, two: 0, three: 0, totalPoints: 0, totalBaskets: 0 };
+      const points = Number(basket.points || 0);
+      if (points === 1) current.one += 1;
+      if (points === 2) current.two += 1;
+      if (points === 3) current.three += 1;
+      current.totalPoints += points;
+      current.totalBaskets += 1;
+      rankingMap.set(name, current);
+    });
+    const ranking = Array.from(rankingMap.values()).sort((a, b) => b.totalPoints - a.totalPoints || b.totalBaskets - a.totalBaskets);
+
+    const participants = new Set((entriesData || []).map((entry) => entry.user_id || entry.player_name).filter(Boolean));
+    const userNames = new Set(
+      (entriesData || [])
+        .filter((entry) => entry.user_id === user?.id)
+        .flatMap((entry) => {
+          const raw = String(entry.player_name || '').trim();
+          const first = raw.split(/\s+/)[0] || '';
+          return [raw.toLowerCase(), first.toLowerCase()].filter(Boolean);
+        })
+    );
+    const myRankingEntries = ranking.filter((row) => userNames.has(String(row.name || '').trim().toLowerCase()));
+    const myTotalPoints = myRankingEntries.reduce((sum, row) => sum + row.totalPoints, 0);
+    const myTotalBaskets = myRankingEntries.reduce((sum, row) => sum + row.totalBaskets, 0);
+    const myBestRank = ranking.findIndex((row) => userNames.has(String(row.name || '').trim().toLowerCase()));
+    const myMatchIds = new Set((entriesData || []).filter((entry) => entry.user_id === user?.id).map((entry) => entry.match_id));
+    const myTotalSeconds = (matchRows || [])
+      .filter((m) => myMatchIds.has(m.id))
+      .reduce((sum, m) => sum + (Array.isArray(m.durations) ? m.durations.reduce((acc, d) => acc + Number(d || 0), 0) : 0), 0);
+
+    setTournamentInsights({
+      champion,
+      participantCount: participants.size,
+      ranking,
+      myTotalPoints,
+      myTotalBaskets,
+      myBestRank: myBestRank >= 0 ? myBestRank + 1 : null,
+      myTotalMinutes: Math.round(myTotalSeconds / 60)
+    });
   }
 
   async function loadTeams() {
@@ -419,20 +502,49 @@ export default function HistoryPage() {
       </div>
 
       {showSummary ? (
-        <SummaryTable
-          title={
-            showMine
-              ? `Resultados de ${firstName || user?.email} em ${formatDateBR(dateISO)}`
-              : `Resumo de ${formatDateBR(dateISO)}`
-          }
-          subtitle={
-            showMine
-              ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
-              : `${dailyParticipantsCount} participantes.\nRachão dos Crias`
-          }
-          dateISO={dateISO}
-          partidas={doneMatches}
-        />
+        <>
+          <SummaryTable
+            title={
+              tournamentId
+                ? (showMine ? `Resultados de ${firstName || user?.email} no Torneio` : 'Resumo do Torneio')
+                : (showMine ? `Resultados de ${firstName || user?.email} em ${formatDateBR(dateISO)}` : `Resumo de ${formatDateBR(dateISO)}`)
+            }
+            subtitle={
+              showMine
+                ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
+                : `${tournamentId ? (tournamentInsights?.participantCount || 0) : dailyParticipantsCount} participantes.\nRachão dos Crias`
+            }
+            dateISO={dateISO}
+            partidas={doneMatches}
+          />
+          {tournamentId && tournamentInsights ? (
+            <div className="panel">
+              {!showMine ? (
+                <>
+                  <div className="label">Campeão</div>
+                  <div>{tournamentInsights.champion}</div>
+                  <div className="label" style={{ marginTop: 18 }}>Ranking de Cestinhas</div>
+                  <div className="registered-list">
+                    {tournamentInsights.ranking.map((row, idx) => (
+                      <div className="registered-row" key={`${row.name}-${idx}`}>
+                        <span>{idx + 1}. {row.name}</span>
+                        <span>{row.totalPoints} pts | {row.totalBaskets} cestas</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="label">Minha contribuição no torneio</div>
+                  <div>{tournamentInsights.myTotalPoints} pontos</div>
+                  <div>{tournamentInsights.myTotalBaskets} cestas</div>
+                  <div>{tournamentInsights.myTotalMinutes} min jogados</div>
+                  <div>Ranking de cestinhas: {tournamentInsights.myBestRank ? `${tournamentInsights.myBestRank}º lugar` : 'sem posição'}</div>
+                </>
+              )}
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       {!showSummary ? (

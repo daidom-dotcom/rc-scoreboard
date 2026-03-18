@@ -41,8 +41,13 @@ export function GameProvider({ children }) {
   const [quickMatchNumber, setQuickMatchNumber] = useState(1);
   const [confirmState, setConfirmState] = useState({ open: false, message: '', resolve: null });
   const [alertState, setAlertState] = useState({ open: false, message: '' });
+  const [overtimeState, setOvertimeState] = useState({ open: false, minutes: 10, resolve: null });
   const [lastError, setLastError] = useState(null);
   const [debugTrail, setDebugTrail] = useState([]);
+  const [currentMatchQuarters, setCurrentMatchQuarters] = useState(1);
+  const [overtimeCount, setOvertimeCount] = useState(0);
+  const [currentTournamentId, setCurrentTournamentId] = useState(null);
+  const [tournamentSummaryTarget, setTournamentSummaryTarget] = useState(null);
 
   const intervalRef = useRef(null);
   const currentMatchRef = useRef(null);
@@ -53,6 +58,7 @@ export function GameProvider({ children }) {
   const basketsBRef = useRef({ one: 0, two: 0, three: 0 });
   const beepIntervalRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const finalHornAudioRef = useRef(null);
   const lastAlertSecondRef = useRef(null);
   const lastHornSecondRef = useRef(null);
   const lastResetRef = useRef(null);
@@ -67,6 +73,17 @@ export function GameProvider({ children }) {
   useEffect(() => {
     matchIdRef.current = matchId;
   }, [matchId]);
+
+  useEffect(() => {
+    try {
+      const audio = new Audio('/corneta-final.mp3');
+      audio.preload = 'auto';
+      audio.volume = 1;
+      finalHornAudioRef.current = audio;
+    } catch {
+      finalHornAudioRef.current = null;
+    }
+  }, []);
 
   function logDebug(message, extra = null) {
     const stamp = new Date().toLocaleTimeString('pt-BR', { hour12: false });
@@ -270,6 +287,13 @@ export function GameProvider({ children }) {
 
     const playFinalHorn = async () => {
       try {
+        const audio = finalHornAudioRef.current;
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+          await audio.play();
+          return;
+        }
         const ctx = await ensureAudioReady();
         if (!ctx) return;
         const now = ctx.currentTime;
@@ -334,6 +358,17 @@ export function GameProvider({ children }) {
 
   function showAlert(message) {
     setAlertState({ open: true, message });
+  }
+
+  function askOvertime(defaultMinutes = 10) {
+    return new Promise((resolve) => {
+      setOvertimeState({ open: true, minutes: defaultMinutes, resolve });
+    });
+  }
+
+  function resolveOvertime(result) {
+    overtimeState.resolve?.(result);
+    setOvertimeState({ open: false, minutes: 10, resolve: null });
   }
 
   function closeAlert() {
@@ -582,8 +617,11 @@ export function GameProvider({ children }) {
     if (match.date_iso) {
       setDateISO(match.date_iso);
     }
+    setCurrentTournamentId(match.tournament_id || null);
     setMatchId(match.id);
     setQuarterIndex(0);
+    setCurrentMatchQuarters(Number(match.quarters || 1));
+    setOvertimeCount(0);
     currentMatchRef.current = match;
     setTeamAName(match.team_a_name || match.teamA || 'TIME 1');
     setTeamBName(match.team_b_name || match.teamB || 'TIME 2');
@@ -911,9 +949,42 @@ export function GameProvider({ children }) {
     const match = currentMatchRef.current;
     if (!match) return;
 
-    const last = quarterIndex >= (match.quarters - 1);
-    if (last) {
-      await finishTournamentMatch(true);
+    const regularQuarters = Number(match.quarters || currentMatchQuarters || 1);
+    const isRegularQuarter = quarterIndex < regularQuarters;
+    const isLastRegularQuarter = quarterIndex === (regularQuarters - 1);
+
+    if (!isRegularQuarter || isLastRegularQuarter) {
+      const overtimeMinutes = await askOvertime(10);
+      if (!overtimeMinutes) {
+        await finishTournamentMatch(true);
+        return;
+      }
+      const overtimeSeconds = Math.max(60, Number(overtimeMinutes) * 60);
+      const nextIndex = quarterIndex + 1;
+      setQuarterIndex(nextIndex);
+      setOvertimeCount(Math.max(1, nextIndex - regularQuarters + 1));
+      currentMatchRef.current = {
+        ...match,
+        durations: [...(match.durations || []), overtimeSeconds]
+      };
+      await updateMatch(match.id, { durations: currentMatchRef.current.durations });
+      setCurrentDurationSeconds(overtimeSeconds);
+      setTotalSeconds(overtimeSeconds);
+      setAjusteFinalAtivo(false);
+      pushLiveGame({
+        id: 1,
+        status: 'paused',
+        mode,
+        match_id: currentMatchRef.current?.id,
+        match_no: currentMatchRef.current?.match_no || null,
+        quarter: nextIndex + 1,
+        time_left: overtimeSeconds,
+        team_a: teamAName,
+        team_b: teamBName,
+        score_a: scoreA,
+        score_b: scoreB,
+        reset_at: null
+      });
       return;
     }
 
@@ -977,6 +1048,24 @@ export function GameProvider({ children }) {
     });
   }
 
+  async function prepareNextTournamentMatch() {
+    const currentMatch = currentMatchRef.current;
+    const tournamentId = currentMatch?.tournament_id || null;
+    if (!tournamentId) return false;
+    const { data, error } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('tournament_id', tournamentId)
+      .eq('status', 'pending')
+      .order('match_no', { ascending: true })
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data?.id) return false;
+    await startTournamentMatch(data);
+    return true;
+  }
+
   async function finishTournamentMatch(silent = false) {
     const match = currentMatchRef.current;
     if (!match) return;
@@ -999,11 +1088,14 @@ export function GameProvider({ children }) {
           reset_at: null
         });
         if (!silent) showAlert('Partida 0x0 removida.');
+        const startedNext = await prepareNextTournamentMatch();
+        if (!startedNext && match.tournament_id) setTournamentSummaryTarget(match.tournament_id);
+        return startedNext;
       } catch (err) {
         setLastError(err);
         showAlert(err.message || 'Erro ao remover partida 0x0.');
       }
-      return;
+      return false;
     }
 
     const totalC1 = basketsA.one + basketsB.one;
@@ -1041,10 +1133,14 @@ export function GameProvider({ children }) {
       if (!silent) {
         showAlert('Partida salva no Torneio!');
       }
+      const startedNext = await prepareNextTournamentMatch();
+      if (!startedNext && match.tournament_id) setTournamentSummaryTarget(match.tournament_id);
+      return startedNext;
     } catch (err) {
       setLastError(err);
       showAlert(err.message || 'Erro ao salvar partida do torneio.');
     }
+    return false;
   }
 
   async function saveCurrentIfNeeded() {
@@ -1072,6 +1168,7 @@ export function GameProvider({ children }) {
     setRunning(false);
     setAjusteFinalAtivo(false);
     setTotalSeconds(currentDurationSeconds);
+    setOvertimeCount(0);
     resetCounters();
   }
 
@@ -1082,6 +1179,9 @@ export function GameProvider({ children }) {
     setMode(liveMode);
     setQuarterIndex(Math.max(0, Number(live.quarter || 1) - 1));
     const isQuick = liveMode === 'quick';
+    const regularQuarters = Number(currentMatchRef.current?.quarters || currentMatchQuarters || 1);
+    setCurrentMatchQuarters(regularQuarters);
+    setOvertimeCount(isQuick ? 0 : Math.max(0, Number(live.quarter || 1) - regularQuarters));
     const fallbackA = isQuick ? quickTeamA : (currentMatchRef.current?.team_a_name || currentMatchRef.current?.teamA || teamAName || 'TIME 1');
     const fallbackB = isQuick ? quickTeamB : (currentMatchRef.current?.team_b_name || currentMatchRef.current?.teamB || teamBName || 'TIME 2');
     // In quick mode, names are fixed and must never fallback to TIME 1/TIME 2.
@@ -1105,6 +1205,10 @@ export function GameProvider({ children }) {
     mode,
     matchId,
     quarterIndex,
+    currentMatchQuarters,
+    overtimeCount,
+    currentTournamentId,
+    tournamentSummaryTarget,
     totalSeconds,
     running,
     ajusteFinalAtivo,
@@ -1133,9 +1237,12 @@ export function GameProvider({ children }) {
     confirmState,
     askConfirm,
     resolveConfirm,
+    overtimeState,
+    resolveOvertime,
     alertState,
     showAlert,
     closeAlert,
+    setTournamentSummaryTarget,
     lastError,
     debugTrail,
     logDebug,
