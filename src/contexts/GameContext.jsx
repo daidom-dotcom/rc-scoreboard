@@ -246,6 +246,34 @@ export function GameProvider({ children }) {
   }, [canControlLive, mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
 
   useEffect(() => {
+    let active = true;
+    async function hydrateTournamentMatch() {
+      if (mode !== 'tournament' || !matchId) return;
+      if (currentMatchRef.current?.id === matchId && Number(currentMatchRef.current?.quarters || 0) > 0) return;
+      const { data, error } = await supabase
+        .from('matches')
+        .select('*')
+        .eq('id', matchId)
+        .maybeSingle();
+      if (!active || error || !data?.id) return;
+      currentMatchRef.current = data;
+      setCurrentMatchQuarters(Number(data.quarters || 1));
+      setTeamAName(data.team_a_name || data.teamA || 'TIME 1');
+      setTeamBName(data.team_b_name || data.teamB || 'TIME 2');
+      const currentIndex = Math.max(0, Number(quarterIndex || 0));
+      const currentSeconds = Number(data.durations?.[currentIndex] || totalSeconds || settings.quickDurationSeconds);
+      setCurrentDurationSeconds(currentSeconds);
+      if (!running) {
+        setTotalSeconds(currentSeconds);
+      }
+    }
+    hydrateTournamentMatch();
+    return () => {
+      active = false;
+    };
+  }, [mode, matchId, quarterIndex, running, totalSeconds, settings.quickDurationSeconds]);
+
+  useEffect(() => {
     const shouldBeep = canControlLive && running && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
     if (!shouldBeep) {
       if (beepIntervalRef.current) {
@@ -661,6 +689,16 @@ export function GameProvider({ children }) {
     setRunning(true);
     // Unlock audio on user gesture to guarantee alarm playback.
     ensureAudioReady().catch(() => {});
+    if (finalHornAudioRef.current) {
+      finalHornAudioRef.current.volume = 1;
+      finalHornAudioRef.current.currentTime = 0;
+      finalHornAudioRef.current.play()
+        .then(() => {
+          finalHornAudioRef.current.pause();
+          finalHornAudioRef.current.currentTime = 0;
+        })
+        .catch(() => {});
+    }
     let ensuredQuick = null;
     if (mode === 'quick') {
       ensuredQuick = await ensureQuickMatch();
