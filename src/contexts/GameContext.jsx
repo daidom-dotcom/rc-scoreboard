@@ -58,6 +58,7 @@ export function GameProvider({ children }) {
   const basketsBRef = useRef({ one: 0, two: 0, three: 0 });
   const beepIntervalRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const alertAudioRef = useRef(null);
   const finalHornAudioRef = useRef(null);
   const lastAlertSecondRef = useRef(null);
   const lastHornSecondRef = useRef(null);
@@ -76,11 +77,16 @@ export function GameProvider({ children }) {
 
   useEffect(() => {
     try {
+      const alertAudio = new Audio('/corneta-final.mp3');
+      alertAudio.preload = 'auto';
+      alertAudio.volume = 0.22;
+      alertAudioRef.current = alertAudio;
       const audio = new Audio('/corneta-final.mp3');
       audio.preload = 'auto';
       audio.volume = 1;
       finalHornAudioRef.current = audio;
     } catch {
+      alertAudioRef.current = null;
       finalHornAudioRef.current = null;
     }
   }, []);
@@ -287,6 +293,21 @@ export function GameProvider({ children }) {
 
     const playAlarmPulse = async () => {
       try {
+        const alertAudio = alertAudioRef.current;
+        if (alertAudio) {
+          alertAudio.pause();
+          alertAudio.currentTime = 0;
+          const endAt = Math.min(0.3, Math.max(0.18, alertAudio.duration || 0.3));
+          void alertAudio.play().catch(() => {});
+          setTimeout(() => {
+            try {
+              alertAudio.pause();
+              alertAudio.currentTime = 0;
+            } catch {
+              // ignore
+            }
+          }, endAt * 1000);
+        }
         const ctx = await ensureAudioReady();
         if (!ctx) return;
         const now = ctx.currentTime;
@@ -689,6 +710,16 @@ export function GameProvider({ children }) {
     setRunning(true);
     // Unlock audio on user gesture to guarantee alarm playback.
     ensureAudioReady().catch(() => {});
+    if (alertAudioRef.current) {
+      alertAudioRef.current.volume = 0.22;
+      alertAudioRef.current.currentTime = 0;
+      alertAudioRef.current.play()
+        .then(() => {
+          alertAudioRef.current.pause();
+          alertAudioRef.current.currentTime = 0;
+        })
+        .catch(() => {});
+    }
     if (finalHornAudioRef.current) {
       finalHornAudioRef.current.volume = 1;
       finalHornAudioRef.current.currentTime = 0;

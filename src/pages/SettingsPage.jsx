@@ -49,6 +49,7 @@ export default function SettingsPage() {
     if (!ok) return;
     try {
       const dayISO = todayISOInSaoPaulo();
+      await supabase.from('daily_attendance').delete().eq('date_iso', dayISO);
       await supabase.from('player_entries').delete().eq('date_iso', dayISO);
       const { data: matchRows } = await supabase.from('matches').select('id').eq('date_iso', dayISO);
       const ids = (matchRows || []).map((m) => m.id);
