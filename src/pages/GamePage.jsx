@@ -764,6 +764,10 @@ export default function GamePage() {
     }
 
     pause();
+    const startUtc = new Date(`${dateISO}T00:00:00-03:00`).toISOString();
+    const endUtc = new Date(`${dateISO}T23:59:59-03:00`).toISOString();
+    await supabase.from('daily_attendance').delete().eq('date_iso', dateISO);
+    await supabase.from('daily_attendance').delete().gte('checked_at', startUtc).lte('checked_at', endUtc);
     clearGameState();
     endLiveGame();
     navigate(`/history?summary=1&date=${dateISO}&dateTo=${dateISO}`);
