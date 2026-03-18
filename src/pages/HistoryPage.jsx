@@ -188,6 +188,11 @@ export default function HistoryPage() {
       rankingMap.set(name, current);
     });
     const ranking = Array.from(rankingMap.values()).sort((a, b) => b.totalPoints - a.totalPoints || b.totalBaskets - a.totalBaskets);
+    const totalsByType = ranking.reduce((acc, row) => ({
+      one: acc.one + row.one,
+      two: acc.two + row.two,
+      three: acc.three + row.three
+    }), { one: 0, two: 0, three: 0 });
 
     const participants = new Set((entriesData || []).map((entry) => entry.user_id || entry.player_name).filter(Boolean));
     const userNames = new Set(
@@ -212,6 +217,7 @@ export default function HistoryPage() {
       champion,
       participantCount: participants.size,
       ranking,
+      totalsByType,
       myTotalPoints,
       myTotalBaskets,
       myBestRank: myBestRank >= 0 ? myBestRank + 1 : null,
@@ -523,12 +529,16 @@ export default function HistoryPage() {
                 <>
                   <div className="label">Campeão</div>
                   <div>{tournamentInsights.champion}</div>
+                  <div className="label" style={{ marginTop: 18 }}>Cestas por tipo</div>
+                  <div>1 ponto: {tournamentInsights.totalsByType.one}</div>
+                  <div>2 pontos: {tournamentInsights.totalsByType.two}</div>
+                  <div>3 pontos: {tournamentInsights.totalsByType.three}</div>
                   <div className="label" style={{ marginTop: 18 }}>Ranking de Cestinhas</div>
                   <div className="registered-list">
                     {tournamentInsights.ranking.map((row, idx) => (
                       <div className="registered-row" key={`${row.name}-${idx}`}>
                         <span>{idx + 1}. {row.name}</span>
-                        <span>{row.totalPoints} pts | {row.totalBaskets} cestas</span>
+                        <span>{row.totalPoints} pts | {row.totalBaskets} cestas | {row.one}/{row.two}/{row.three}</span>
                       </div>
                     ))}
                   </div>

@@ -58,7 +58,6 @@ export function GameProvider({ children }) {
   const basketsBRef = useRef({ one: 0, two: 0, three: 0 });
   const beepIntervalRef = useRef(null);
   const audioCtxRef = useRef(null);
-  const alertAudioRef = useRef(null);
   const finalHornAudioRef = useRef(null);
   const lastAlertSecondRef = useRef(null);
   const lastHornSecondRef = useRef(null);
@@ -77,19 +76,21 @@ export function GameProvider({ children }) {
 
   useEffect(() => {
     try {
-      const alertAudio = new Audio('/corneta-final.mp3');
-      alertAudio.preload = 'auto';
-      alertAudio.volume = 0.22;
-      alertAudioRef.current = alertAudio;
       const audio = new Audio('/corneta-final.mp3');
       audio.preload = 'auto';
       audio.volume = 1;
       finalHornAudioRef.current = audio;
     } catch {
-      alertAudioRef.current = null;
       finalHornAudioRef.current = null;
     }
   }, []);
+
+  function getTournamentPeriodLabel(index = quarterIndex) {
+    const regularQuarters = Number(currentMatchRef.current?.quarters || currentMatchQuarters || 1);
+    return index < regularQuarters
+      ? `Quarter ${index + 1}`
+      : `Prorrogação ${Math.max(1, index - regularQuarters + 1)}`;
+  }
 
   function logDebug(message, extra = null) {
     const stamp = new Date().toLocaleTimeString('pt-BR', { hour12: false });
@@ -293,21 +294,6 @@ export function GameProvider({ children }) {
 
     const playAlarmPulse = async () => {
       try {
-        const alertAudio = alertAudioRef.current;
-        if (alertAudio) {
-          alertAudio.pause();
-          alertAudio.currentTime = 0;
-          const endAt = Math.min(0.3, Math.max(0.18, alertAudio.duration || 0.3));
-          void alertAudio.play().catch(() => {});
-          setTimeout(() => {
-            try {
-              alertAudio.pause();
-              alertAudio.currentTime = 0;
-            } catch {
-              // ignore
-            }
-          }, endAt * 1000);
-        }
         const ctx = await ensureAudioReady();
         if (!ctx) return;
         const now = ctx.currentTime;
@@ -370,7 +356,7 @@ export function GameProvider({ children }) {
     };
 
     // Ensure immediate trigger exactly when entering alert window.
-    if (lastAlertSecondRef.current !== totalSeconds) {
+    if (lastAlertSecondRef.current !== totalSeconds && totalSeconds > 1) {
       lastAlertSecondRef.current = totalSeconds;
       playAlarmPulse();
     }
@@ -710,16 +696,6 @@ export function GameProvider({ children }) {
     setRunning(true);
     // Unlock audio on user gesture to guarantee alarm playback.
     ensureAudioReady().catch(() => {});
-    if (alertAudioRef.current) {
-      alertAudioRef.current.volume = 0.22;
-      alertAudioRef.current.currentTime = 0;
-      alertAudioRef.current.play()
-        .then(() => {
-          alertAudioRef.current.pause();
-          alertAudioRef.current.currentTime = 0;
-        })
-        .catch(() => {});
-    }
     if (finalHornAudioRef.current) {
       finalHornAudioRef.current.volume = 1;
       finalHornAudioRef.current.currentTime = 0;
@@ -856,11 +832,11 @@ export function GameProvider({ children }) {
 
   async function handleTimerEnd() {
     if (mode === 'tournament') {
-      const ok = await askConfirm(`Tempo encerrado! Encerrar o Quarter ${quarterIndex + 1}?`);
+      const ok = await askConfirm(`Tempo encerrado! Encerrar ${getTournamentPeriodLabel()}?`);
       if (ok) await advanceQuarterOrFinish();
       else {
         setAjusteFinalAtivo(true);
-        showAlert('Quarter ficou em 00:00. Ajuste o placar se precisar e depois continue.');
+        showAlert(`${getTournamentPeriodLabel()} ficou em 00:00. Ajuste o placar se precisar e depois continue.`);
       }
     } else {
       const ok = await askConfirm('Tempo encerrado! Deseja encerrar a partida?');
@@ -1138,8 +1114,12 @@ export function GameProvider({ children }) {
   async function finishTournamentMatch(silent = false) {
     const match = currentMatchRef.current;
     if (!match) return;
+    const finalScoreA = Number(scoreARef.current ?? scoreA ?? 0);
+    const finalScoreB = Number(scoreBRef.current ?? scoreB ?? 0);
+    const finalBasketsA = basketsARef.current || basketsA;
+    const finalBasketsB = basketsBRef.current || basketsB;
 
-    if (scoreA === 0 && scoreB === 0) {
+    if (finalScoreA === 0 && finalScoreB === 0) {
       try {
         await deleteMatch(match.id);
         pushLiveGame({
@@ -1152,8 +1132,8 @@ export function GameProvider({ children }) {
           time_left: 0,
           team_a: teamAName,
           team_b: teamBName,
-          score_a: scoreA,
-          score_b: scoreB,
+          score_a: finalScoreA,
+          score_b: finalScoreB,
           reset_at: null
         });
         if (!silent) showAlert('Partida 0x0 removida.');
@@ -1167,15 +1147,15 @@ export function GameProvider({ children }) {
       return false;
     }
 
-    const totalC1 = basketsA.one + basketsB.one;
-    const totalC2 = basketsA.two + basketsB.two;
-    const totalC3 = basketsA.three + basketsB.three;
+    const totalC1 = Number(finalBasketsA.one || 0) + Number(finalBasketsB.one || 0);
+    const totalC2 = Number(finalBasketsA.two || 0) + Number(finalBasketsB.two || 0);
+    const totalC3 = Number(finalBasketsA.three || 0) + Number(finalBasketsB.three || 0);
 
     try {
       await upsertMatchResult({
         match_id: match.id,
-        score_a: scoreA,
-        score_b: scoreB,
+        score_a: finalScoreA,
+        score_b: finalScoreB,
         baskets1: totalC1,
         baskets2: totalC2,
         baskets3: totalC3,
@@ -1194,8 +1174,8 @@ export function GameProvider({ children }) {
         time_left: 0,
         team_a: teamAName,
         team_b: teamBName,
-        score_a: scoreA,
-        score_b: scoreB,
+        score_a: finalScoreA,
+        score_b: finalScoreB,
         reset_at: null
       });
 

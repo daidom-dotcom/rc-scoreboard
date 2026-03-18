@@ -49,16 +49,33 @@ export default function SettingsPage() {
     if (!ok) return;
     try {
       const dayISO = todayISOInSaoPaulo();
-      await supabase.from('daily_attendance').delete().eq('date_iso', dayISO);
-      await supabase.from('player_entries').delete().eq('date_iso', dayISO);
-      const { data: matchRows } = await supabase.from('matches').select('id').eq('date_iso', dayISO);
+      const startUtc = new Date(`${dayISO}T00:00:00-03:00`).toISOString();
+      const endUtc = new Date(`${dayISO}T23:59:59-03:00`).toISOString();
+
+      const attendanceByDate = await supabase.from('daily_attendance').delete().eq('date_iso', dayISO);
+      if (attendanceByDate.error) throw attendanceByDate.error;
+      const attendanceByTimestamp = await supabase
+        .from('daily_attendance')
+        .delete()
+        .gte('checked_at', startUtc)
+        .lte('checked_at', endUtc);
+      if (attendanceByTimestamp.error) throw attendanceByTimestamp.error;
+
+      const entriesDelete = await supabase.from('player_entries').delete().eq('date_iso', dayISO);
+      if (entriesDelete.error) throw entriesDelete.error;
+
+      const { data: matchRows, error: matchesReadError } = await supabase.from('matches').select('id').eq('date_iso', dayISO);
+      if (matchesReadError) throw matchesReadError;
       const ids = (matchRows || []).map((m) => m.id);
       if (ids.length) {
-        await supabase.from('basket_events').delete().in('match_id', ids);
-        await supabase.from('match_results').delete().in('match_id', ids);
+        const basketDelete = await supabase.from('basket_events').delete().in('match_id', ids);
+        if (basketDelete.error) throw basketDelete.error;
+        const resultDelete = await supabase.from('match_results').delete().in('match_id', ids);
+        if (resultDelete.error) throw resultDelete.error;
       }
-      await supabase.from('matches').delete().eq('date_iso', dayISO);
-      await supabase.from('live_game').upsert({
+      const matchesDelete = await supabase.from('matches').delete().eq('date_iso', dayISO);
+      if (matchesDelete.error) throw matchesDelete.error;
+      const liveReset = await supabase.from('live_game').upsert({
         id: 1,
         status: 'ended',
         mode: 'quick',
@@ -72,6 +89,7 @@ export default function SettingsPage() {
         score_b: 0,
         reset_at: new Date().toISOString()
       });
+      if (liveReset.error) throw liveReset.error;
       applyRemoteReset();
       showAlert('Dia resetado.');
     } catch (err) {
