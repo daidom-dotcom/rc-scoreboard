@@ -44,6 +44,13 @@ function normalizeDate(input) {
   return raw;
 }
 
+function formatPlayerSummaryName(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '';
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[1].charAt(0).toUpperCase()}.`;
+}
+
 export default function HistoryPage() {
   const { dateISO: gameDateISO, showAlert, askConfirm } = useGame();
   const [dateISO, setDateISO] = useState(gameDateISO || todayISOInSaoPaulo());
@@ -57,6 +64,7 @@ export default function HistoryPage() {
   const [userEntriesMap, setUserEntriesMap] = useState(new Map());
   const [userBasketMap, setUserBasketMap] = useState(new Map());
   const [dailyParticipantsCount, setDailyParticipantsCount] = useState(0);
+  const [summaryPlayers, setSummaryPlayers] = useState([]);
   const [tournamentInsights, setTournamentInsights] = useState(null);
   const { isMaster, user, profile } = useAuth();
 
@@ -407,6 +415,40 @@ export default function HistoryPage() {
     });
   }, [filteredRows]);
 
+  useEffect(() => {
+    let active = true;
+    async function loadSummaryPlayers() {
+      const matchIds = visibleRows.map((row) => row.id).filter(Boolean);
+      if (!matchIds.length) {
+        if (active) setSummaryPlayers([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('player_entries')
+        .select('user_id,player_name')
+        .in('match_id', matchIds);
+      if (error) {
+        if (active) setSummaryPlayers([]);
+        return;
+      }
+      const userIds = Array.from(new Set((data || []).map((entry) => entry.user_id).filter(Boolean)));
+      const { data: profiles } = userIds.length
+        ? await supabase.from('profiles').select('id,full_name').in('id', userIds)
+        : { data: [], error: null };
+      const namesById = new Map((profiles || []).map((profile) => [profile.id, String(profile.full_name || '').trim()]));
+      const uniqueNames = Array.from(new Set((data || [])
+        .map((entry) => namesById.get(entry.user_id) || String(entry.player_name || '').trim())
+        .filter(Boolean)))
+        .map(formatPlayerSummaryName)
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      if (active) setSummaryPlayers(uniqueNames);
+    }
+    loadSummaryPlayers();
+    return () => {
+      active = false;
+    };
+  }, [visibleRows]);
+
   const doneMatches = useMemo(() => visibleRows
     .filter((m) => m.match_results?.length)
     .map((m) => ({
@@ -518,10 +560,11 @@ export default function HistoryPage() {
             subtitle={
               showMine
                 ? `Joguei ${userStats?.total || 0} partidas: venci ${userStats?.wins || 0} (${userStats?.winPct || 0}%) e perdi ${userStats?.losses || 0} (${userStats?.lossPct || 0}%).\nRachão dos Crias`
-                : `${tournamentId ? (tournamentInsights?.participantCount || 0) : dailyParticipantsCount} participantes.\nRachão dos Crias`
+                : `Rachão dos Crias`
             }
             dateISO={dateISO}
             partidas={doneMatches}
+            players={summaryPlayers}
           />
           {tournamentId && tournamentInsights ? (
             <div className="panel">
