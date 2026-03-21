@@ -100,6 +100,28 @@ export default function GamePage() {
     return surnameInitial ? `${firstName} ${surnameInitial}.` : firstName;
   }
 
+  function formatBasketPlayerName(rawName) {
+    const normalizedRaw = String(rawName || '').trim();
+    if (!normalizedRaw) return 'Jogador';
+    if (normalizedRaw === 'Outros') return 'Outros';
+    const allEntries = [...(teamEntryRows.A || []), ...(teamEntryRows.B || [])];
+    const matched = allEntries.find((entry) => (
+      entry.player_name === normalizedRaw
+      || entry.firstName === normalizedRaw
+      || entry.shortName === normalizedRaw
+    ));
+    if (matched?.player_name) return formatAttendanceName(matched.player_name);
+    if (normalizedRaw.includes('@')) {
+      const local = normalizedRaw.split('@')[0] || normalizedRaw;
+      const parts = local.split(/[._-]+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return `${parts[0].charAt(0).toUpperCase()}${parts[0].slice(1)} ${parts[1].charAt(0).toUpperCase()}.`;
+      }
+      return parts[0] ? `${parts[0].charAt(0).toUpperCase()}${parts[0].slice(1)}` : normalizedRaw;
+    }
+    return formatAttendanceName(normalizedRaw);
+  }
+
   function askPassword(message) {
     return new Promise((resolve) => {
       setPasswordState({ open: true, message, resolve });
@@ -518,7 +540,7 @@ export default function GamePage() {
     const mergedEvents = [...basketEvents];
     const map = new Map();
     mergedEvents.forEach((e) => {
-      const name = String(e.player_name || 'Jogador').trim();
+      const name = formatBasketPlayerName(e.player_name);
       if (!map.has(name)) map.set(name, { one: 0, two: 0, three: 0 });
       const row = map.get(name);
       if (e.points === 1) row.one += 1;
@@ -536,7 +558,7 @@ export default function GamePage() {
         if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
         return b.totalBaskets - a.totalBaskets;
       });
-  }, [basketEvents]);
+  }, [basketEvents, teamEntryRows]);
 
   async function resolveActiveQuickMatchId() {
     let currentMatchId = safeLive?.match_id || matchId || null;
