@@ -366,14 +366,23 @@ export default function GamePage() {
         }
         return;
       }
+      const userIds = (data || []).map((entry) => entry.user_id).filter(Boolean);
+      const { data: profiles } = userIds.length
+        ? await supabase
+          .from('profiles')
+          .select('id,full_name')
+          .in('id', userIds)
+        : { data: [], error: null };
+      const namesById = new Map((profiles || []).map((profile) => [profile.id, String(profile.full_name || '').trim()]));
       const a = [];
       const b = [];
       const rowsA = [];
       const rowsB = [];
       (data || []).forEach((e) => {
-        const first = String(e.player_name || '').trim().split(' ')[0] || e.player_name;
-        const shortName = formatAttendanceName(e.player_name);
-        const normalized = { user_id: e.user_id, player_name: e.player_name, firstName: first, shortName };
+        const displayName = namesById.get(e.user_id) || e.player_name;
+        const first = String(displayName || '').trim().split(' ')[0] || displayName;
+        const shortName = formatAttendanceName(displayName);
+        const normalized = { user_id: e.user_id, player_name: displayName, firstName: first, shortName };
         if (e.team_side === 'A') {
           a.push(shortName);
           rowsA.push(normalized);

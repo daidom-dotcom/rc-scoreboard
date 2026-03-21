@@ -44,7 +44,18 @@ export async function fetchDailyAttendance(dateISO) {
     .eq('date_iso', dateISO)
     .order('player_name', { ascending: true });
   if (error) throw error;
-  return data || [];
+  const rows = data || [];
+  const userIds = rows.map((row) => row.user_id).filter(Boolean);
+  if (!userIds.length) return rows;
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id,full_name')
+    .in('id', userIds);
+  const namesById = new Map((profiles || []).map((profile) => [profile.id, String(profile.full_name || '').trim()]));
+  return rows.map((row) => ({
+    ...row,
+    player_name: namesById.get(row.user_id) || row.player_name
+  }));
 }
 
 export async function upsertDailyAttendance(payload) {
