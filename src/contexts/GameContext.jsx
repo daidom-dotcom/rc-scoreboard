@@ -144,6 +144,83 @@ export function GameProvider({ children }) {
       return null;
     }
   }
+
+  async function playAlarmPulse() {
+    try {
+      const ctx = await ensureAudioReady();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const makeHorn = (start, freq, duration, gainValue) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(gainValue * 0.8, start + (duration * 0.5));
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.01);
+      };
+      makeHorn(now, 460, 0.50, 0.85);
+      makeHorn(now, 690, 0.50, 0.62);
+      makeHorn(now + 0.06, 920, 0.38, 0.36);
+    } catch {
+      // ignore audio errors
+    }
+  }
+
+  async function playFinalHorn() {
+    try {
+      const audio = finalHornAudioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+        await audio.play();
+        return;
+      }
+      const ctx = await ensureAudioReady();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const makeLongHorn = (start, freq, duration, gainValue) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, start);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.92, start + duration);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(gainValue * 0.9, start + duration * 0.55);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.02);
+      };
+      makeLongHorn(now, 330, 1.2, 1.1);
+      makeLongHorn(now + 0.02, 495, 1.15, 0.85);
+      makeLongHorn(now + 0.04, 660, 1.05, 0.55);
+    } catch {
+      // ignore audio errors
+    }
+  }
+
+  function triggerClockAudio(second) {
+    if (!canControlLive || !running || !settings.soundEnabled) return;
+    if (second === 1) {
+      if (lastHornSecondRef.current !== 1) {
+        lastHornSecondRef.current = 1;
+        playFinalHorn();
+      }
+      return;
+    }
+    if (second > 1 && second <= settings.alertSeconds && lastAlertSecondRef.current !== second) {
+      lastAlertSecondRef.current = second;
+      playAlarmPulse();
+    }
+  }
   function pushLiveGame(payload) {
     if (!canControlLive) return Promise.resolve(null);
     if (remoteResetRef.current) return Promise.resolve(null);
@@ -195,13 +272,16 @@ export function GameProvider({ children }) {
     intervalRef.current = setInterval(() => {
       setTotalSeconds((prev) => {
         if (prev <= 1) {
+          triggerClockAudio(1);
           clearInterval(intervalRef.current);
           intervalRef.current = null;
           setRunning(false);
           setTimeout(() => handleTimerEnd(), 0);
           return 0;
         }
-        return prev - 1;
+        const nextSecond = prev - 1;
+        triggerClockAudio(nextSecond);
+        return nextSecond;
       });
     }, 1000);
 
@@ -281,104 +361,10 @@ export function GameProvider({ children }) {
   }, [mode, matchId, quarterIndex, running, totalSeconds, settings.quickDurationSeconds]);
 
   useEffect(() => {
-    const shouldBeep = canControlLive && running && totalSeconds > 0 && totalSeconds <= settings.alertSeconds;
-    if (!shouldBeep) {
-      if (beepIntervalRef.current) {
-        clearInterval(beepIntervalRef.current);
-        beepIntervalRef.current = null;
-      }
-      lastAlertSecondRef.current = null;
-      lastHornSecondRef.current = null;
-      return;
-    }
-
-    const playAlarmPulse = async () => {
-      try {
-        const ctx = await ensureAudioReady();
-        if (!ctx) return;
-        const now = ctx.currentTime;
-        const makeHorn = (start, freq, duration, gainValue) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(freq, start);
-          gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
-          gain.gain.exponentialRampToValueAtTime(gainValue * 0.8, start + (duration * 0.5));
-          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(start);
-          osc.stop(start + duration + 0.01);
-        };
-        // Louder layered horn.
-        makeHorn(now, 460, 0.50, 0.85);
-        makeHorn(now, 690, 0.50, 0.62);
-        makeHorn(now + 0.06, 920, 0.38, 0.36);
-      } catch {
-        // ignore audio errors
-      }
-    };
-
-    const playFinalHorn = async () => {
-      try {
-        const audio = finalHornAudioRef.current;
-        if (audio) {
-          audio.pause();
-          audio.currentTime = 0;
-          await audio.play();
-          return;
-        }
-        const ctx = await ensureAudioReady();
-        if (!ctx) return;
-        const now = ctx.currentTime;
-        const makeLongHorn = (start, freq, duration, gainValue) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(freq, start);
-          osc.frequency.exponentialRampToValueAtTime(freq * 0.92, start + duration);
-          gain.gain.setValueAtTime(0.0001, start);
-          gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.03);
-          gain.gain.exponentialRampToValueAtTime(gainValue * 0.9, start + duration * 0.55);
-          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(start);
-          osc.stop(start + duration + 0.02);
-        };
-        makeLongHorn(now, 330, 1.2, 1.1);
-        makeLongHorn(now + 0.02, 495, 1.15, 0.85);
-        makeLongHorn(now + 0.04, 660, 1.05, 0.55);
-      } catch {
-        // ignore audio errors
-      }
-    };
-
-    // Ensure immediate trigger exactly when entering alert window.
-    if (lastAlertSecondRef.current !== totalSeconds && totalSeconds > 1) {
-      lastAlertSecondRef.current = totalSeconds;
-      playAlarmPulse();
-    }
-
-    if (totalSeconds === 1 && lastHornSecondRef.current !== totalSeconds) {
-      lastHornSecondRef.current = totalSeconds;
-      playFinalHorn();
-    }
-
-    if (!beepIntervalRef.current) {
-      beepIntervalRef.current = setInterval(() => {
-        playAlarmPulse();
-      }, 1000);
-    }
-
-    return () => {
-      if (beepIntervalRef.current) {
-        clearInterval(beepIntervalRef.current);
-        beepIntervalRef.current = null;
-      }
-    };
-  }, [canControlLive, running, totalSeconds, settings.alertSeconds]);
+    if (running && totalSeconds > 0) return;
+    lastAlertSecondRef.current = null;
+    lastHornSecondRef.current = null;
+  }, [running, totalSeconds, mode, matchId, quarterIndex]);
 
   function askConfirm(message) {
     return new Promise((resolve) => {

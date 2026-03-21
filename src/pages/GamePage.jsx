@@ -91,6 +91,15 @@ export default function GamePage() {
     return Number.isFinite(fallback) ? fallback : 0;
   }
 
+  function formatAttendanceName(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    if (parts.length === 1) return parts[0];
+    const firstName = parts[0];
+    const surnameInitial = parts[1].charAt(0).toUpperCase();
+    return surnameInitial ? `${firstName} ${surnameInitial}.` : firstName;
+  }
+
   function askPassword(message) {
     return new Promise((resolve) => {
       setPasswordState({ open: true, message, resolve });
@@ -999,7 +1008,7 @@ export default function GamePage() {
                   assignAttendanceToTeam(person, assignmentSide);
                 }}
               >
-                {String(person.player_name || '').trim().split(' ')[0] || person.player_name}
+                {formatAttendanceName(person.player_name)}
               </button>
             ))}
           </div>
