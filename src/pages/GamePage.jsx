@@ -484,8 +484,8 @@ export default function GamePage() {
       : `Partida ${safeLive?.match_no || 1}`);
   const isRapidMode = (safeLive?.mode || mode) === 'quick';
   const teamEntries = useMemo(() => ({
-    A: (teamEntryRows.A || []).map((entry) => entry.firstName),
-    B: (teamEntryRows.B || []).map((entry) => entry.firstName)
+    A: (teamEntryRows.A || []).map((entry) => entry.shortName || formatAttendanceName(entry.player_name) || entry.firstName),
+    B: (teamEntryRows.B || []).map((entry) => entry.shortName || formatAttendanceName(entry.player_name) || entry.firstName)
   }), [teamEntryRows]);
   const assignedUserIds = useMemo(
     () => new Set([...(teamEntryRows.A || []), ...(teamEntryRows.B || [])].map((entry) => entry.user_id).filter(Boolean)),
