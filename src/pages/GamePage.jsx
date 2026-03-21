@@ -372,13 +372,14 @@ export default function GamePage() {
       const rowsB = [];
       (data || []).forEach((e) => {
         const first = String(e.player_name || '').trim().split(' ')[0] || e.player_name;
-        const normalized = { user_id: e.user_id, player_name: e.player_name, firstName: first };
+        const shortName = formatAttendanceName(e.player_name);
+        const normalized = { user_id: e.user_id, player_name: e.player_name, firstName: first, shortName };
         if (e.team_side === 'A') {
-          a.push(first);
+          a.push(shortName);
           rowsA.push(normalized);
         }
         if (e.team_side === 'B') {
-          b.push(first);
+          b.push(shortName);
           rowsB.push(normalized);
         }
       });
@@ -578,7 +579,8 @@ export default function GamePage() {
         });
       if (insertError) throw insertError;
       const firstName = String(person.player_name || '').trim().split(' ')[0] || person.player_name;
-      const normalized = { user_id: person.user_id, player_name: person.player_name, firstName };
+      const shortName = formatAttendanceName(person.player_name);
+      const normalized = { user_id: person.user_id, player_name: person.player_name, firstName, shortName };
       setTeamEntryRows((prev) => {
         const nextA = (prev.A || []).filter((entry) => entry.user_id !== person.user_id);
         const nextB = (prev.B || []).filter((entry) => entry.user_id !== person.user_id);
@@ -849,14 +851,14 @@ export default function GamePage() {
                         className={`checkin-player-btn ${selectedScorer.A === entry.firstName ? 'active' : ''}`}
                         onClick={() => setSelectedScorer((prev) => ({ ...prev, A: prev.A === entry.firstName ? '' : entry.firstName }))}
                       >
-                        {entry.firstName}
+                        {entry.shortName || entry.firstName}
                       </button>
                       <button
                         type="button"
                         className="checkin-player-remove"
                         onClick={() => removePlayerFromTeam(entry)}
-                        title={`Remover ${entry.firstName}`}
-                        aria-label={`Remover ${entry.firstName}`}
+                        title={`Remover ${entry.shortName || entry.firstName}`}
+                        aria-label={`Remover ${entry.shortName || entry.firstName}`}
                       >
                         ❌
                       </button>
@@ -906,14 +908,14 @@ export default function GamePage() {
                         className={`checkin-player-btn ${selectedScorer.B === entry.firstName ? 'active' : ''}`}
                         onClick={() => setSelectedScorer((prev) => ({ ...prev, B: prev.B === entry.firstName ? '' : entry.firstName }))}
                       >
-                        {entry.firstName}
+                        {entry.shortName || entry.firstName}
                       </button>
                       <button
                         type="button"
                         className="checkin-player-remove"
                         onClick={() => removePlayerFromTeam(entry)}
-                        title={`Remover ${entry.firstName}`}
-                        aria-label={`Remover ${entry.firstName}`}
+                        title={`Remover ${entry.shortName || entry.firstName}`}
+                        aria-label={`Remover ${entry.shortName || entry.firstName}`}
                       >
                         ❌
                       </button>
