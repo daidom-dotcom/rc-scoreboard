@@ -324,6 +324,25 @@ select {
   padding: 6px 8px;
   font-size: 12px;
 }
+.registered-row-edit {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.registered-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.registered-edit-box {
+  width: 100%;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.registered-edit-box select {
+  min-width: 140px;
+}
 
 @media (max-width: 900px) {
   .users-head { display: none; }
@@ -334,6 +353,10 @@ select {
   .registered-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+  .registered-actions,
+  .registered-edit-box {
+    width: 100%;
   }
   .registered-date-head {
     flex-wrap: wrap;
