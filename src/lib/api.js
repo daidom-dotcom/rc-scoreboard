@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { toSaoPauloDateTime } from '../utils/time';
 import { sanitizeQuickTeamName } from '../utils/storage';
+import { preferredDisplayName } from '../utils/names';
 
 function normalizeMatchRows(data) {
   return (data || []).map((m) => {
@@ -49,9 +50,9 @@ export async function fetchDailyAttendance(dateISO) {
   if (!userIds.length) return rows;
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id,full_name')
+    .select('id,full_name,nickname,email')
     .in('id', userIds);
-  const namesById = new Map((profiles || []).map((profile) => [profile.id, String(profile.full_name || '').trim()]));
+  const namesById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
   return rows.map((row) => ({
     ...row,
     player_name: namesById.get(row.user_id) || row.player_name

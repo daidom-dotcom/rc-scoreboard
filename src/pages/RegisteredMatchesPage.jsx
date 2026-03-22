@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDateBR } from '../utils/time';
+import { preferredDisplayName } from '../utils/names';
 
 function formatTimeBR(ts) {
   if (!ts) return '-';
@@ -43,7 +44,7 @@ export default function RegisteredMatchesPage() {
       const [entriesRes, eventsRes, resultsRes] = await Promise.all([
         supabase
           .from('player_entries')
-          .select('id,match_id,player_name,team_side,created_at')
+          .select('id,match_id,player_name,team_side,created_at,user_id')
           .in('match_id', ids)
           .order('created_at', { ascending: true }),
         supabase
@@ -66,6 +67,18 @@ export default function RegisteredMatchesPage() {
         const arr = nextEntries.get(e.match_id) || [];
         arr.push(e);
         nextEntries.set(e.match_id, arr);
+      });
+
+      const profileIds = Array.from(new Set((entriesRes.data || []).map((entry) => entry.user_id).filter(Boolean)));
+      const { data: profiles } = profileIds.length
+        ? await supabase.from('profiles').select('id,full_name,nickname,email').in('id', profileIds)
+        : { data: [], error: null };
+      const namesById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
+      nextEntries.forEach((list, matchId) => {
+        nextEntries.set(matchId, list.map((entry) => ({
+          ...entry,
+          player_name: namesById.get(entry.user_id) || preferredDisplayName(entry.player_name)
+        })));
       });
 
       const nextEvents = new Map();

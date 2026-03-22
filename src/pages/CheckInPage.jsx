@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchMatchesByDate } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
+import { preferredDisplayName } from '../utils/names';
 
 export default function CheckInPage() {
   const { showAlert } = useGame();
@@ -103,7 +104,7 @@ export default function CheckInPage() {
     <div className="container">
       <h1 className="hTitle">Minhas Partidas</h1>
       <div className="panel">
-        <div className="label">Olá, {profile?.full_name || user?.email}.</div>
+        <div className="label">Olá, {preferredDisplayName({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || user?.email}.</div>
         <div>Aqui você acompanha em quais partidas jogou no dia {formatDateBR(dateISO)}.</div>
       </div>
 

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
 import DateWheelField from '../components/DateWheelField';
+import { preferredShortGreeting } from '../utils/names';
 
 export default function HomePage() {
   const { user, isMaster, isScoreboard, profile } = useAuth();
@@ -72,12 +73,7 @@ export default function HomePage() {
 
       {user ? (
         <div className="welcome-text">
-          Bem-vindo, {(() => {
-            const name = (profile?.full_name || '').trim();
-            if (name) return name.split(' ')[0];
-            if (user.email) return user.email.split('@')[0];
-            return '';
-          })()}
+          Bem-vindo, {preferredShortGreeting({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email })}
         </div>
       ) : null}
 

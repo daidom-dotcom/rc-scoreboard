@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [needPasswordSetup, setNeedPasswordSetup] = useState(false);
   const [createObserver, setCreateObserver] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -61,8 +62,8 @@ export default function LoginPage() {
   }
 
   async function handleSignup() {
-    if (!firstName.trim() || !lastName.trim()) {
-      showAlert('Informe nome e sobrenome.');
+    if (!firstName.trim() || !lastName.trim() || !nickname.trim()) {
+      showAlert('Informe nome, sobrenome e como gostaria de ser chamado.');
       return;
     }
     if (password !== confirmPassword) {
@@ -72,7 +73,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
-      await signUp(email, password, fullName);
+      await signUp(email, password, fullName, nickname.trim());
       await supabase.from('pending_invites').delete().eq('email', email.trim().toLowerCase());
       navigate(redirectTo, { replace: true });
     } catch (err) {
@@ -97,6 +98,9 @@ export default function LoginPage() {
 
           <label className="label">Sobrenome</label>
           <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+
+          <label className="label">Como gostaria de ser chamado?</label>
+          <input type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} required />
 
           <label className="label">Email</label>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />

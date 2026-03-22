@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import DateWheelField from '../components/DateWheelField';
 import SelectField from '../components/SelectField';
 import { useAuth } from '../contexts/AuthContext';
+import { preferredDisplayName, preferredShortGreeting } from '../utils/names';
 
 function toCsv(rows) {
   const headers = ['data', 'modo', 'time_a', 'time_b', 'score_a', 'score_b', 'cestas1', 'cestas2', 'cestas3'];
@@ -160,6 +161,19 @@ export default function HistoryPage() {
       supabase.from('player_entries').select('match_id,user_id,player_name').in('match_id', ids),
       supabase.from('basket_events').select('match_id,player_name,points').in('match_id', ids)
     ]);
+    const profileIds = Array.from(new Set((entriesData || []).map((entry) => entry.user_id).filter(Boolean)));
+    const { data: profiles } = profileIds.length
+      ? await supabase.from('profiles').select('id,full_name,nickname,email').in('id', profileIds)
+      : { data: [], error: null };
+    const profileNameById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
+    const eventNameMap = new Map();
+    (entriesData || []).forEach((entry) => {
+      const preferred = profileNameById.get(entry.user_id) || preferredDisplayName(entry.player_name);
+      const raw = String(entry.player_name || '').trim();
+      const first = raw.split(/\s+/)[0] || '';
+      if (raw) eventNameMap.set(raw.toLowerCase(), preferred);
+      if (first) eventNameMap.set(first.toLowerCase(), preferred);
+    });
 
     const winners = new Map();
     (matchRows || []).forEach((m) => {
@@ -185,7 +199,8 @@ export default function HistoryPage() {
 
     const rankingMap = new Map();
     (basketsData || []).forEach((basket) => {
-      const name = String(basket.player_name || 'Outros').trim();
+      const rawName = String(basket.player_name || 'Outros').trim();
+      const name = eventNameMap.get(rawName.toLowerCase()) || preferredDisplayName(rawName) || 'Outros';
       const current = rankingMap.get(name) || { name, one: 0, two: 0, three: 0, totalPoints: 0, totalBaskets: 0 };
       const points = Number(basket.points || 0);
       if (points === 1) current.one += 1;
@@ -207,9 +222,9 @@ export default function HistoryPage() {
       (entriesData || [])
         .filter((entry) => entry.user_id === user?.id)
         .flatMap((entry) => {
-          const raw = String(entry.player_name || '').trim();
-          const first = raw.split(/\s+/)[0] || '';
-          return [raw.toLowerCase(), first.toLowerCase()].filter(Boolean);
+          const preferred = profileNameById.get(entry.user_id) || preferredDisplayName(entry.player_name);
+          const first = String(preferred || '').split(/\s+/)[0] || '';
+          return [String(preferred || '').toLowerCase(), first.toLowerCase()].filter(Boolean);
         })
     );
     const myRankingEntries = ranking.filter((row) => userNames.has(String(row.name || '').trim().toLowerCase()));
@@ -433,9 +448,9 @@ export default function HistoryPage() {
       }
       const userIds = Array.from(new Set((data || []).map((entry) => entry.user_id).filter(Boolean)));
       const { data: profiles } = userIds.length
-        ? await supabase.from('profiles').select('id,full_name').in('id', userIds)
+        ? await supabase.from('profiles').select('id,full_name,nickname,email').in('id', userIds)
         : { data: [], error: null };
-      const namesById = new Map((profiles || []).map((profile) => [profile.id, String(profile.full_name || '').trim()]));
+      const namesById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
       const uniqueNames = Array.from(new Set((data || [])
         .map((entry) => namesById.get(entry.user_id) || String(entry.player_name || '').trim())
         .filter(Boolean)))
@@ -494,10 +509,8 @@ export default function HistoryPage() {
   }, [teams, sortedRows]);
 
   const firstName = useMemo(() => {
-    const full = String(profile?.full_name || '').trim();
-    if (!full) return '';
-    return full.split(/\s+/)[0] || '';
-  }, [profile?.full_name]);
+    return preferredShortGreeting({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email });
+  }, [profile?.nickname, profile?.full_name, user?.email]);
 
   return (
     <div className="container">

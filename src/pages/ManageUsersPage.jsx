@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDateBR } from '../utils/time';
+import { preferredDisplayName } from '../utils/names';
 
 export default function ManageUsersPage() {
   const [email, setEmail] = useState('');
@@ -87,7 +88,7 @@ export default function ManageUsersPage() {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id,email,full_name,role,is_active')
+        .select('id,email,full_name,nickname,role,is_active')
         .order('created_at', { ascending: true });
       if (profilesError) throw profilesError;
 
@@ -259,7 +260,7 @@ export default function ManageUsersPage() {
               <div className="cell">
                 <span className="cell-label">Nome</span>
                 <div className="user-name-row">
-                  <span>{u.full_name || '-'}</span>
+                  <span>{preferredDisplayName(u) || '-'}</span>
                 </div>
               </div>
               <div className="cell">

@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
     }
     const { data, error } = await supabase
       .from('profiles')
-      .select('id,email,role,full_name,is_active')
+      .select('id,email,role,full_name,nickname,is_active')
       .eq('id', userId)
       .maybeSingle();
     if (error) {
@@ -73,14 +73,14 @@ export function AuthProvider({ children }) {
         }
       }
     },
-    signUp: async (email, password, fullName) => {
+    signUp: async (email, password, fullName, nickname) => {
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const { data, error } = await supabase.auth.signUp({ email: normalizedEmail, password });
       if (error) throw error;
-      if (data?.user?.id && fullName) {
+      if (data?.user?.id && (fullName || nickname)) {
         await supabase
           .from('profiles')
-          .update({ full_name: fullName })
+          .update({ full_name: fullName, nickname })
           .eq('id', data.user.id);
       }
     },

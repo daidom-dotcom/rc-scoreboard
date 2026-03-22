@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGame } from '../contexts/GameContext';
 import { upsertDailyAttendance } from '../lib/api';
 import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
+import { preferredDisplayName, preferredShortGreeting } from '../utils/names';
 
 export default function PresencePage() {
   const { user, profile, loading } = useAuth();
@@ -25,14 +26,14 @@ export default function PresencePage() {
     async function registerPresence() {
       try {
         const dateISO = todayISOInSaoPaulo();
-        const fullName = String(profile?.full_name || user.email || 'Jogador').trim();
+        const fullName = preferredDisplayName({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || 'Jogador';
         await upsertDailyAttendance({
           user_id: user.id,
           player_name: fullName,
           date_iso: dateISO
         });
         if (!active) return;
-        setSavedName(fullName.split(' ')[0] || fullName);
+        setSavedName(preferredShortGreeting({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || fullName);
         setSavedDate(dateISO);
         setDone(true);
       } catch (err) {

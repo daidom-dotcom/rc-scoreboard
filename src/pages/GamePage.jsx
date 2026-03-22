@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { fetchDailyAttendance, fetchLiveGame } from '../lib/api';
 import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
+import { preferredDisplayName } from '../utils/names';
 
 export default function GamePage() {
   const { user, isScoreboard, profile } = useAuth();
@@ -392,10 +393,10 @@ export default function GamePage() {
       const { data: profiles } = userIds.length
         ? await supabase
           .from('profiles')
-          .select('id,full_name')
+          .select('id,full_name,nickname,email')
           .in('id', userIds)
         : { data: [], error: null };
-      const namesById = new Map((profiles || []).map((profile) => [profile.id, String(profile.full_name || '').trim()]));
+      const namesById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
       const a = [];
       const b = [];
       const rowsA = [];
