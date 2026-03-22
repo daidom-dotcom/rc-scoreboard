@@ -37,6 +37,42 @@ export default function SettingsPage() {
         default_team_a: nextSettings.defaultTeamA,
         default_team_b: nextSettings.defaultTeamB
       });
+      const { data: live, error: liveError } = await supabase
+        .from('live_game')
+        .select('id,mode,status,match_id,score_a,score_b')
+        .eq('id', 1)
+        .maybeSingle();
+      if (liveError) throw liveError;
+      const canRefreshPendingQuick = !!live
+        && live.mode === 'quick'
+        && live.status === 'paused'
+        && Number(live.score_a || 0) === 0
+        && Number(live.score_b || 0) === 0;
+      if (canRefreshPendingQuick) {
+        const liveUpdate = await supabase
+          .from('live_game')
+          .update({
+            time_left: nextSettings.quickDurationSeconds,
+            team_a: nextSettings.defaultTeamA,
+            team_b: nextSettings.defaultTeamB,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', 1);
+        if (liveUpdate.error) throw liveUpdate.error;
+        if (live.match_id) {
+          const matchUpdate = await supabase
+            .from('matches')
+            .update({
+              team_a_name: nextSettings.defaultTeamA,
+              team_b_name: nextSettings.defaultTeamB,
+              durations: [nextSettings.quickDurationSeconds]
+            })
+            .eq('id', live.match_id)
+            .eq('mode', 'quick')
+            .eq('status', 'pending');
+          if (matchUpdate.error) throw matchUpdate.error;
+        }
+      }
       setSettings(nextSettings);
       showAlert('Configurações salvas.');
     } catch (err) {
