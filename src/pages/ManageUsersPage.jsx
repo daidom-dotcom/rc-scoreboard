@@ -149,8 +149,11 @@ export default function ManageUsersPage() {
     const map = new Map();
     attendance.forEach((row) => {
       if (!row.user_id) return;
-      const current = map.get(row.user_id) || new Set();
-      if (row.date_iso) current.add(row.date_iso);
+      const current = map.get(row.user_id) || { dates: new Set(), last: null };
+      if (row.date_iso) {
+        current.dates.add(row.date_iso);
+        if (!current.last || row.date_iso > current.last) current.last = row.date_iso;
+      }
       map.set(row.user_id, current);
     });
     return map;
@@ -332,21 +335,26 @@ export default function ManageUsersPage() {
           .filter((u) => (u.role === 'master' ? showMaster : showCommon))
           .map((u) => {
           const stats = statsByUser.get(u.id) || { count: 0, last: null };
-          const attendanceDays = attendanceStatsByUser.get(u.id)?.size || 0;
+          const attendanceInfo = attendanceStatsByUser.get(u.id) || { dates: new Set(), last: null };
+          const attendanceDays = attendanceInfo.dates?.size || 0;
+          const lastPresence = attendanceInfo.last || null;
           const canToggleRole = isMaster && String(u.email || '').toLowerCase() !== String(user?.email || '').toLowerCase();
           const fullParts = String(u.full_name || '').trim().split(/\s+/).filter(Boolean);
           const firstName = fullParts[0] || '-';
           const surname = fullParts.slice(1).join(' ') || '-';
+          const bracketNickname = u.nickname ? `[${u.nickname}] ` : '';
           return (
             <div className={`users-mini-row ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
               <div className="users-mini-main">
-                <div className="users-mini-name">{u.nickname || firstName} {surname !== '-' ? surname : ''}</div>
-                <div className="users-mini-meta">{u.role === 'master' ? 'Master' : 'Comum'} • {stats.count} partidas • {attendanceDays} presenças</div>
+                <div className="users-mini-name">{bracketNickname}{firstName}{surname !== '-' ? ` ${surname}` : ''}</div>
+                <div className="users-mini-meta">
+                  E-mail: {u.email} • Usuário {u.role === 'master' ? 'Master' : 'Comum'} • {stats.count} partidas jogadas • {attendanceDays} dias de presença • Última presença: {lastPresence ? formatDateBR(lastPresence) : '-'}
+                </div>
               </div>
               {isMaster ? (
                 <button
                   className="btn-outline btn-small"
-                  onClick={() => beginEdit({ ...u, stats, attendanceDays, canToggleRole, firstName, surname })}
+                  onClick={() => beginEdit({ ...u, stats, attendanceDays, lastPresence, canToggleRole, firstName, surname })}
                   disabled={loading}
                 >
                   ✏️
@@ -372,33 +380,36 @@ export default function ManageUsersPage() {
                 <span className="cell-label">Apelido</span>
                 <input type="text" value={editNickname} onChange={(e) => setEditNickname(e.target.value)} placeholder="Apelido" />
               </div>
-              <div className="users-card-item">
-                <span className="cell-label">Partidas</span>
-                <span>Partidas: {selectedUser.stats.count}</span>
-              </div>
-              <div className="users-card-item">
-                <span className="cell-label">Presenças</span>
-                <span>Presenças: {selectedUser.attendanceDays}</span>
-              </div>
-              <div className="users-card-item">
-                <span className="cell-label">Último jogo</span>
-                <span>Último jogo: {selectedUser.stats.last ? formatDateBR(selectedUser.stats.last) : '-'}</span>
-              </div>
               <div className="users-card-item users-card-item-wide">
                 <span className="cell-label">Email</span>
                 <span>{selectedUser.email}</span>
               </div>
               <div className="users-card-item">
                 <span className="cell-label">Papel</span>
-                <div className="registered-actions">
-                  <span className="role-label">{selectedUser.role === 'master' ? 'Master' : 'Comum'}</span>
-                  <button
-                    className="btn-outline btn-small"
-                    disabled={!selectedUser.canToggleRole || loading}
-                    onClick={() => setUserRole(selectedUser.id, selectedUser.role === 'master' ? 'observer' : 'master')}
+                <div className="user-role-col">
+                  <span className="role-label">Usuário {selectedUser.role === 'master' ? 'Master' : 'Comum'}</span>
+                  <div
+                    className={`toggle ${selectedUser.role === 'master' ? 'on' : ''} ${selectedUser.canToggleRole ? '' : 'disabled'}`}
+                    onClick={() => {
+                      if (!selectedUser.canToggleRole || loading) return;
+                      const nextRole = selectedUser.role === 'master' ? 'observer' : 'master';
+                      setSelectedUser((prev) => ({ ...prev, role: nextRole }));
+                      setUserRole(selectedUser.id, nextRole);
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (!selectedUser.canToggleRole || loading) return;
+                        const nextRole = selectedUser.role === 'master' ? 'observer' : 'master';
+                        setSelectedUser((prev) => ({ ...prev, role: nextRole }));
+                        setUserRole(selectedUser.id, nextRole);
+                      }
+                    }}
                   >
-                    {selectedUser.role === 'master' ? 'Trocar para Comum' : 'Trocar para Master'}
-                  </button>
+                    <div className="toggleKnob" />
+                  </div>
                 </div>
               </div>
             </div>
