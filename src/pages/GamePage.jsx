@@ -105,12 +105,18 @@ export default function GamePage() {
     const normalizedRaw = String(rawName || '').trim();
     if (!normalizedRaw) return 'Jogador';
     if (normalizedRaw === 'Outros') return 'Outros';
+    const normalizedFirst = normalizedRaw.split(/\s+/)[0] || '';
     const allEntries = [...(teamEntryRows.A || []), ...(teamEntryRows.B || [])];
     const matched = allEntries.find((entry) => (
       entry.player_name === normalizedRaw
       || entry.firstName === normalizedRaw
       || entry.shortName === normalizedRaw
+      || entry.nickname === normalizedRaw
+      || entry.fullName === normalizedRaw
+      || entry.email === normalizedRaw
       || String(entry.player_name || '').trim().split(/\s+/)[0] === normalizedRaw
+      || String(entry.fullName || '').trim().split(/\s+/)[0] === normalizedFirst
+      || String(entry.nickname || '').trim() === normalizedFirst
     ));
     if (matched?.shortName) return matched.shortName;
     if (matched?.player_name) return formatAttendanceName(matched.player_name);
@@ -398,16 +404,25 @@ export default function GamePage() {
           .select('id,full_name,nickname,email')
           .in('id', userIds)
         : { data: [], error: null };
-      const namesById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
+      const profilesById = new Map((profiles || []).map((profile) => [profile.id, profile]));
       const a = [];
       const b = [];
       const rowsA = [];
       const rowsB = [];
       (data || []).forEach((e) => {
-        const displayName = namesById.get(e.user_id) || e.player_name;
+        const profileData = profilesById.get(e.user_id) || null;
+        const displayName = preferredDisplayName(profileData) || e.player_name;
         const first = String(displayName || '').trim().split(' ')[0] || displayName;
         const shortName = formatAttendanceName(displayName);
-        const normalized = { user_id: e.user_id, player_name: displayName, firstName: first, shortName };
+        const normalized = {
+          user_id: e.user_id,
+          player_name: displayName,
+          fullName: String(profileData?.full_name || '').trim(),
+          nickname: String(profileData?.nickname || '').trim(),
+          email: String(profileData?.email || '').trim(),
+          firstName: first,
+          shortName
+        };
         if (e.team_side === 'A') {
           a.push(shortName);
           rowsA.push(normalized);
