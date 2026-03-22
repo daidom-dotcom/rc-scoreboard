@@ -110,7 +110,9 @@ export default function GamePage() {
       entry.player_name === normalizedRaw
       || entry.firstName === normalizedRaw
       || entry.shortName === normalizedRaw
+      || String(entry.player_name || '').trim().split(/\s+/)[0] === normalizedRaw
     ));
+    if (matched?.shortName) return matched.shortName;
     if (matched?.player_name) return formatAttendanceName(matched.player_name);
     if (normalizedRaw.includes('@')) {
       const local = normalizedRaw.split('@')[0] || normalizedRaw;
