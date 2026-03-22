@@ -10,6 +10,7 @@ export default function ManageUsersPage() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [invites, setInvites] = useState([]);
   const { showAlert, askConfirm } = useGame();
   const { isMaster, user } = useAuth();
@@ -105,8 +106,15 @@ export default function ManageUsersPage() {
         .order('created_at', { ascending: false });
       if (entryError) throw entryError;
 
+      const { data: attendanceRows, error: attendanceError } = await supabase
+        .from('daily_attendance')
+        .select('user_id,date_iso')
+        .order('checked_at', { ascending: false });
+      if (attendanceError) throw attendanceError;
+
       setUsers(profiles || []);
       setEntries(entryRows || []);
+      setAttendance(attendanceRows || []);
       await loadInvites(profiles || []);
     } catch (err) {
       showAlert(err.message || 'Erro ao carregar usuários');
@@ -131,6 +139,17 @@ export default function ManageUsersPage() {
     });
     return map;
   }, [entries]);
+
+  const attendanceStatsByUser = useMemo(() => {
+    const map = new Map();
+    attendance.forEach((row) => {
+      if (!row.user_id) return;
+      const current = map.get(row.user_id) || new Set();
+      if (row.date_iso) current.add(row.date_iso);
+      map.set(row.user_id, current);
+    });
+    return map;
+  }, [attendance]);
 
   async function resetUserPassword(targetUser) {
     if (!targetUser?.id || !targetUser?.email) return;
@@ -267,18 +286,7 @@ export default function ManageUsersPage() {
           Comum
         </label>
       </div>
-      <div className="users-table">
-        <div className="users-row users-head">
-          <div>Nome</div>
-          <div>Sobrenome</div>
-          <div>Apelido</div>
-          <div>Partidas</div>
-          <div>Último jogo</div>
-          <div>Email</div>
-          <div>Papel</div>
-          <div></div>
-        </div>
-
+      <div className="users-card-list">
         {users.length === 0 ? (
           <div className="users-empty">Nenhum usuário encontrado.</div>
         ) : null}
@@ -287,66 +295,74 @@ export default function ManageUsersPage() {
           .filter((u) => (u.role === 'master' ? showMaster : showCommon))
           .map((u) => {
           const stats = statsByUser.get(u.id) || { count: 0, last: null };
+          const attendanceDays = attendanceStatsByUser.get(u.id)?.size || 0;
           const canToggleRole = isMaster && String(u.email || '').toLowerCase() !== String(user?.email || '').toLowerCase();
           const fullParts = String(u.full_name || '').trim().split(/\s+/).filter(Boolean);
           const firstName = fullParts[0] || '-';
           const surname = fullParts.slice(1).join(' ') || '-';
           return (
-            <div className={`users-row ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
-              <div className="cell">
-                <span className="cell-label">Nome</span>
-                <div className="user-name-row">
+            <div className={`users-card ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
+              <div className="users-card-top">
+                <div className="users-card-name">{firstName} {surname !== '-' ? surname : ''}</div>
+                <div className="users-card-role">{u.role === 'master' ? 'Master' : 'Comum'}</div>
+              </div>
+              <div className="users-card-grid">
+                <div className="users-card-item">
+                  <span className="cell-label">Nome</span>
                   <span>{firstName}</span>
                 </div>
-              </div>
-              <div className="cell">
-                <span className="cell-label">Sobrenome</span>
-                <span>{surname}</span>
-              </div>
-              <div className="cell">
-                <span className="cell-label">Apelido</span>
-                <span>{u.nickname || '-'}</span>
-              </div>
-              <div className="cell">
-                <span className="cell-label">Partidas</span>
-                <span>{stats.count}</span>
-              </div>
-              <div className="cell">
-                <span className="cell-label">Último jogo</span>
-                <span>{stats.last ? formatDateBR(stats.last) : '-'}</span>
-              </div>
-              <div className="cell">
-                <span className="cell-label">Email</span>
-                <span>{u.email}</span>
-              </div>
-              <div className="cell">
-                <span className="cell-label">Papel</span>
-                <div className="user-role-col">
-                  <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
-                  {isMaster ? (
-                    <div
-                      className={`toggle ${u.role === 'master' ? 'on' : ''} ${canToggleRole ? '' : 'disabled'}`}
-                      onClick={() => {
-                        if (!canToggleRole) return;
-                        setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
+                <div className="users-card-item">
+                  <span className="cell-label">Sobrenome</span>
+                  <span>{surname}</span>
+                </div>
+                <div className="users-card-item">
+                  <span className="cell-label">Apelido</span>
+                  <span>{u.nickname || '-'}</span>
+                </div>
+                <div className="users-card-item">
+                  <span className="cell-label">Partidas</span>
+                  <span>{stats.count}</span>
+                </div>
+                <div className="users-card-item">
+                  <span className="cell-label">Dias de presença</span>
+                  <span>{attendanceDays}</span>
+                </div>
+                <div className="users-card-item">
+                  <span className="cell-label">Último jogo</span>
+                  <span>{stats.last ? formatDateBR(stats.last) : '-'}</span>
+                </div>
+                <div className="users-card-item users-card-item-wide">
+                  <span className="cell-label">Email</span>
+                  <span>{u.email}</span>
+                </div>
+                <div className="users-card-item">
+                  <span className="cell-label">Papel</span>
+                  <div className="user-role-col">
+                    <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
+                    {isMaster ? (
+                      <div
+                        className={`toggle ${u.role === 'master' ? 'on' : ''} ${canToggleRole ? '' : 'disabled'}`}
+                        onClick={() => {
                           if (!canToggleRole) return;
                           setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
-                        }
-                      }}
-                    >
-                      <div className="toggleKnob" />
-                    </div>
-                  ) : null}
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (!canToggleRole) return;
+                            setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
+                          }
+                        }}
+                      >
+                        <div className="toggleKnob" />
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-              <div className="cell">
-                <span className="cell-label">Ações</span>
+              <div className="users-card-actions">
                 {isMaster ? (
                   <div className="registered-actions">
                     <button

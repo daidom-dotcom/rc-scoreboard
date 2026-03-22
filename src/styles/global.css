@@ -244,6 +244,16 @@ select {
 .users-row { display: grid; grid-template-columns: 1.2fr 90px 140px 1.6fr 100px 90px; gap: 10px; align-items: center; border: 2px solid rgba(180,240,0,.30); border-radius: 10px; padding: 6px 10px; }
 .users-head { background: rgba(180,240,0,.08); font-weight: 900; }
 .users-row.inactive { opacity: .45; }
+.users-card-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.users-card { border: 2px solid rgba(180,240,0,.30); border-radius: 12px; padding: 10px 12px; background: rgba(180,240,0,.03); }
+.users-card.inactive { opacity: .45; }
+.users-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.users-card-name { font-weight: 1000; font-size: 15px; }
+.users-card-role { font-size: 11px; font-weight: 900; text-transform: uppercase; opacity: .8; }
+.users-card-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.users-card-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.users-card-item-wide { grid-column: span 2; }
+.users-card-actions { margin-top: 12px; }
 .user-name-row { display: flex; align-items: center; gap: 10px; }
 .role-label { font-size: 10px; opacity: .7; text-transform: uppercase; letter-spacing: 1px; }
 .toggle.disabled { opacity: .4; pointer-events: none; }
@@ -360,6 +370,8 @@ select {
   .users-row .cell { display: flex; flex-direction: column; gap: 4px; }
   .cell-label { display: block; font-size: 10px; opacity: .6; text-transform: uppercase; letter-spacing: 1px; }
   .user-role-col { flex-direction: row; align-items: center; gap: 10px; }
+  .users-card-grid { grid-template-columns: 1fr 1fr; }
+  .users-card-item-wide { grid-column: span 2; }
   .registered-row {
     flex-direction: column;
     align-items: flex-start;
