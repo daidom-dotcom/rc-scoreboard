@@ -431,74 +431,69 @@ export default function RegisteredMatchesPage() {
                             </summary>
 
                             <div className="registered-section">
-                              <div className="registered-subtitle">Time A ({match.team_a_name})</div>
-                              {!entriesA.length ? <div className="muted">Sem jogadores.</div> : (
-                                <div className="registered-list">
-                                  {entriesA.map((entry) => (
-                                    <div className="registered-row" key={entry.id}>
-                                      <span>{entry.player_name}</span>
-                                      <span>{formatTimeBR(entry.created_at)}</span>
-                                      <button className="btn-outline btn-small" onClick={() => removeEntry(entry.id)}>Excluir</button>
-                                    </div>
-                                  ))}
+                              <details className="registered-inner-block">
+                                <summary className="registered-subtitle">Participantes por Time</summary>
+                                <div className="registered-team-line">
+                                  <strong>Time A ({match.team_a_name}):</strong>{' '}
+                                  {entriesA.length ? entriesA.map((entry) => entry.player_name).join(', ') : 'Sem jogadores.'}
                                 </div>
-                              )}
-                            </div>
-
-                            <div className="registered-section">
-                              <div className="registered-subtitle">Time B ({match.team_b_name})</div>
-                              {!entriesB.length ? <div className="muted">Sem jogadores.</div> : (
-                                <div className="registered-list">
-                                  {entriesB.map((entry) => (
-                                    <div className="registered-row" key={entry.id}>
-                                      <span>{entry.player_name}</span>
-                                      <span>{formatTimeBR(entry.created_at)}</span>
-                                      <button className="btn-outline btn-small" onClick={() => removeEntry(entry.id)}>Excluir</button>
-                                    </div>
-                                  ))}
+                                <div className="registered-team-line">
+                                  <strong>Time B ({match.team_b_name}):</strong>{' '}
+                                  {entriesB.length ? entriesB.map((entry) => entry.player_name).join(', ') : 'Sem jogadores.'}
                                 </div>
-                              )}
-                            </div>
-
-                            <div className="registered-section">
-                              <div className="registered-subtitle">Cestas ({events.length})</div>
-                              {!events.length ? (
-                                <div className="muted">Sem cestas registradas.</div>
-                              ) : (
-                                <div className="registered-list">
-                                  {events.map((event) => {
-                                    const isEditing = editEvent?.id === event.id;
-                                    return (
-                                      <div className="registered-row registered-row-edit" key={event.id}>
-                                        <span>{formatTimeBR(event.created_at)} | {event.points}pt | {event.player_name} | Time {event.team_side}</span>
-                                        <div className="registered-actions">
-                                          <button className="btn-outline btn-small" onClick={() => removeEvent(event.id)}>Excluir</button>
-                                          <button
-                                            className="btn-outline btn-small"
-                                            onClick={() => setEditEvent(isEditing ? null : { id: event.id, player_name: event.player_name, points: event.points })}
-                                          >
-                                            Alterar
-                                          </button>
-                                        </div>
-                                        {isEditing ? (
-                                          <div className="registered-edit-box">
-                                            <select value={editEvent.player_name} onChange={(e) => setEditEvent((prev) => ({ ...prev, player_name: e.target.value }))}>
-                                              {dayPlayerOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-                                            </select>
-                                            <select value={editEvent.points} onChange={(e) => setEditEvent((prev) => ({ ...prev, points: Number(e.target.value) }))}>
-                                              <option value={1}>1 ponto</option>
-                                              <option value={2}>2 pontos</option>
-                                              <option value={3}>3 pontos</option>
-                                            </select>
-                                            <button className="btn-controle btn-small" onClick={() => saveEditedEvent(match, event)}>Salvar</button>
-                                            <button className="btn-outline btn-small" onClick={() => setEditEvent(null)}>Cancelar</button>
-                                          </div>
-                                        ) : null}
+                                {!!entries.length && (
+                                  <div className="registered-list" style={{ marginTop: 8 }}>
+                                    {entries.map((entry) => (
+                                      <div className="registered-row" key={entry.id}>
+                                        <span>{entry.player_name} | Time {entry.team_side}</span>
+                                        <span>{formatTimeBR(entry.created_at)}</span>
+                                        <button className="btn-outline btn-small" onClick={() => removeEntry(entry.id)}>Excluir</button>
                                       </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
+                                    ))}
+                                  </div>
+                                )}
+                              </details>
+
+                              <details className="registered-inner-block">
+                                <summary className="registered-subtitle">Cestas ({events.length})</summary>
+                                {!events.length ? (
+                                  <div className="muted">Sem cestas registradas.</div>
+                                ) : (
+                                  <div className="registered-list">
+                                    {events.map((event) => {
+                                      const isEditing = editEvent?.id === event.id;
+                                      return (
+                                        <div className="registered-row registered-row-edit" key={event.id}>
+                                          <span>{formatTimeBR(event.created_at)} | {event.points}pt | {event.player_name} | Time {event.team_side}</span>
+                                          <div className="registered-actions">
+                                            <button className="btn-outline btn-small" onClick={() => removeEvent(event.id)}>Excluir</button>
+                                            <button
+                                              className="btn-outline btn-small"
+                                              onClick={() => setEditEvent(isEditing ? null : { id: event.id, player_name: event.player_name, points: event.points })}
+                                            >
+                                              Alterar
+                                            </button>
+                                          </div>
+                                          {isEditing ? (
+                                            <div className="registered-edit-box">
+                                              <select value={editEvent.player_name} onChange={(e) => setEditEvent((prev) => ({ ...prev, player_name: e.target.value }))}>
+                                                {dayPlayerOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+                                              </select>
+                                              <select value={editEvent.points} onChange={(e) => setEditEvent((prev) => ({ ...prev, points: Number(e.target.value) }))}>
+                                                <option value={1}>1 ponto</option>
+                                                <option value={2}>2 pontos</option>
+                                                <option value={3}>3 pontos</option>
+                                              </select>
+                                              <button className="btn-controle btn-small" onClick={() => saveEditedEvent(match, event)}>Salvar</button>
+                                              <button className="btn-outline btn-small" onClick={() => setEditEvent(null)}>Cancelar</button>
+                                            </div>
+                                          ) : null}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </details>
                             </div>
                           </details>
                         );

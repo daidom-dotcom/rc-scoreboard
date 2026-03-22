@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDateBR } from '../utils/time';
-import { preferredDisplayName } from '../utils/names';
 
 export default function ManageUsersPage() {
   const [email, setEmail] = useState('');
@@ -88,7 +87,7 @@ export default function ManageUsersPage() {
     try {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id,email,full_name,nickname,role,is_active')
+        .select('id,email,full_name,nickname,role,is_active,must_reset_password')
         .order('created_at', { ascending: true });
       if (profilesError) throw profilesError;
 
@@ -124,6 +123,30 @@ export default function ManageUsersPage() {
     });
     return map;
   }, [entries]);
+
+  async function resetUserPassword(targetUser) {
+    if (!targetUser?.id || !targetUser?.email) return;
+    const ok = await askConfirm(`Resetar a senha de ${targetUser.email}?`);
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const { error: markError } = await supabase
+        .from('profiles')
+        .update({ must_reset_password: true })
+        .eq('id', targetUser.id);
+      if (markError) throw markError;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(targetUser.email, {
+        redirectTo: `${window.location.origin}/login`
+      });
+      if (resetError) throw resetError;
+      showAlert('Email de redefinição enviado.');
+      await loadUsers();
+    } catch (err) {
+      showAlert(err.message || 'Erro ao resetar a senha.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function setUserActive(userId, active) {
     const ok = await askConfirm(active ? 'Ativar este usuário?' : 'Excluir este usuário?', { countdown: false });
@@ -239,6 +262,8 @@ export default function ManageUsersPage() {
       <div className="users-table">
         <div className="users-row users-head">
           <div>Nome</div>
+          <div>Sobrenome</div>
+          <div>Apelido</div>
           <div>Partidas</div>
           <div>Último jogo</div>
           <div>Email</div>
@@ -255,13 +280,24 @@ export default function ManageUsersPage() {
           .map((u) => {
           const stats = statsByUser.get(u.id) || { count: 0, last: null };
           const canToggleRole = isMaster && String(u.email || '').toLowerCase() !== String(user?.email || '').toLowerCase();
+          const fullParts = String(u.full_name || '').trim().split(/\s+/).filter(Boolean);
+          const firstName = fullParts[0] || '-';
+          const surname = fullParts.slice(1).join(' ') || '-';
           return (
             <div className={`users-row ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
               <div className="cell">
                 <span className="cell-label">Nome</span>
                 <div className="user-name-row">
-                  <span>{preferredDisplayName(u) || '-'}</span>
+                  <span>{firstName}</span>
                 </div>
+              </div>
+              <div className="cell">
+                <span className="cell-label">Sobrenome</span>
+                <span>{surname}</span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">Apelido</span>
+                <span>{u.nickname || '-'}</span>
               </div>
               <div className="cell">
                 <span className="cell-label">Partidas</span>
@@ -304,13 +340,22 @@ export default function ManageUsersPage() {
               <div className="cell">
                 <span className="cell-label">Ações</span>
                 {isMaster ? (
-                  <button
-                    className="btn-outline btn-small"
-                    onClick={() => setUserActive(u.id, u.is_active === false)}
-                    disabled={loading}
-                  >
-                    {u.is_active === false ? 'Ativar' : 'Inativar'}
-                  </button>
+                  <div className="registered-actions">
+                    <button
+                      className="btn-outline btn-small"
+                      onClick={() => resetUserPassword(u)}
+                      disabled={loading}
+                    >
+                      Resetar senha
+                    </button>
+                    <button
+                      className="btn-outline btn-small"
+                      onClick={() => setUserActive(u.id, u.is_active === false)}
+                      disabled={loading}
+                    >
+                      {u.is_active === false ? 'Ativar' : 'Inativar'}
+                    </button>
+                  </div>
                 ) : null}
               </div>
             </div>

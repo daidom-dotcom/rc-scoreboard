@@ -343,6 +343,16 @@ select {
 .registered-edit-box select {
   min-width: 140px;
 }
+.registered-inner-block {
+  border: 1px solid rgba(180,240,0,.16);
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 8px;
+}
+.registered-team-line {
+  font-size: 12px;
+  margin-top: 6px;
+}
 
 @media (max-width: 900px) {
   .users-head { display: none; }
@@ -357,6 +367,9 @@ select {
   .registered-actions,
   .registered-edit-box {
     width: 100%;
+  }
+  .registered-team-line {
+    line-height: 1.4;
   }
   .registered-date-head {
     flex-wrap: wrap;
