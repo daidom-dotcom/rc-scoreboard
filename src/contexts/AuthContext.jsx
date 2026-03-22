@@ -98,7 +98,7 @@ export function AuthProvider({ children }) {
     resetPassword: async (email) => {
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: `${window.location.origin}/login`
+        redirectTo: `${window.location.origin}/reset-password`
       });
       if (error) throw error;
     },

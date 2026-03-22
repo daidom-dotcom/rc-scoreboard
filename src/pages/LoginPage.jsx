@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useGame } from '../contexts/GameContext';
 
 export default function LoginPage() {
-  const { signIn, signUp, resetPassword, user } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -19,7 +19,6 @@ export default function LoginPage() {
   const location = useLocation();
   const { showAlert } = useGame();
   const redirectTo = new URLSearchParams(location.search).get('redirect') || '/';
-  const isRecoveryMode = location.hash.includes('type=recovery') || location.hash.includes('access_token=');
 
   async function handleLogin() {
     const normalizedEmail = email.trim().toLowerCase();
@@ -107,42 +106,10 @@ export default function LoginPage() {
     }
   }
 
-  async function handleRecoveryPassword() {
-    if (!password || password !== confirmPassword) {
-      showAlert('As senhas devem coincidir.');
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      if (user?.id) {
-        await supabase
-          .from('profiles')
-          .update({ must_reset_password: false })
-          .eq('id', user.id);
-      }
-      showAlert('Nova senha cadastrada com sucesso.');
-      navigate('/', { replace: true });
-    } catch (err) {
-      showAlert(err.message || 'Não foi possível cadastrar a nova senha.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <div className="panel auth-panel">
       <h2>Login</h2>
-      {isRecoveryMode ? (
-        <>
-          <label className="label">Nova Senha</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-
-          <label className="label">Confirmar Nova Senha</label>
-          <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
-        </>
-      ) : (needPasswordSetup || createObserver) ? (
+      {(needPasswordSetup || createObserver) ? (
         <>
           <label className="label">Nome</label>
           <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
@@ -173,9 +140,7 @@ export default function LoginPage() {
       )}
 
       <div className="actions" style={{ marginTop: 12 }}>
-        {isRecoveryMode ? (
-          <button className="btn-controle" onClick={handleRecoveryPassword} disabled={loading}>Salvar nova senha</button>
-        ) : (needPasswordSetup || createObserver) ? (
+        {(needPasswordSetup || createObserver) ? (
           <button className="btn-controle" onClick={handleSignup} disabled={loading}>Definir Senha</button>
         ) : (
           <>

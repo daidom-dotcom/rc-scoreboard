@@ -171,7 +171,7 @@ export default function ManageUsersPage() {
         .eq('id', targetUser.id);
       if (markError) throw markError;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(targetUser.email, {
-        redirectTo: `${window.location.origin}/login`
+        redirectTo: `${window.location.origin}/reset-password`
       });
       if (resetError) throw resetError;
       showAlert('Email de redefinição enviado.');
