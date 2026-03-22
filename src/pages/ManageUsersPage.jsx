@@ -85,10 +85,18 @@ export default function ManageUsersPage() {
   async function loadUsers() {
     setLoading(true);
     try {
-      const { data: profiles, error: profilesError } = await supabase
+      let { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('id,email,full_name,nickname,role,is_active,must_reset_password')
         .order('created_at', { ascending: true });
+      if (profilesError && String(profilesError.message || '').includes('must_reset_password')) {
+        const fallback = await supabase
+          .from('profiles')
+          .select('id,email,full_name,nickname,role,is_active')
+          .order('created_at', { ascending: true });
+        profiles = (fallback.data || []).map((row) => ({ ...row, must_reset_password: false }));
+        profilesError = fallback.error;
+      }
       if (profilesError) throw profilesError;
 
       const { data: entryRows, error: entryError } = await supabase

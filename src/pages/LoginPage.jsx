@@ -25,11 +25,19 @@ export default function LoginPage() {
     const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
     try {
-      const { data: profileRow } = await supabase
+      let { data: profileRow, error: profileError } = await supabase
         .from('profiles')
         .select('email,must_reset_password')
         .eq('email', normalizedEmail)
         .maybeSingle();
+      if (profileError && String(profileError.message || '').includes('must_reset_password')) {
+        const fallback = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+        profileRow = fallback.data ? { ...fallback.data, must_reset_password: false } : null;
+      }
       if (profileRow?.must_reset_password) {
         await resetPassword(normalizedEmail);
         showAlert('Sua senha foi resetada. Enviamos um email para você cadastrar uma nova senha sem informar a anterior.');

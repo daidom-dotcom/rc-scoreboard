@@ -13,11 +13,22 @@ export function AuthProvider({ children }) {
       setProfile(null);
       return null;
     }
-    const { data, error } = await supabase
+    let data = null;
+    let error = null;
+    ({ data, error } = await supabase
       .from('profiles')
       .select('id,email,role,full_name,nickname,is_active,must_reset_password')
       .eq('id', userId)
-      .maybeSingle();
+      .maybeSingle());
+    if (error && String(error.message || '').includes('must_reset_password')) {
+      const fallback = await supabase
+        .from('profiles')
+        .select('id,email,role,full_name,nickname,is_active')
+        .eq('id', userId)
+        .maybeSingle();
+      data = fallback.data ? { ...fallback.data, must_reset_password: false } : null;
+      error = fallback.error;
+    }
     if (error) {
       console.warn('Profile load error', error.message);
       return null;
