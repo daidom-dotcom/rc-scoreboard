@@ -245,15 +245,23 @@ select {
 .users-head { background: rgba(180,240,0,.08); font-weight: 900; }
 .users-row.inactive { opacity: .45; }
 .users-card-list { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.users-mini-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.users-mini-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 2px solid rgba(180,240,0,.30); border-radius: 12px; padding: 10px 12px; background: rgba(180,240,0,.03); }
+.users-mini-row.inactive { opacity: .45; }
+.users-mini-main { min-width: 0; }
+.users-mini-name { font-weight: 1000; font-size: 15px; }
+.users-mini-meta { font-size: 11px; opacity: .8; margin-top: 3px; }
 .users-card { border: 2px solid rgba(180,240,0,.30); border-radius: 12px; padding: 10px 12px; background: rgba(180,240,0,.03); }
 .users-card.inactive { opacity: .45; }
 .users-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+.users-card-summary { cursor: pointer; list-style: none; margin-bottom: 0; }
 .users-card-name { font-weight: 1000; font-size: 15px; }
 .users-card-role { font-size: 11px; font-weight: 900; text-transform: uppercase; opacity: .8; }
 .users-card-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .users-card-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .users-card-item-wide { grid-column: span 2; }
 .users-card-actions { margin-top: 12px; }
+.users-modal-body input { height: 42px; }
 .user-name-row { display: flex; align-items: center; gap: 10px; }
 .role-label { font-size: 10px; opacity: .7; text-transform: uppercase; letter-spacing: 1px; }
 .toggle.disabled { opacity: .4; pointer-events: none; }

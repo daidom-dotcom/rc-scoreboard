@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useGame } from '../contexts/GameContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDateBR } from '../utils/time';
+import Modal from '../components/Modal';
 
 export default function ManageUsersPage() {
   const [email, setEmail] = useState('');
@@ -17,6 +18,10 @@ export default function ManageUsersPage() {
   const [showInactive, setShowInactive] = useState(false);
   const [showMaster, setShowMaster] = useState(true);
   const [showCommon, setShowCommon] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editNickname, setEditNickname] = useState('');
 
   async function inviteUser() {
     const target = email.trim().toLowerCase();
@@ -210,6 +215,38 @@ export default function ManageUsersPage() {
     }
   }
 
+  function beginEdit(userRow) {
+    const parts = String(userRow.full_name || '').trim().split(/\s+/).filter(Boolean);
+    setSelectedUser(userRow);
+    setEditFirstName(parts[0] || '');
+    setEditLastName(parts.slice(1).join(' '));
+    setEditNickname(userRow.nickname || '');
+  }
+
+  async function saveUserIdentity(userId) {
+    const first = editFirstName.trim();
+    const last = editLastName.trim();
+    const nick = editNickname.trim();
+    if (!first || !last || !nick) {
+      showAlert('Informe nome, sobrenome e apelido.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: `${first} ${last}`, nickname: nick })
+        .eq('id', userId);
+      if (error) throw error;
+      setSelectedUser(null);
+      await loadUsers();
+    } catch (err) {
+      showAlert(err.message || 'Erro ao alterar usuário.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="panel manage-users-panel">
       <div className="label">Convidar Usuário</div>
@@ -286,7 +323,7 @@ export default function ManageUsersPage() {
           Comum
         </label>
       </div>
-      <div className="users-card-list">
+      <div className="users-mini-list">
         {users.length === 0 ? (
           <div className="users-empty">Nenhum usuário encontrado.</div>
         ) : null}
@@ -301,91 +338,80 @@ export default function ManageUsersPage() {
           const firstName = fullParts[0] || '-';
           const surname = fullParts.slice(1).join(' ') || '-';
           return (
-            <div className={`users-card ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
-              <div className="users-card-top">
-                <div className="users-card-name">{firstName} {surname !== '-' ? surname : ''}</div>
-                <div className="users-card-role">{u.role === 'master' ? 'Master' : 'Comum'}</div>
+            <div className={`users-mini-row ${u.is_active === false ? 'inactive' : ''}`} key={u.id}>
+              <div className="users-mini-main">
+                <div className="users-mini-name">{u.nickname || firstName} {surname !== '-' ? surname : ''}</div>
+                <div className="users-mini-meta">{u.role === 'master' ? 'Master' : 'Comum'} • {stats.count} partidas • {attendanceDays} presenças</div>
               </div>
-              <div className="users-card-grid">
-                <div className="users-card-item">
-                  <span className="cell-label">Nome</span>
-                  <span>{firstName}</span>
-                </div>
-                <div className="users-card-item">
-                  <span className="cell-label">Sobrenome</span>
-                  <span>{surname}</span>
-                </div>
-                <div className="users-card-item">
-                  <span className="cell-label">Apelido</span>
-                  <span>{u.nickname || '-'}</span>
-                </div>
-                <div className="users-card-item">
-                  <span className="cell-label">Partidas</span>
-                  <span>{stats.count}</span>
-                </div>
-                <div className="users-card-item">
-                  <span className="cell-label">Dias de presença</span>
-                  <span>{attendanceDays}</span>
-                </div>
-                <div className="users-card-item">
-                  <span className="cell-label">Último jogo</span>
-                  <span>{stats.last ? formatDateBR(stats.last) : '-'}</span>
-                </div>
-                <div className="users-card-item users-card-item-wide">
-                  <span className="cell-label">Email</span>
-                  <span>{u.email}</span>
-                </div>
-                <div className="users-card-item">
-                  <span className="cell-label">Papel</span>
-                  <div className="user-role-col">
-                    <span className="role-label">{u.role === 'master' ? 'Master' : 'Comum'}</span>
-                    {isMaster ? (
-                      <div
-                        className={`toggle ${u.role === 'master' ? 'on' : ''} ${canToggleRole ? '' : 'disabled'}`}
-                        onClick={() => {
-                          if (!canToggleRole) return;
-                          setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            if (!canToggleRole) return;
-                            setUserRole(u.id, u.role === 'master' ? 'observer' : 'master');
-                          }
-                        }}
-                      >
-                        <div className="toggleKnob" />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-              <div className="users-card-actions">
-                {isMaster ? (
-                  <div className="registered-actions">
-                    <button
-                      className="btn-outline btn-small"
-                      onClick={() => resetUserPassword(u)}
-                      disabled={loading}
-                    >
-                      Resetar senha
-                    </button>
-                    <button
-                      className="btn-outline btn-small"
-                      onClick={() => setUserActive(u.id, u.is_active === false)}
-                      disabled={loading}
-                    >
-                      {u.is_active === false ? 'Ativar' : 'Inativar'}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              {isMaster ? (
+                <button
+                  className="btn-outline btn-small"
+                  onClick={() => beginEdit({ ...u, stats, attendanceDays, canToggleRole, firstName, surname })}
+                  disabled={loading}
+                >
+                  ✏️
+                </button>
+              ) : null}
             </div>
           );
         })}
       </div>
+      <Modal open={!!selectedUser} onClose={() => setSelectedUser(null)} title="Editar usuário">
+        {selectedUser ? (
+          <div className="users-modal-body">
+            <div className="users-card-grid">
+              <div className="users-card-item">
+                <span className="cell-label">Nome</span>
+                <input type="text" value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} placeholder="Nome" />
+              </div>
+              <div className="users-card-item">
+                <span className="cell-label">Sobrenome</span>
+                <input type="text" value={editLastName} onChange={(e) => setEditLastName(e.target.value)} placeholder="Sobrenome" />
+              </div>
+              <div className="users-card-item">
+                <span className="cell-label">Apelido</span>
+                <input type="text" value={editNickname} onChange={(e) => setEditNickname(e.target.value)} placeholder="Apelido" />
+              </div>
+              <div className="users-card-item">
+                <span className="cell-label">Partidas</span>
+                <span>Partidas: {selectedUser.stats.count}</span>
+              </div>
+              <div className="users-card-item">
+                <span className="cell-label">Presenças</span>
+                <span>Presenças: {selectedUser.attendanceDays}</span>
+              </div>
+              <div className="users-card-item">
+                <span className="cell-label">Último jogo</span>
+                <span>Último jogo: {selectedUser.stats.last ? formatDateBR(selectedUser.stats.last) : '-'}</span>
+              </div>
+              <div className="users-card-item users-card-item-wide">
+                <span className="cell-label">Email</span>
+                <span>{selectedUser.email}</span>
+              </div>
+              <div className="users-card-item">
+                <span className="cell-label">Papel</span>
+                <div className="registered-actions">
+                  <span className="role-label">{selectedUser.role === 'master' ? 'Master' : 'Comum'}</span>
+                  <button
+                    className="btn-outline btn-small"
+                    disabled={!selectedUser.canToggleRole || loading}
+                    onClick={() => setUserRole(selectedUser.id, selectedUser.role === 'master' ? 'observer' : 'master')}
+                  >
+                    {selectedUser.role === 'master' ? 'Trocar para Comum' : 'Trocar para Master'}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="registered-actions" style={{ marginTop: 14 }}>
+              <button className="btn-controle btn-small" onClick={() => saveUserIdentity(selectedUser.id)} disabled={loading}>Salvar</button>
+              <button className="btn-outline btn-small" onClick={() => resetUserPassword(selectedUser)} disabled={loading}>Resetar senha</button>
+              <button className="btn-outline btn-small" onClick={() => setUserActive(selectedUser.id, selectedUser.is_active === false)} disabled={loading}>
+                {selectedUser.is_active === false ? 'Ativar' : 'Inativar'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }
