@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { NavLink } from 'react-router-dom';
 import { useGame } from '../contexts/GameContext';
 import ManageUsersPage from './ManageUsersPage';
 import RegisteredMatchesPage from './RegisteredMatchesPage';
@@ -170,6 +171,7 @@ export default function SettingsPage() {
           <div className="actions" style={{ marginTop: 14 }}>
             <button className="btn-controle" onClick={save}>Salvar</button>
             <button className="btn-outline" onClick={resetToday}>Resetar dia atual</button>
+            <NavLink to="/sounds" className="btn-outline">Testar sons</NavLink>
           </div>
 
           <div className="panel qr-panel">

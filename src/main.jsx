@@ -15,6 +15,7 @@ import CheckInPage from './pages/CheckInPage';
 import BoardPage from './pages/BoardPage';
 import PresencePage from './pages/PresencePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import SoundsPage from './pages/SoundsPage';
 import './styles/global.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -33,6 +34,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="/game" element={<GamePage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/tabuleiro" element={<BoardPage />} />
+              <Route
+                path="/sounds"
+                element={
+                  <ProtectedRoute>
+                    <SoundsPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/settings"
                 element={
