@@ -168,16 +168,19 @@ export function GameProvider({ children }) {
         return;
       }
       const now = ctx.currentTime;
-      const makePulse = (start, freq, duration, gainValue) => {
+      const makeSiren = (start, fromFreq, toFreq, duration, gainValue, type = 'sawtooth') => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         const filter = ctx.createBiquadFilter();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(freq, start);
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(2200, start);
+        osc.type = type;
+        osc.frequency.setValueAtTime(fromFreq, start);
+        osc.frequency.exponentialRampToValueAtTime(toFreq, start + duration);
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1450, start);
+        filter.Q.setValueAtTime(0.9, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.005);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(gainValue * 0.82, start + duration * 0.55);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
         osc.connect(filter);
         filter.connect(gain);
@@ -185,8 +188,8 @@ export function GameProvider({ children }) {
         osc.start(start);
         osc.stop(start + duration + 0.01);
       };
-      makePulse(now, 780, 0.16, 0.95);
-      makePulse(now, 1170, 0.12, 0.55);
+      makeSiren(now, 720, 1120, 0.22, 0.9, 'sawtooth');
+      makeSiren(now + 0.025, 980, 760, 0.18, 0.52, 'square');
     } catch {
       // ignore audio errors
     }
@@ -197,18 +200,20 @@ export function GameProvider({ children }) {
       const ctx = await ensureAudioReady();
       if (ctx) {
         const now = ctx.currentTime;
-        const makeHorn = (start, freq, duration, gainValue) => {
+        const makeHorn = (start, fromFreq, toFreq, duration, gainValue, type = 'sawtooth') => {
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
           const filter = ctx.createBiquadFilter();
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(freq, start);
-          osc.frequency.exponentialRampToValueAtTime(freq * 0.94, start + duration);
+          osc.type = type;
+          osc.frequency.setValueAtTime(fromFreq, start);
+          osc.frequency.exponentialRampToValueAtTime(toFreq, start + duration);
           filter.type = 'lowpass';
-          filter.frequency.setValueAtTime(1800, start);
+          filter.frequency.setValueAtTime(1500, start);
+          filter.Q.setValueAtTime(1.1, start);
           gain.gain.setValueAtTime(0.0001, start);
           gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.03);
-          gain.gain.exponentialRampToValueAtTime(gainValue * 0.85, start + duration * 0.6);
+          gain.gain.exponentialRampToValueAtTime(gainValue * 0.88, start + duration * 0.38);
+          gain.gain.exponentialRampToValueAtTime(gainValue * 0.72, start + duration * 0.72);
           gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
           osc.connect(filter);
           filter.connect(gain);
@@ -216,9 +221,9 @@ export function GameProvider({ children }) {
           osc.start(start);
           osc.stop(start + duration + 0.02);
         };
-        makeHorn(now, 330, 1.4, 1.25);
-        makeHorn(now + 0.02, 495, 1.3, 0.9);
-        makeHorn(now + 0.04, 660, 1.15, 0.5);
+        makeHorn(now, 285, 252, 1.55, 1.45, 'sawtooth');
+        makeHorn(now + 0.045, 430, 386, 1.42, 1.02, 'square');
+        makeHorn(now + 0.08, 575, 540, 1.18, 0.44, 'triangle');
         return;
       }
       const source = finalHornAudioRef.current;
