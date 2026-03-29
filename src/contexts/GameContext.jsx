@@ -168,21 +168,25 @@ export function GameProvider({ children }) {
         return;
       }
       const now = ctx.currentTime;
-      const makeHorn = (start, freq, duration, gainValue) => {
+      const makePulse = (start, freq, duration, gainValue) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
         osc.type = 'square';
         osc.frequency.setValueAtTime(freq, start);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(2200, start);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.005);
         gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-        osc.connect(gain);
+        osc.connect(filter);
+        filter.connect(gain);
         gain.connect(ctx.destination);
         osc.start(start);
         osc.stop(start + duration + 0.01);
       };
-      makeHorn(now, 920, 0.10, 0.5);
-      makeHorn(now, 1240, 0.08, 0.32);
+      makePulse(now, 780, 0.16, 0.95);
+      makePulse(now, 1170, 0.12, 0.55);
     } catch {
       // ignore audio errors
     }
@@ -190,6 +194,33 @@ export function GameProvider({ children }) {
 
   async function playFinalHorn() {
     try {
+      const ctx = await ensureAudioReady();
+      if (ctx) {
+        const now = ctx.currentTime;
+        const makeHorn = (start, freq, duration, gainValue) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const filter = ctx.createBiquadFilter();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq, start);
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.94, start + duration);
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(1800, start);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.03);
+          gain.gain.exponentialRampToValueAtTime(gainValue * 0.85, start + duration * 0.6);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + duration + 0.02);
+        };
+        makeHorn(now, 330, 1.4, 1.25);
+        makeHorn(now + 0.02, 495, 1.3, 0.9);
+        makeHorn(now + 0.04, 660, 1.15, 0.5);
+        return;
+      }
       const source = finalHornAudioRef.current;
       if (!source) return;
       const audio = source.cloneNode(true);
