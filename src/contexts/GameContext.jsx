@@ -56,8 +56,7 @@ export function GameProvider({ children }) {
   const scoreBRef = useRef(0);
   const basketsARef = useRef({ one: 0, two: 0, three: 0 });
   const basketsBRef = useRef({ one: 0, two: 0, three: 0 });
-  const beepIntervalRef = useRef(null);
-  const audioCtxRef = useRef(null);
+  const alertPulseAudioRef = useRef(null);
   const finalHornAudioRef = useRef(null);
   const lastAlertSecondRef = useRef(null);
   const lastHornSecondRef = useRef(null);
@@ -76,10 +75,20 @@ export function GameProvider({ children }) {
 
   useEffect(() => {
     try {
-      const audio = new Audio('/corneta-final.mp3');
-      audio.preload = 'auto';
-      audio.volume = 1;
-      finalHornAudioRef.current = audio;
+      const alertAudio = new Audio('/alerta-segundos.wav');
+      alertAudio.preload = 'auto';
+      alertAudio.volume = 1;
+      alertAudio.playsInline = true;
+      alertPulseAudioRef.current = alertAudio;
+    } catch {
+      alertPulseAudioRef.current = null;
+    }
+    try {
+      const hornAudio = new Audio('/corneta-final.mp3');
+      hornAudio.preload = 'auto';
+      hornAudio.volume = 1;
+      hornAudio.playsInline = true;
+      finalHornAudioRef.current = hornAudio;
     } catch {
       finalHornAudioRef.current = null;
     }
@@ -131,42 +140,14 @@ export function GameProvider({ children }) {
     logDebug('createQuickMatch.success', { id: match?.id, match_no: match?.match_no });
     return syncQuickMatch(match, targetNo);
   }
-  async function ensureAudioReady() {
-    try {
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        await audioCtxRef.current.resume();
-      }
-      return audioCtxRef.current;
-    } catch {
-      return null;
-    }
-  }
-
   async function playAlarmPulse() {
     try {
-      const ctx = await ensureAudioReady();
-      if (!ctx) return;
-      const now = ctx.currentTime;
-      const makeHorn = (start, freq, duration, gainValue) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(gainValue * 0.8, start + (duration * 0.5));
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + duration + 0.01);
-      };
-      makeHorn(now, 460, 0.50, 0.85);
-      makeHorn(now, 690, 0.50, 0.62);
-      makeHorn(now + 0.06, 920, 0.38, 0.36);
+      const source = alertPulseAudioRef.current;
+      if (!source) return;
+      const audio = source.cloneNode(true);
+      audio.volume = 1;
+      audio.playsInline = true;
+      await audio.play();
     } catch {
       // ignore audio errors
     }
@@ -174,34 +155,12 @@ export function GameProvider({ children }) {
 
   async function playFinalHorn() {
     try {
-      const audio = finalHornAudioRef.current;
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
-        await audio.play();
-        return;
-      }
-      const ctx = await ensureAudioReady();
-      if (!ctx) return;
-      const now = ctx.currentTime;
-      const makeLongHorn = (start, freq, duration, gainValue) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(freq, start);
-        osc.frequency.exponentialRampToValueAtTime(freq * 0.92, start + duration);
-        gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.03);
-        gain.gain.exponentialRampToValueAtTime(gainValue * 0.9, start + duration * 0.55);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + duration + 0.02);
-      };
-      makeLongHorn(now, 330, 1.2, 1.1);
-      makeLongHorn(now + 0.02, 495, 1.15, 0.85);
-      makeLongHorn(now + 0.04, 660, 1.05, 0.55);
+      const source = finalHornAudioRef.current;
+      if (!source) return;
+      const audio = source.cloneNode(true);
+      audio.volume = 1;
+      audio.playsInline = true;
+      await audio.play();
     } catch {
       // ignore audio errors
     }
@@ -680,18 +639,8 @@ export function GameProvider({ children }) {
     }
     setAjusteFinalAtivo(false);
     setRunning(true);
-    // Unlock audio on user gesture to guarantee alarm playback.
-    ensureAudioReady().catch(() => {});
-    if (finalHornAudioRef.current) {
-      finalHornAudioRef.current.volume = 1;
-      finalHornAudioRef.current.currentTime = 0;
-      finalHornAudioRef.current.play()
-        .then(() => {
-          finalHornAudioRef.current.pause();
-          finalHornAudioRef.current.currentTime = 0;
-        })
-        .catch(() => {});
-    }
+    // On iPad/Safari, forcing an audio prime here pauses Apple Music.
+    // We only play sounds at the exact alert second.
     let ensuredQuick = null;
     if (mode === 'quick') {
       ensuredQuick = await ensureQuickMatch();
