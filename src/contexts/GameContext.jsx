@@ -57,6 +57,7 @@ export function GameProvider({ children }) {
   const basketsARef = useRef({ one: 0, two: 0, three: 0 });
   const basketsBRef = useRef({ one: 0, two: 0, three: 0 });
   const alertPulseAudioRef = useRef(null);
+  const audioCtxRef = useRef(null);
   const finalHornAudioRef = useRef(null);
   const lastAlertSecondRef = useRef(null);
   const lastHornSecondRef = useRef(null);
@@ -93,6 +94,20 @@ export function GameProvider({ children }) {
       finalHornAudioRef.current = null;
     }
   }, []);
+
+  async function ensureAudioReady() {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        await audioCtxRef.current.resume();
+      }
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  }
 
   function getTournamentPeriodLabel(index = quarterIndex) {
     const regularQuarters = Number(currentMatchRef.current?.quarters || currentMatchQuarters || 1);
@@ -142,12 +157,32 @@ export function GameProvider({ children }) {
   }
   async function playAlarmPulse() {
     try {
-      const source = alertPulseAudioRef.current;
-      if (!source) return;
-      const audio = source.cloneNode(true);
-      audio.volume = 1;
-      audio.playsInline = true;
-      await audio.play();
+      const ctx = await ensureAudioReady();
+      if (!ctx) {
+        const source = alertPulseAudioRef.current;
+        if (!source) return;
+        const audio = source.cloneNode(true);
+        audio.volume = 1;
+        audio.playsInline = true;
+        await audio.play();
+        return;
+      }
+      const now = ctx.currentTime;
+      const makeHorn = (start, freq, duration, gainValue) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(gainValue, start + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.01);
+      };
+      makeHorn(now, 920, 0.10, 0.5);
+      makeHorn(now, 1240, 0.08, 0.32);
     } catch {
       // ignore audio errors
     }
@@ -639,8 +674,9 @@ export function GameProvider({ children }) {
     }
     setAjusteFinalAtivo(false);
     setRunning(true);
-    // On iPad/Safari, forcing an audio prime here pauses Apple Music.
-    // We only play sounds at the exact alert second.
+    // Unlock only the WebAudio context on user gesture; do not prime HTMLAudio here.
+    // Priming the horn pauses Apple Music on iPad.
+    ensureAudioReady().catch(() => {});
     let ensuredQuick = null;
     if (mode === 'quick') {
       ensuredQuick = await ensureQuickMatch();
