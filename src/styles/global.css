@@ -289,6 +289,12 @@ select {
   justify-content: space-between;
   gap: 10px;
 }
+.registered-date-summary {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: .92;
+}
 .registered-date-list {
   display: flex;
   flex-direction: column;
@@ -393,6 +399,9 @@ select {
   }
   .registered-date-head {
     flex-wrap: wrap;
+  }
+  .registered-date-summary {
+    font-size: 11px;
   }
 }
 .history-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }

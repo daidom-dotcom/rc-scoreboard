@@ -189,6 +189,50 @@ export default function RegisteredMatchesPage() {
     return Array.from(stats.values()).sort((a, b) => b.total - a.total || (b.one + b.two + b.three) - (a.one + a.two + a.three));
   }
 
+  function getDaySummary(dateISO, dateMatches) {
+    const attendanceNames = new Set((attendanceByDate.get(dateISO) || []).map((row) => row.player_name).filter(Boolean));
+    const playerNames = new Set(attendanceNames);
+    const teamTotals = new Map();
+    let basketCount = 0;
+    let baskets1 = 0;
+    let baskets2 = 0;
+    let baskets3 = 0;
+
+    dateMatches.forEach((match) => {
+      (entriesByMatch.get(match.id) || []).forEach((entry) => {
+        if (entry.player_name) playerNames.add(entry.player_name);
+      });
+
+      (eventsByMatch.get(match.id) || []).forEach((event) => {
+        basketCount += 1;
+        const points = Number(event.points || 0);
+        if (points === 1) baskets1 += 1;
+        if (points === 2) baskets2 += 1;
+        if (points === 3) baskets3 += 1;
+      });
+
+      const result = resultsByMatch.get(match.id);
+      const teamA = String(match.team_a_name || 'Time A').trim() || 'Time A';
+      const teamB = String(match.team_b_name || 'Time B').trim() || 'Time B';
+      teamTotals.set(teamA, (teamTotals.get(teamA) || 0) + Number(result?.score_a || 0));
+      teamTotals.set(teamB, (teamTotals.get(teamB) || 0) + Number(result?.score_b || 0));
+    });
+
+    const teamTotalsText = Array.from(teamTotals.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))
+      .map(([team, total]) => `${total} ${team}`)
+      .join(' x ');
+
+    return {
+      playerCount: playerNames.size,
+      basketCount,
+      baskets1,
+      baskets2,
+      baskets3,
+      teamTotalsText
+    };
+  }
+
   async function removeAttendance(attendanceId) {
     const ok = await askConfirm('Excluir esta presença?');
     if (!ok) return;
@@ -351,6 +395,7 @@ export default function RegisteredMatchesPage() {
         const dayAttendance = attendanceByDate.get(dateISO) || [];
         const dayPlayerOptions = getDayPlayerOptions(dateISO, dateMatches);
         const dayStats = getDayBasketStats(dateMatches);
+        const daySummary = getDaySummary(dateISO, dateMatches);
         return (
           <details className="registered-date-block" key={dateISO}>
             <summary className="registered-date-title">
@@ -367,6 +412,10 @@ export default function RegisteredMatchesPage() {
                 >
                   Excluir dia
                 </button>
+              </div>
+              <div className="registered-date-summary">
+                Foram {dateMatches.length} partidas &gt; {daySummary.playerCount} jogadores &gt; {daySummary.basketCount} cestas ({daySummary.baskets1} a 1 ponto | {daySummary.baskets2} a 2 pontos | {daySummary.baskets3} a 3 pontos)
+                {daySummary.teamTotalsText ? ` > ${daySummary.teamTotalsText}` : ''}
               </div>
             </summary>
 
