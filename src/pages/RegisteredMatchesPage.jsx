@@ -197,6 +197,7 @@ export default function RegisteredMatchesPage() {
     let baskets1 = 0;
     let baskets2 = 0;
     let baskets3 = 0;
+    let totalPoints = 0;
 
     dateMatches.forEach((match) => {
       (entriesByMatch.get(match.id) || []).forEach((entry) => {
@@ -209,6 +210,7 @@ export default function RegisteredMatchesPage() {
         if (points === 1) baskets1 += 1;
         if (points === 2) baskets2 += 1;
         if (points === 3) baskets3 += 1;
+        totalPoints += points;
       });
 
       const result = resultsByMatch.get(match.id);
@@ -218,10 +220,8 @@ export default function RegisteredMatchesPage() {
       teamTotals.set(teamB, (teamTotals.get(teamB) || 0) + Number(result?.score_b || 0));
     });
 
-    const teamTotalsText = Array.from(teamTotals.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))
-      .map(([team, total]) => `${total} ${team}`)
-      .join(' x ');
+    const orderedTeams = Array.from(teamTotals.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'));
 
     return {
       playerCount: playerNames.size,
@@ -229,7 +229,8 @@ export default function RegisteredMatchesPage() {
       baskets1,
       baskets2,
       baskets3,
-      teamTotalsText
+      totalPoints,
+      orderedTeams
     };
   }
 
@@ -414,8 +415,24 @@ export default function RegisteredMatchesPage() {
                 </button>
               </div>
               <div className="registered-date-summary">
-                Foram {dateMatches.length} partidas &gt; {daySummary.playerCount} jogadores &gt; {daySummary.basketCount} cestas ({daySummary.baskets1} a 1 ponto | {daySummary.baskets2} a 2 pontos | {daySummary.baskets3} a 3 pontos)
-                {daySummary.teamTotalsText ? ` > ${daySummary.teamTotalsText}` : ''}
+                Foram {dateMatches.length} partidas &gt; {daySummary.playerCount} jogadores &gt; {daySummary.totalPoints} pontos
+                {' '}(
+                Cestas: {daySummary.baskets1} de 1 ponto | {daySummary.baskets2} de 2 pontos | {daySummary.baskets3} de 3 pontos
+                )
+                {daySummary.orderedTeams.length ? (
+                  <>
+                    {' '} &gt; {' '}
+                    {daySummary.orderedTeams.map(([team, total], index) => {
+                      const winner = index === 0 && (daySummary.orderedTeams[0]?.[1] || 0) !== (daySummary.orderedTeams[1]?.[1] || null);
+                      return (
+                        <span key={`${team}-${index}`}>
+                          {index > 0 ? ' x ' : ''}
+                          {winner ? <strong>🏆 {total} {team}</strong> : <>{total} {team}</>}
+                        </span>
+                      );
+                    })}
+                  </>
+                ) : null}
               </div>
             </summary>
 
