@@ -35,18 +35,19 @@ export default function PresencePage() {
     }
     let active = true;
     async function registerPresence() {
+      const dateISO = todayISOInSaoPaulo();
+      const fullName = preferredDisplayName({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || 'Jogador';
+      const shortName = preferredShortGreeting({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || fullName;
+      if (!active) return;
+      setSavedName(shortName);
+      setSavedDate(dateISO);
+      setDone(true);
       try {
-        const dateISO = todayISOInSaoPaulo();
-        const fullName = preferredDisplayName({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || 'Jogador';
         await upsertDailyAttendance({
           user_id: user.id,
           player_name: fullName,
           date_iso: dateISO
         });
-        if (!active) return;
-        setSavedName(preferredShortGreeting({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || fullName);
-        setSavedDate(dateISO);
-        setDone(true);
       } catch (err) {
         showAlert(err.message || 'Não foi possível registrar presença.');
       }
@@ -61,6 +62,14 @@ export default function PresencePage() {
     if (loading || !user || !isMaster) return;
     loadGuests(savedDate || todayISOInSaoPaulo());
   }, [loading, user, isMaster, savedDate]);
+
+  useEffect(() => {
+    if (!done || !user || isMaster) return;
+    const timer = setTimeout(() => {
+      navigate('/game', { replace: true });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [done, user, isMaster, navigate]);
 
   async function addGuest() {
     const playerName = String(guestName || '').trim();

@@ -4,7 +4,6 @@ import ConfirmModal from './ConfirmModal';
 import AlertModal from './AlertModal';
 import PasswordModal from './PasswordModal';
 import OvertimeModal from './OvertimeModal';
-import DebugPanel from './DebugPanel';
 import { useEffect, useState } from 'react';
 
 export default function Layout() {
@@ -89,7 +88,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.28</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.30</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
@@ -165,7 +164,6 @@ export default function Layout() {
       </header>
       <main className="content">
         <Outlet />
-        {user ? <DebugPanel /> : null}
       </main>
       <ConfirmModal />
       <OvertimeModal />
