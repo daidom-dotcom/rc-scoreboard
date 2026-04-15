@@ -4,6 +4,7 @@ import { useGame } from '../contexts/GameContext';
 export default function DebugPanel() {
   const { user, profile, isMaster, isScoreboard, loading, authDebug } = useAuth();
   const { lastError } = useGame();
+  const elapsedSeconds = Number(((authDebug?.elapsedMs || 0) / 1000).toFixed(2));
 
   return (
     <div className="panel">
@@ -18,6 +19,7 @@ export default function DebugPanel() {
       <div className="debug-line">Auth stage: {authDebug?.stage || '—'}</div>
       <div className="debug-line">Auth lookup: {authDebug?.lookup || '—'}</div>
       <div className="debug-line">Auth error: {authDebug?.error || '—'}</div>
+      <div className="debug-line">Auth tempo: {elapsedSeconds}s</div>
       <div className="debug-line">Último erro: {lastError?.message || '—'}</div>
       {lastError ? (
         <pre className="debug-pre">{JSON.stringify(lastError, null, 2)}</pre>

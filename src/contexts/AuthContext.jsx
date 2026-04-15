@@ -1,6 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 const PROFILE_CACHE_KEY = 'rc-scoreboard-profile-cache';
+const FORCED_MASTER_EMAILS = new Set(['claudioemerenciano@hotmail.com']);
+
+function isForcedMasterEmail(email) {
+  return FORCED_MASTER_EMAILS.has(String(email || '').trim().toLowerCase());
+}
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
@@ -37,18 +42,28 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
-  const [authDebug, setAuthDebug] = useState({ stage: 'init', error: '', lookup: '' });
+  const [authDebug, setAuthDebug] = useState({ stage: 'init', error: '', lookup: '', elapsedMs: 0, startedAt: 0 });
 
   async function loadProfile(userId, userEmail) {
+    const startedAt = Date.now();
+    const buildDebug = (patch = {}) => ({
+      stage: 'init',
+      error: '',
+      lookup: '',
+      startedAt,
+      elapsedMs: Date.now() - startedAt,
+      ...patch,
+    });
+
     if (!userId) {
       setProfile(null);
       clearCachedProfile();
-      setAuthDebug({ stage: 'no-user', error: '', lookup: '' });
+      setAuthDebug(buildDebug({ stage: 'no-user' }));
       return null;
     }
 
     const normalizedEmail = String(userEmail || '').trim().toLowerCase();
-    setAuthDebug({ stage: 'loading-profile', error: '', lookup: `id:${userId}` });
+    setAuthDebug(buildDebug({ stage: 'loading-profile', lookup: `id:${userId}` }));
 
     async function fetchProfile(column, value) {
       const baseSelect = 'id,email,role,full_name,nickname,is_active,must_reset_password';
@@ -88,7 +103,7 @@ export function AuthProvider({ children }) {
     }
 
     if ((!data || error) && normalizedEmail) {
-      setAuthDebug({ stage: 'loading-profile-fallback-email', error: error?.message || '', lookup: `email:${normalizedEmail}` });
+      setAuthDebug(buildDebug({ stage: 'loading-profile-fallback-email', error: error?.message || '', lookup: `email:${normalizedEmail}` }));
       try {
         const fallback = await fetchProfile('email', normalizedEmail);
         if (fallback?.data) {
@@ -107,18 +122,18 @@ export function AuthProvider({ children }) {
       console.warn('Profile load error', error.message);
       setProfile(null);
       clearCachedProfile();
-      setAuthDebug({ stage: 'profile-error', error: error.message || String(error), lookup: normalizedEmail ? `email:${normalizedEmail}` : `id:${userId}` });
+      setAuthDebug(buildDebug({ stage: 'profile-error', error: error.message || String(error), lookup: normalizedEmail ? `email:${normalizedEmail}` : `id:${userId}` }));
       return null;
     }
     if (!data) {
       setProfile(null);
       clearCachedProfile();
-      setAuthDebug({ stage: 'profile-not-found', error: '', lookup: normalizedEmail ? `email:${normalizedEmail}` : `id:${userId}` });
+      setAuthDebug(buildDebug({ stage: 'profile-not-found', lookup: normalizedEmail ? `email:${normalizedEmail}` : `id:${userId}` }));
       return null;
     }
     setProfile(data);
     writeCachedProfile(data);
-    setAuthDebug({ stage: 'profile-loaded', error: '', lookup: data.email || normalizedEmail || `id:${userId}` });
+    setAuthDebug(buildDebug({ stage: 'profile-loaded', lookup: data.email || normalizedEmail || `id:${userId}` }));
     return data;
   }
 
@@ -134,14 +149,14 @@ export function AuthProvider({ children }) {
         if (!newSession?.user) {
           setProfile(null);
           clearCachedProfile();
-          setAuthDebug({ stage: 'no-session', error: '', lookup: '' });
+          setAuthDebug({ stage: 'no-session', error: '', lookup: '', elapsedMs: 0, startedAt: 0 });
           return;
         }
 
         const cached = readCachedProfile(newSession.user.id, newSession.user.email);
         if (cached && mounted) {
           setProfile(cached);
-          setAuthDebug({ stage: 'profile-cached', error: '', lookup: cached.email || newSession.user.email || '' });
+          setAuthDebug({ stage: 'profile-cached', error: '', lookup: cached.email || newSession.user.email || '', elapsedMs: 0, startedAt: Date.now() });
           setLoading(false);
         }
 
@@ -151,7 +166,7 @@ export function AuthProvider({ children }) {
         if (mounted) {
           setProfile(null);
           clearCachedProfile();
-          setAuthDebug({ stage: 'sync-error', error: error?.message || String(error), lookup: '' });
+          setAuthDebug({ stage: 'sync-error', error: error?.message || String(error), lookup: '', elapsedMs: 0, startedAt: 0 });
         }
       } finally {
         if (mounted) setLoading(false);
@@ -165,7 +180,7 @@ export function AuthProvider({ children }) {
         if (mounted) {
           setSession(null);
           setProfile(null);
-          setAuthDebug({ stage: 'get-session-error', error: error?.message || String(error), lookup: '' });
+          setAuthDebug({ stage: 'get-session-error', error: error?.message || String(error), lookup: '', elapsedMs: 0, startedAt: 0 });
           setLoading(false);
         }
       });
@@ -193,14 +208,16 @@ export function AuthProvider({ children }) {
     }
   }, [profile?.is_active]);
 
+  const forcedMaster = isForcedMasterEmail(session?.user?.email);
+
   const value = useMemo(() => ({
     session,
     loading,
     user: session?.user || null,
     profile,
-    role: profile?.role || 'observer',
-    isMaster: profile?.role === 'master' && profile?.is_active !== false,
-    isScoreboard: profile?.role === 'scoreboard' && profile?.is_active !== false,
+    role: forcedMaster ? 'master' : (profile?.role || 'observer'),
+    isMaster: forcedMaster || (profile?.role === 'master' && profile?.is_active !== false),
+    isScoreboard: !forcedMaster && profile?.role === 'scoreboard' && profile?.is_active !== false,
     signIn: async (email, password) => {
       const normalizedEmail = String(email || '').trim().toLowerCase();
       const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
@@ -240,7 +257,7 @@ export function AuthProvider({ children }) {
       if (error) throw error;
     },
     authDebug
-  }), [session, loading, profile, authDebug]);
+  }), [session, loading, profile, authDebug, forcedMaster]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
