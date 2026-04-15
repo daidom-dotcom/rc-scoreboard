@@ -1,7 +1,37 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+
+const PROFILE_CACHE_KEY = 'rc-scoreboard-profile-cache';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
+
+function readCachedProfile(userId, userEmail) {
+  try {
+    const raw = window.localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const normalizedEmail = String(userEmail || '').trim().toLowerCase();
+    if (parsed.id === userId) return parsed;
+    if (normalizedEmail && String(parsed.email || '').trim().toLowerCase() === normalizedEmail) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedProfile(profile) {
+  try {
+    if (!profile?.id) return;
+    window.localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+  } catch {}
+}
+
+function clearCachedProfile() {
+  try {
+    window.localStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch {}
+}
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -12,6 +42,7 @@ export function AuthProvider({ children }) {
   async function loadProfile(userId, userEmail) {
     if (!userId) {
       setProfile(null);
+      clearCachedProfile();
       setAuthDebug({ stage: 'no-user', error: '', lookup: '' });
       return null;
     }
@@ -75,15 +106,18 @@ export function AuthProvider({ children }) {
     if (error) {
       console.warn('Profile load error', error.message);
       setProfile(null);
+      clearCachedProfile();
       setAuthDebug({ stage: 'profile-error', error: error.message || String(error), lookup: normalizedEmail ? `email:${normalizedEmail}` : `id:${userId}` });
       return null;
     }
     if (!data) {
       setProfile(null);
+      clearCachedProfile();
       setAuthDebug({ stage: 'profile-not-found', error: '', lookup: normalizedEmail ? `email:${normalizedEmail}` : `id:${userId}` });
       return null;
     }
     setProfile(data);
+    writeCachedProfile(data);
     setAuthDebug({ stage: 'profile-loaded', error: '', lookup: data.email || normalizedEmail || `id:${userId}` });
     return data;
   }
@@ -96,11 +130,27 @@ export function AuthProvider({ children }) {
       setLoading(true);
       try {
         setSession(newSession || null);
+
+        if (!newSession?.user) {
+          setProfile(null);
+          clearCachedProfile();
+          setAuthDebug({ stage: 'no-session', error: '', lookup: '' });
+          return;
+        }
+
+        const cached = readCachedProfile(newSession.user.id, newSession.user.email);
+        if (cached && mounted) {
+          setProfile(cached);
+          setAuthDebug({ stage: 'profile-cached', error: '', lookup: cached.email || newSession.user.email || '' });
+          setLoading(false);
+        }
+
         await loadProfile(newSession?.user?.id, newSession?.user?.email);
       } catch (error) {
         console.warn('Auth sync error', error?.message || error);
         if (mounted) {
           setProfile(null);
+          clearCachedProfile();
           setAuthDebug({ stage: 'sync-error', error: error?.message || String(error), lookup: '' });
         }
       } finally {
@@ -139,6 +189,7 @@ export function AuthProvider({ children }) {
       supabase.auth.signOut();
       setSession(null);
       setProfile(null);
+      clearCachedProfile();
     }
   }, [profile?.is_active]);
 
