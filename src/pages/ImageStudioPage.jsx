@@ -101,12 +101,20 @@ async function fetchDayPlayersSummary(dateISO, matches) {
     ? await supabase.from('player_entries').select('match_id,user_id,player_name').in('match_id', matchIds)
     : { data: [] };
   const { data: basketRows } = matchIds.length
-    ? await supabase.from('basket_events').select('match_id,user_id,player_name,points').in('match_id', matchIds)
+    ? await supabase.from('basket_events').select('match_id,player_name,points').in('match_id', matchIds)
     : { data: [] };
+  const { data: attendanceRows } = await supabase
+    .from('daily_attendance')
+    .select('user_id,player_name')
+    .eq('date_iso', dateISO);
+  const { data: visitorRows } = await supabase
+    .from('daily_visitors')
+    .select('player_name')
+    .eq('date_iso', dateISO);
 
   const userIds = [...new Set([
     ...(entryRows || []).map((row) => row.user_id).filter(Boolean),
-    ...(basketRows || []).map((row) => row.user_id).filter(Boolean),
+    ...(attendanceRows || []).map((row) => row.user_id).filter(Boolean),
   ])];
   const { data: profiles } = userIds.length
     ? await supabase.from('profiles').select('id,full_name,nickname,email').in('id', userIds)
@@ -114,6 +122,15 @@ async function fetchDayPlayersSummary(dateISO, matches) {
   const profileById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
 
   const aliases = new Map();
+  (attendanceRows || []).forEach((row) => {
+    const display = profileById.get(row.user_id) || preferredDisplayName(row.player_name);
+    const keys = [
+      String(row.player_name || '').trim().toLowerCase(),
+      String(display || '').trim().toLowerCase(),
+      String(display || '').trim().split(/\s+/)[0]?.toLowerCase() || '',
+    ].filter(Boolean);
+    keys.forEach((key) => aliases.set(key, display));
+  });
   (entryRows || []).forEach((row) => {
     const display = profileById.get(row.user_id) || preferredDisplayName(row.player_name);
     const keys = [
@@ -128,14 +145,20 @@ async function fetchDayPlayersSummary(dateISO, matches) {
   (basketRows || []).forEach((row) => {
     const rawName = String(row.player_name || '').trim();
     const aliasKey = rawName.toLowerCase();
-    const display = profileById.get(row.user_id)
-      || aliases.get(aliasKey)
+    const display = aliases.get(aliasKey)
       || aliases.get(rawName.split(/\s+/)[0]?.toLowerCase() || '')
       || preferredDisplayName(rawName || 'Outros');
     const current = summary.get(display) || { name: display, baskets: 0, points: 0 };
     current.baskets += 1;
     current.points += Number(row.points || 0);
     summary.set(display, current);
+  });
+
+  (visitorRows || []).forEach((row) => {
+    const display = preferredDisplayName(row.player_name);
+    if (!summary.has(display)) {
+      summary.set(display, { name: display, baskets: 0, points: 0 });
+    }
   });
 
   return [...summary.values()].sort((a, b) => (b.points - a.points) || (b.baskets - a.baskets) || a.name.localeCompare(b.name, 'pt-BR'));
@@ -160,14 +183,13 @@ function aggregateTeams(matches) {
 export default function ImageStudioPage() {
   const [frameSrc, setFrameSrc] = useState(DEFAULT_FRAME_SRC);
   const [photoSrc, setPhotoSrc] = useState('');
-  const [dateISO, setDateISO] = useState(todayISOInSaoPaulo());
   const [renderedSrc, setRenderedSrc] = useState('');
   const [busy, setBusy] = useState(false);
   const [activeMode, setActiveMode] = useState('photo');
   const canvasRef = useRef(null);
   const frameInputRef = useRef(null);
 
-  const effectiveDateISO = activeMode === 'photo' ? todayISOInSaoPaulo() : dateISO;
+  const effectiveDateISO = todayISOInSaoPaulo();
   const formattedDate = useMemo(() => formatDateBR(effectiveDateISO), [effectiveDateISO]);
 
   async function onPickPhoto(event) {
@@ -231,7 +253,7 @@ export default function ImageStudioPage() {
     setBusy(true);
     try {
       const { frameImage, ctx, width, height } = await prepareCanvas();
-      const rows = await fetchMatchesByDate(dateISO);
+      const rows = await fetchMatchesByDate(effectiveDateISO);
       const safeRows = [...(rows || [])].sort((a, b) => Number(a.match_no || 0) - Number(b.match_no || 0));
 
       const contentX = Math.round(width * 0.08);
@@ -325,8 +347,8 @@ export default function ImageStudioPage() {
     setBusy(true);
     try {
       const { frameImage, ctx, width, height } = await prepareCanvas();
-      const matches = [...((await fetchMatchesByDate(dateISO)) || [])].sort((a, b) => Number(a.match_no || 0) - Number(b.match_no || 0));
-      const players = await fetchDayPlayersSummary(dateISO, matches);
+      const matches = [...((await fetchMatchesByDate(effectiveDateISO)) || [])].sort((a, b) => Number(a.match_no || 0) - Number(b.match_no || 0));
+      const players = await fetchDayPlayersSummary(effectiveDateISO, matches);
       const teamTotals = aggregateTeams(matches);
       const leftTeam = teamTotals[0] || { name: 'Time 1', score: 0 };
       const rightTeam = teamTotals[1] || { name: 'Time 2', score: 0 };
@@ -430,13 +452,6 @@ export default function ImageStudioPage() {
           <div className="image-studio-section">
             <div className="label">Foto do jogador</div>
             <input type="file" accept="image/*" onChange={onPickPhoto} />
-          </div>
-        ) : null}
-
-        {activeMode !== 'photo' ? (
-          <div className="image-studio-section">
-            <div className="label">Data</div>
-            <input type="date" value={dateISO} onChange={(e) => setDateISO(e.target.value)} />
           </div>
         ) : null}
 
