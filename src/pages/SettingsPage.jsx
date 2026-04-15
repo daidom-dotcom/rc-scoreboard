@@ -147,6 +147,7 @@ export default function SettingsPage() {
         <button className={`btn-outline ${tab === 'quick' ? 'active' : ''}`} onClick={() => setTab('quick')}>Jogo Rápido</button>
         <button className={`btn-outline ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>Usuários</button>
         <button className={`btn-outline ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>Partidas cadastradas</button>
+        <NavLink to="/image-studio" className="btn-outline">🖼️ Gerar arte</NavLink>
       </div>
 
       {tab === 'quick' ? (
@@ -180,7 +181,6 @@ export default function SettingsPage() {
             <button className="btn-controle" onClick={save}>Salvar</button>
             <button className="btn-outline" onClick={resetToday}>Resetar dia atual</button>
             <NavLink to="/sounds" className="btn-outline">Testar sons</NavLink>
-            <NavLink to="/image-studio" className="btn-outline">Gerar arte</NavLink>
           </div>
 
           <div className="panel qr-panel">
