@@ -47,7 +47,6 @@ export default function PresencePage() {
         setSavedName(preferredShortGreeting({ nickname: profile?.nickname, full_name: profile?.full_name, email: user?.email }) || fullName);
         setSavedDate(dateISO);
         setDone(true);
-        if (isMaster) await loadGuests(dateISO);
       } catch (err) {
         showAlert(err.message || 'Não foi possível registrar presença.');
       }
@@ -57,6 +56,11 @@ export default function PresencePage() {
       active = false;
     };
   }, [user, profile, loading, navigate, location.pathname, location.search, showAlert, isMaster]);
+
+  useEffect(() => {
+    if (loading || !user || !isMaster) return;
+    loadGuests(savedDate || todayISOInSaoPaulo());
+  }, [loading, user, isMaster, savedDate]);
 
   async function addGuest() {
     const playerName = String(guestName || '').trim();
@@ -97,7 +101,7 @@ export default function PresencePage() {
           <div>Registrando presença...</div>
         )}
 
-        {done && isMaster ? (
+        {isMaster ? (
           <div className="presence-guest-box">
             <div className="label">Adicionar visitante do dia</div>
             <div className="actions actions-left">

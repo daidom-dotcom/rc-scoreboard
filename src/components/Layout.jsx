@@ -8,7 +8,7 @@ import DebugPanel from './DebugPanel';
 import { useEffect, useState } from 'react';
 
 export default function Layout() {
-  const { user, isMaster, isScoreboard, signOut } = useAuth();
+  const { user, isMaster, isScoreboard, loading, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const isGameRoute = location.pathname === '/game';
@@ -28,16 +28,18 @@ export default function Layout() {
   }, [isGameRoute]);
 
   useEffect(() => {
+    if (loading) return;
     if (user && isScoreboard && location.pathname !== '/game') {
       navigate('/game', { replace: true });
     }
-  }, [user, isScoreboard, location.pathname, navigate]);
+  }, [user, isScoreboard, location.pathname, navigate, loading]);
 
   useEffect(() => {
+    if (loading) return;
     if (user && !isMaster && !isScoreboard && (location.pathname === '/' || location.pathname === '/login')) {
       navigate('/game', { replace: true });
     }
-  }, [user, isMaster, isScoreboard, location.pathname, navigate]);
+  }, [user, isMaster, isScoreboard, location.pathname, navigate, loading]);
 
   useEffect(() => {
     if (!isScoreboard || !isGameRoute) return;
@@ -87,7 +89,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.25</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.26</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
@@ -99,10 +101,10 @@ export default function Layout() {
           {user ? (
             <NavLink to="/checkin" className="nav-link">Minhas Partidas</NavLink>
           ) : null}
-          {user && !isMaster && !isScoreboard ? (
+          {user && !loading && !isMaster && !isScoreboard ? (
             <NavLink to="/game" className="nav-link">🔥 Ao Vivo</NavLink>
           ) : null}
-          {user && isMaster ? (
+          {user && !loading && isMaster ? (
             <>
               <NavLink to="/tournament" className="nav-link">Torneio</NavLink>
               <NavLink to="/game" className="nav-link">Partida Rápida</NavLink>
@@ -144,7 +146,7 @@ export default function Layout() {
               {showNav ? '🔼' : '🔽'}
             </button>
           ) : null}
-          {user && isMaster && !isScoreboard ? (
+          {user && !loading && isMaster && !isScoreboard ? (
             <NavLink to="/settings" className="btn-outline btn-ghost topbar-btn" title="Configurações" aria-label="Configurações">
               ⚙️
             </NavLink>
