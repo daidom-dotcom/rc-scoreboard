@@ -16,6 +16,7 @@ import BoardPage from './pages/BoardPage';
 import PresencePage from './pages/PresencePage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import SoundsPage from './pages/SoundsPage';
+import ImageStudioPage from './pages/ImageStudioPage';
 import './styles/global.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -39,6 +40,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 element={
                   <ProtectedRoute>
                     <SoundsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/image-studio"
+                element={
+                  <ProtectedRoute>
+                    <ImageStudioPage />
                   </ProtectedRoute>
                 }
               />

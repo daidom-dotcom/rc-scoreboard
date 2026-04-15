@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const [tab, setTab] = useState('quick');
   const [quickMinutes, setQuickMinutes] = useState(Math.floor(settings.quickDurationSeconds / 60));
   const [quickSeconds, setQuickSeconds] = useState(settings.quickDurationSeconds % 60);
+  const [quickMinPlayersPerTeam, setQuickMinPlayersPerTeam] = useState(settings.quickMinPlayersPerTeam || 0);
   const [alertSeconds, setAlertSeconds] = useState(settings.alertSeconds);
   const [soundEnabled, setSoundEnabled] = useState(settings.soundEnabled);
   const [defaultTeamA, setDefaultTeamA] = useState(settings.defaultTeamA);
@@ -25,6 +26,7 @@ export default function SettingsPage() {
     const nextSettings = sanitizeSettings({
       ...settings,
       quickDurationSeconds: duration || 7 * 60,
+      quickMinPlayersPerTeam: Math.max(0, Number(quickMinPlayersPerTeam) || 0),
       alertSeconds: Number(alertSeconds) || 20,
       soundEnabled: !!soundEnabled,
       defaultTeamA: defaultTeamA || 'Com Colete',
@@ -33,6 +35,7 @@ export default function SettingsPage() {
     try {
       await upsertAppSettings({
         quick_duration_seconds: nextSettings.quickDurationSeconds,
+        quick_min_players_per_team: nextSettings.quickMinPlayersPerTeam,
         alert_seconds: nextSettings.alertSeconds,
         sound_enabled: nextSettings.soundEnabled,
         default_team_a: nextSettings.defaultTeamA,
@@ -91,6 +94,8 @@ export default function SettingsPage() {
 
       const attendanceByDate = await supabase.from('daily_attendance').delete().eq('date_iso', dayISO);
       if (attendanceByDate.error) throw attendanceByDate.error;
+      const visitorsByDate = await supabase.from('daily_visitors').delete().eq('date_iso', dayISO);
+      if (visitorsByDate.error && !String(visitorsByDate.error.message || '').includes('daily_visitors')) throw visitorsByDate.error;
       const attendanceByTimestamp = await supabase
         .from('daily_attendance')
         .delete()
@@ -153,6 +158,9 @@ export default function SettingsPage() {
             <input type="number" min="0" max="59" value={quickSeconds} onChange={(e) => setQuickSeconds(e.target.value)} />
           </div>
 
+          <div className="label">Mínimo de jogadores por time para liberar PLAY</div>
+          <input type="number" min="0" max="20" value={quickMinPlayersPerTeam} onChange={(e) => setQuickMinPlayersPerTeam(e.target.value)} />
+
           <div className="label">Alerta últimos segundos</div>
           <input type="number" min="0" max="99" value={alertSeconds} onChange={(e) => setAlertSeconds(e.target.value)} />
 
@@ -172,6 +180,7 @@ export default function SettingsPage() {
             <button className="btn-controle" onClick={save}>Salvar</button>
             <button className="btn-outline" onClick={resetToday}>Resetar dia atual</button>
             <NavLink to="/sounds" className="btn-outline">Testar sons</NavLink>
+            <NavLink to="/image-studio" className="btn-outline">Gerar arte</NavLink>
           </div>
 
           <div className="panel qr-panel">
