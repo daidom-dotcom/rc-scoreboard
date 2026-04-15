@@ -9,6 +9,7 @@ const GameContext = createContext(null);
 
 const defaultSettings = {
   quickDurationSeconds: 7 * 60,
+  quickMinPlayersPerTeam: 0,
   alertSeconds: 20,
   defaultTeamA: 'Com Colete',
   defaultTeamB: 'Sem Colete',
@@ -270,6 +271,7 @@ export function GameProvider({ children }) {
           ...defaultSettings,
           ...settings,
           quickDurationSeconds: Number(remote.quick_duration_seconds ?? settings.quickDurationSeconds ?? defaultSettings.quickDurationSeconds),
+          quickMinPlayersPerTeam: Number(remote.quick_min_players_per_team ?? settings.quickMinPlayersPerTeam ?? defaultSettings.quickMinPlayersPerTeam),
           alertSeconds: Number(remote.alert_seconds ?? settings.alertSeconds ?? defaultSettings.alertSeconds),
           soundEnabled: remote.sound_enabled ?? settings.soundEnabled ?? defaultSettings.soundEnabled,
           defaultTeamA: remote.default_team_a ?? settings.defaultTeamA ?? defaultSettings.defaultTeamA,

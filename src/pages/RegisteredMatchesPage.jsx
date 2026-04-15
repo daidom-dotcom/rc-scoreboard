@@ -41,12 +41,17 @@ export default function RegisteredMatchesPage() {
         .order('created_at', { ascending: true });
       if (mErr) throw mErr;
 
-      const [attendanceRes, entriesRes, eventsRes, resultsRes] = await Promise.all([
+      const [attendanceRes, visitorsRes, entriesRes, eventsRes, resultsRes] = await Promise.all([
         supabase
           .from('daily_attendance')
           .select('id,user_id,player_name,date_iso,checked_at')
           .order('date_iso', { ascending: false })
           .order('checked_at', { ascending: true }),
+        supabase
+          .from('daily_visitors')
+          .select('id,player_name,date_iso,created_at')
+          .order('date_iso', { ascending: false })
+          .order('created_at', { ascending: true }),
         supabase
           .from('player_entries')
           .select('id,match_id,player_name,team_side,created_at,user_id')
@@ -84,7 +89,24 @@ export default function RegisteredMatchesPage() {
       const nextAttendanceByDate = new Map();
       (attendanceRes.data || []).forEach((row) => {
         const displayName = displayById.get(row.user_id) || preferredDisplayName(row.player_name);
-        const normalized = { ...row, player_name: displayName };
+        const normalized = { ...row, player_name: displayName, source: 'user' };
+        const dayList = nextAttendanceByDate.get(row.date_iso) || [];
+        dayList.push(normalized);
+        nextAttendanceByDate.set(row.date_iso, dayList);
+        const dayAliasMap = aliasByDate.get(row.date_iso) || new Map();
+        buildAliases(row.player_name).forEach((alias) => dayAliasMap.set(alias, displayName));
+        buildAliases(displayName).forEach((alias) => dayAliasMap.set(alias, displayName));
+        aliasByDate.set(row.date_iso, dayAliasMap);
+      });
+      ((visitorsRes.error ? [] : visitorsRes.data) || []).forEach((row) => {
+        const displayName = preferredDisplayName(row.player_name);
+        const normalized = {
+          ...row,
+          user_id: null,
+          checked_at: row.created_at,
+          player_name: displayName,
+          source: 'guest'
+        };
         const dayList = nextAttendanceByDate.get(row.date_iso) || [];
         dayList.push(normalized);
         nextAttendanceByDate.set(row.date_iso, dayList);
@@ -239,7 +261,10 @@ export default function RegisteredMatchesPage() {
     if (!ok) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('daily_attendance').delete().eq('id', attendanceId);
+      const attendanceRow = Array.from(attendanceByDate.values()).flat().find((row) => row.id === attendanceId);
+      const { error } = attendanceRow?.source === 'guest'
+        ? await supabase.from('daily_visitors').delete().eq('id', attendanceId)
+        : await supabase.from('daily_attendance').delete().eq('id', attendanceId);
       if (error) throw error;
       await loadAll();
     } catch (err) {
@@ -365,6 +390,10 @@ export default function RegisteredMatchesPage() {
       }
 
       await supabase.from('daily_attendance').delete().eq('date_iso', dateISO);
+      const visitorsDelete = await supabase.from('daily_visitors').delete().eq('date_iso', dateISO);
+      if (visitorsDelete.error && !String(visitorsDelete.error.message || '').includes('daily_visitors')) {
+        throw visitorsDelete.error;
+      }
       await supabase.from('player_entries').delete().eq('date_iso', dateISO).is('match_id', null);
       const { error: delMatchesErr } = await supabase.from('matches').delete().eq('date_iso', dateISO);
       if (delMatchesErr) throw delMatchesErr;

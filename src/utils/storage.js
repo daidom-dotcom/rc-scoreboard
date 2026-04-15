@@ -15,6 +15,7 @@ export function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object') return settings;
   return {
     ...settings,
+    quickMinPlayersPerTeam: Math.max(0, Number(settings.quickMinPlayersPerTeam || 0)),
     defaultTeamA: sanitizeQuickTeamName(settings.defaultTeamA, 'Com Colete'),
     defaultTeamB: sanitizeQuickTeamName(settings.defaultTeamB, 'Sem Colete')
   };

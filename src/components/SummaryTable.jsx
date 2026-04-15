@@ -33,7 +33,7 @@ function scoreWithMarker(score, marked) {
   );
 }
 
-export default function SummaryTable({ title, subtitle, dateISO, partidas, players = [] }) {
+export default function SummaryTable({ title, subtitle, dateISO, partidas, players = [], topScorer = '' }) {
   return (
     <div className="summary">
       {title ? <h2>{title}</h2> : <h2>Resumo de <b>{formatDateBR(dateISO)}</b></h2>}
@@ -46,6 +46,9 @@ export default function SummaryTable({ title, subtitle, dateISO, partidas, playe
       ) : (
         <p className="subtitulo">Rachão dos Crias</p>
       )}
+      {topScorer ? (
+        <div className="summary-top-scorer">👑 Maior Pontuador: <strong>{topScorer}</strong> | Cestinha do Dia: <strong>{topScorer}</strong></div>
+      ) : null}
 
       {!partidas?.length ? (
         <div className="panel">Nenhuma partida finalizada neste dia.</div>

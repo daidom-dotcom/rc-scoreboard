@@ -66,6 +66,7 @@ export default function HistoryPage() {
   const [userBasketMap, setUserBasketMap] = useState(new Map());
   const [dailyParticipantsCount, setDailyParticipantsCount] = useState(0);
   const [summaryPlayers, setSummaryPlayers] = useState([]);
+  const [dayTopScorer, setDayTopScorer] = useState('');
   const [tournamentInsights, setTournamentInsights] = useState(null);
   const { isMaster, user, profile } = useAuth();
 
@@ -436,6 +437,7 @@ export default function HistoryPage() {
       const matchIds = visibleRows.map((row) => row.id).filter(Boolean);
       if (!matchIds.length) {
         if (active) setSummaryPlayers([]);
+        if (active) setDayTopScorer('');
         return;
       }
       const { data, error } = await supabase
@@ -444,6 +446,7 @@ export default function HistoryPage() {
         .in('match_id', matchIds);
       if (error) {
         if (active) setSummaryPlayers([]);
+        if (active) setDayTopScorer('');
         return;
       }
       const userIds = Array.from(new Set((data || []).map((entry) => entry.user_id).filter(Boolean)));
@@ -451,12 +454,34 @@ export default function HistoryPage() {
         ? await supabase.from('profiles').select('id,full_name,nickname,email').in('id', userIds)
         : { data: [], error: null };
       const namesById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
+      const aliasMap = new Map();
+      (data || []).forEach((entry) => {
+        const preferred = namesById.get(entry.user_id) || String(entry.player_name || '').trim();
+        const raw = String(entry.player_name || '').trim();
+        const first = raw.split(/\s+/)[0] || '';
+        if (raw) aliasMap.set(raw.toLowerCase(), preferred);
+        if (first) aliasMap.set(first.toLowerCase(), preferred);
+      });
       const uniqueNames = Array.from(new Set((data || [])
         .map((entry) => namesById.get(entry.user_id) || String(entry.player_name || '').trim())
         .filter(Boolean)))
         .map(formatPlayerSummaryName)
         .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-      if (active) setSummaryPlayers(uniqueNames);
+      const { data: baskets } = await supabase
+        .from('basket_events')
+        .select('player_name,points')
+        .in('match_id', matchIds);
+      const ranking = new Map();
+      (baskets || []).forEach((basket) => {
+        const rawName = String(basket.player_name || '').trim();
+        const preferred = aliasMap.get(rawName.toLowerCase()) || preferredDisplayName(rawName) || 'Outros';
+        ranking.set(preferred, (ranking.get(preferred) || 0) + Number(basket.points || 0));
+      });
+      const topScorer = Array.from(ranking.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))[0]?.[0] || '';
+      if (active) {
+        setSummaryPlayers(uniqueNames);
+        setDayTopScorer(topScorer);
+      }
     }
     loadSummaryPlayers();
     return () => {
@@ -578,6 +603,7 @@ export default function HistoryPage() {
             dateISO={dateISO}
             partidas={doneMatches}
             players={summaryPlayers}
+            topScorer={!showMine ? dayTopScorer : ''}
           />
           {tournamentId && tournamentInsights ? (
             <div className="panel">

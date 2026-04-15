@@ -45,18 +45,35 @@ export async function fetchDailyAttendance(dateISO) {
     .eq('date_iso', dateISO)
     .order('player_name', { ascending: true });
   if (error) throw error;
+  const { data: visitors, error: visitorsError } = await supabase
+    .from('daily_visitors')
+    .select('id,player_name,date_iso,created_at')
+    .eq('date_iso', dateISO)
+    .order('player_name', { ascending: true });
+  const safeVisitors = visitorsError ? [] : (visitors || []);
   const rows = data || [];
   const userIds = rows.map((row) => row.user_id).filter(Boolean);
-  if (!userIds.length) return rows;
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id,full_name,nickname,email')
-    .in('id', userIds);
+  const { data: profiles } = userIds.length
+    ? await supabase
+      .from('profiles')
+      .select('id,full_name,nickname,email')
+      .in('id', userIds)
+    : { data: [], error: null };
   const namesById = new Map((profiles || []).map((profile) => [profile.id, preferredDisplayName(profile)]));
-  return rows.map((row) => ({
+  const userRows = rows.map((row) => ({
     ...row,
-    player_name: namesById.get(row.user_id) || row.player_name
+    player_name: namesById.get(row.user_id) || row.player_name,
+    source: 'user',
+    attendee_key: row.user_id ? `user:${row.user_id}` : `attendance:${row.id}`
   }));
+  const guestRows = safeVisitors.map((row) => ({
+    ...row,
+    user_id: null,
+    checked_at: row.created_at,
+    source: 'guest',
+    attendee_key: `guest:${String(row.player_name || '').trim().toLowerCase()}`
+  }));
+  return [...userRows, ...guestRows].sort((a, b) => String(a.player_name || '').localeCompare(String(b.player_name || ''), 'pt-BR'));
 }
 
 export async function upsertDailyAttendance(payload) {
@@ -67,6 +84,24 @@ export async function upsertDailyAttendance(payload) {
     .single();
   if (error) throw error;
   return data;
+}
+
+export async function createDailyVisitor(payload) {
+  const { data, error } = await supabase
+    .from('daily_visitors')
+    .insert(payload)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteDailyVisitor(id) {
+  const { error } = await supabase
+    .from('daily_visitors')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
 }
 
 export async function upsertAppSettings(payload) {

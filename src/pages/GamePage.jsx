@@ -55,7 +55,6 @@ export default function GamePage() {
     : (quarterIndex < currentMatchQuarters ? `Quarter ${quarterIndex + 1}` : `P${overtimeCount || Math.max(1, quarterIndex - currentMatchQuarters + 1)}`);
 
   const canEdit = !!user && isScoreboard;
-  const controlsDisabled = !canEdit;
   const [teamEntryRows, setTeamEntryRows] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
   const lastLiveAtRef = useRef(0);
@@ -72,10 +71,10 @@ export default function GamePage() {
   const [basketEvents, setBasketEvents] = useState([]);
   const [basketReloadKey, setBasketReloadKey] = useState(0);
   const [entriesReloadKey, setEntriesReloadKey] = useState(0);
-  const [selectedScorer, setSelectedScorer] = useState({ A: '', B: '' });
   const [entriesDebug, setEntriesDebug] = useState({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
   const [attendanceList, setAttendanceList] = useState([]);
   const [assignmentSide, setAssignmentSide] = useState(null);
+  const [scoringPrompt, setScoringPrompt] = useState({ open: false, team: null, entry: null });
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -99,6 +98,12 @@ export default function GamePage() {
     const firstName = parts[0];
     const surnameInitial = parts[1].charAt(0).toUpperCase();
     return surnameInitial ? `${firstName} ${surnameInitial}.` : firstName;
+  }
+
+  function buildAttendanceKey(person) {
+    if (person?.attendee_key) return person.attendee_key;
+    if (person?.user_id) return `user:${person.user_id}`;
+    return `guest:${String(person?.player_name || '').trim().toLowerCase()}`;
   }
 
   function formatBasketPlayerName(rawName) {
@@ -291,11 +296,16 @@ export default function GamePage() {
     }
     loadAttendance();
     const t = setInterval(loadAttendance, 3000);
-    const channel = supabase
+  const channel = supabase
       .channel('daily-attendance-sync')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'daily_attendance' },
+        () => loadAttendance()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'daily_visitors' },
         () => loadAttendance()
       )
       .subscribe();
@@ -377,14 +387,13 @@ export default function GamePage() {
       if (!liveMatchId && modeForEntries === 'quick') {
         liveMatchId = await resolveActiveQuickMatchId();
       }
-      if (!liveMatchId) {
-        if (active && requestId === entriesRequestRef.current) {
-          setTeamEntryRows({ A: [], B: [] });
-          setSelectedScorer({ A: '', B: '' });
-          setEntriesDebug({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
+        if (!liveMatchId) {
+          if (active && requestId === entriesRequestRef.current) {
+            setTeamEntryRows({ A: [], B: [] });
+            setEntriesDebug({ matchId: null, count: 0, error: null, namesA: [], namesB: [] });
+          }
+          return;
         }
-        return;
-      }
       const { data, error } = await supabase
         .from('player_entries')
         .select('player_name, team_side, user_id')
@@ -392,7 +401,6 @@ export default function GamePage() {
       if (error) {
         if (active && requestId === entriesRequestRef.current) {
           setTeamEntryRows({ A: [], B: [] });
-          setSelectedScorer({ A: '', B: '' });
           setEntriesDebug({ matchId: liveMatchId, count: 0, error: error.message || 'unknown', namesA: [], namesB: [] });
         }
         return;
@@ -421,7 +429,8 @@ export default function GamePage() {
           nickname: String(profileData?.nickname || '').trim(),
           email: String(profileData?.email || '').trim(),
           firstName: first,
-          shortName
+          shortName,
+          attendeeKey: e.user_id ? `user:${e.user_id}` : `guest:${String(e.player_name || '').trim().toLowerCase()}`
         };
         if (e.team_side === 'A') {
           a.push(shortName);
@@ -435,10 +444,6 @@ export default function GamePage() {
       if (active && requestId === entriesRequestRef.current) {
         setTeamEntryRows({ A: rowsA, B: rowsB });
         setEntriesDebug({ matchId: liveMatchId, count: (data || []).length, error: null, namesA: a, namesB: b });
-        setSelectedScorer((prev) => ({
-          A: (prev.A && a.includes(prev.A)) ? prev.A : '',
-          B: (prev.B && b.includes(prev.B)) ? prev.B : ''
-        }));
       }
     }
     loadEntries();
@@ -451,6 +456,7 @@ export default function GamePage() {
 
   useEffect(() => {
     setAssignmentSide(null);
+    setScoringPrompt({ open: false, team: null, entry: null });
   }, [matchId, liveView?.match_id, quickMatchNumber]);
 
   useEffect(() => {
@@ -536,24 +542,18 @@ export default function GamePage() {
     A: (teamEntryRows.A || []).map((entry) => entry.shortName || formatAttendanceName(entry.player_name) || entry.firstName),
     B: (teamEntryRows.B || []).map((entry) => entry.shortName || formatAttendanceName(entry.player_name) || entry.firstName)
   }), [teamEntryRows]);
-  const assignedUserIds = useMemo(
-    () => new Set([...(teamEntryRows.A || []), ...(teamEntryRows.B || [])].map((entry) => entry.user_id).filter(Boolean)),
-    [teamEntryRows]
-  );
-  const availableAttendance = useMemo(
-    () => attendanceList.filter((person) => !assignedUserIds.has(person.user_id)),
-    [attendanceList, assignedUserIds]
-  );
-  const assignedSideByUserId = useMemo(() => {
+  const assignedSideByAttendanceKey = useMemo(() => {
     const map = new Map();
     (teamEntryRows.A || []).forEach((entry) => {
-      if (entry.user_id) map.set(entry.user_id, 'A');
+      if (entry.attendeeKey) map.set(entry.attendeeKey, 'A');
     });
     (teamEntryRows.B || []).forEach((entry) => {
-      if (entry.user_id) map.set(entry.user_id, 'B');
+      if (entry.attendeeKey) map.set(entry.attendeeKey, 'B');
     });
     return map;
   }, [teamEntryRows]);
+  const minPlayersPerTeam = Math.max(0, Number(settings.quickMinPlayersPerTeam || 0));
+  const quickReadyToPlay = !isRapidMode || minPlayersPerTeam === 0 || ((teamEntryRows.A || []).length >= minPlayersPerTeam && (teamEntryRows.B || []).length >= minPlayersPerTeam);
   const basketStats = useMemo(() => {
     const mergedEvents = [...basketEvents];
     const map = new Map();
@@ -610,11 +610,14 @@ export default function GamePage() {
       return;
     }
     try {
-      const { error: clearSelectedError } = await supabase
+      let clearQuery = supabase
         .from('player_entries')
         .delete()
-        .eq('match_id', currentMatchId)
-        .eq('user_id', person.user_id);
+        .eq('match_id', currentMatchId);
+      clearQuery = person.user_id
+        ? clearQuery.eq('user_id', person.user_id)
+        : clearQuery.is('user_id', null).eq('player_name', person.player_name);
+      const { error: clearSelectedError } = await clearQuery;
       if (clearSelectedError) throw clearSelectedError;
 
       const { error: insertError } = await supabase
@@ -629,10 +632,17 @@ export default function GamePage() {
       if (insertError) throw insertError;
       const firstName = String(person.player_name || '').trim().split(' ')[0] || person.player_name;
       const shortName = formatAttendanceName(person.player_name);
-      const normalized = { user_id: person.user_id, player_name: person.player_name, firstName, shortName };
+      const normalized = {
+        user_id: person.user_id,
+        player_name: person.player_name,
+        firstName,
+        shortName,
+        attendeeKey: buildAttendanceKey(person)
+      };
       setTeamEntryRows((prev) => {
-        const nextA = (prev.A || []).filter((entry) => entry.user_id !== person.user_id);
-        const nextB = (prev.B || []).filter((entry) => entry.user_id !== person.user_id);
+        const targetKey = buildAttendanceKey(person);
+        const nextA = (prev.A || []).filter((entry) => entry.attendeeKey !== targetKey);
+        const nextB = (prev.B || []).filter((entry) => entry.attendeeKey !== targetKey);
         if (side === 'A') nextA.push(normalized);
         if (side === 'B') nextB.push(normalized);
         return { A: nextA, B: nextB };
@@ -644,25 +654,24 @@ export default function GamePage() {
   }
 
   async function removePlayerFromTeam(entry) {
-    if (!canEdit || !entry?.user_id) return;
+    if (!canEdit || !entry) return;
     const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) return;
     try {
-      const { error } = await supabase
+      let removeQuery = supabase
         .from('player_entries')
         .delete()
-        .eq('match_id', currentMatchId)
-        .eq('user_id', entry.user_id);
+        .eq('match_id', currentMatchId);
+      removeQuery = entry.user_id
+        ? removeQuery.eq('user_id', entry.user_id)
+        : removeQuery.is('user_id', null).eq('player_name', entry.player_name);
+      const { error } = await removeQuery;
       if (error) throw error;
       setTeamEntryRows((prev) => ({
-        A: (prev.A || []).filter((item) => item.user_id !== entry.user_id),
-        B: (prev.B || []).filter((item) => item.user_id !== entry.user_id)
+        A: (prev.A || []).filter((item) => item.attendeeKey !== entry.attendeeKey),
+        B: (prev.B || []).filter((item) => item.attendeeKey !== entry.attendeeKey)
       }));
       setEntriesReloadKey((k) => k + 1);
-      setSelectedScorer((prev) => ({
-        A: prev.A === entry.firstName ? '' : prev.A,
-        B: prev.B === entry.firstName ? '' : prev.B
-      }));
     } catch (err) {
       showAlert(err.message || 'Erro ao remover jogador do time.');
     }
@@ -675,11 +684,11 @@ export default function GamePage() {
     return await resolveActiveQuickMatchId();
   }
 
-  async function registerBasketEvent(team, points) {
+  async function registerBasketEvent(team, points, scorerName) {
     if (!canEdit) return true;
     if (![1, 2, 3].includes(points)) return true;
     const side = team === 'A' ? 'A' : 'B';
-    const scorer = selectedScorer[side] || 'Outros';
+    const scorer = scorerName || 'Outros';
     const currentMatchId = await ensureActiveQuickMatchId();
     if (!currentMatchId) {
       return false;
@@ -767,25 +776,20 @@ export default function GamePage() {
     setBasketReloadKey((k) => k + 1);
   }
 
-  async function handlePointButton(team, value) {
-    if (!canEdit) return;
-    if (value > 0) {
-      const ok = await registerBasketEvent(team, value);
-      if (!ok) {
-        showAlert('Não foi possível salvar a cesta no banco.');
-        return;
-      }
-      addPoint(team, value);
+  function openScoringPrompt(team, entry) {
+    if (!canEdit || !enablePoints) return;
+    setScoringPrompt({ open: true, team, entry });
+  }
+
+  async function handleScoreChoice(points) {
+    if (!scoringPrompt.open || !scoringPrompt.team || !scoringPrompt.entry) return;
+    const ok = await registerBasketEvent(scoringPrompt.team, points, scoringPrompt.entry.player_name);
+    if (!ok) {
+      showAlert('Não foi possível salvar a cesta no banco.');
       return;
     }
-    if (value < 0) {
-      const ok = await removeLastBasketEvent(team);
-      if (!ok) {
-        showAlert('Não foi possível ajustar o histórico de cestas.');
-        return;
-      }
-      addPoint(team, value);
-    }
+    addPoint(scoringPrompt.team, points);
+    setScoringPrompt({ open: false, team: null, entry: null });
   }
 
   useEffect(() => {
@@ -827,6 +831,8 @@ export default function GamePage() {
     const startUtc = new Date(`${dateISO}T00:00:00-03:00`).toISOString();
     const endUtc = new Date(`${dateISO}T23:59:59-03:00`).toISOString();
     await supabase.from('daily_attendance').delete().eq('date_iso', dateISO);
+    const visitorsDelete = await supabase.from('daily_visitors').delete().eq('date_iso', dateISO);
+    if (visitorsDelete.error && !String(visitorsDelete.error.message || '').includes('daily_visitors')) throw visitorsDelete.error;
     await supabase.from('daily_attendance').delete().gte('checked_at', startUtc).lte('checked_at', endUtc);
     clearGameState();
     endLiveGame();
@@ -842,6 +848,7 @@ export default function GamePage() {
 
   const enablePoints = running || ajusteFinalAtivo;
   const fmtBasketCount = (value) => String(Number(value || 0)).padStart(2, '0');
+  const playDisabled = !canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo) || (isRapidMode && !quickReadyToPlay);
 
   return (
     <div className="game">
@@ -856,11 +863,14 @@ export default function GamePage() {
               <div id="timer" className={timerAlert ? 'timer-alert' : ''}>{formatTime(safeViewTime)}</div>
               {canEdit ? (
                 <div id="controlesJogos">
-                  <button className="btn-controle" onClick={play} disabled={!canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo)}>PLAY</button>
+                  <button className="btn-controle" onClick={play} disabled={playDisabled}>PLAY</button>
                   <button className="btn-controle" onClick={pause} disabled={!canEdit || !running}>STOP</button>
                 </div>
               ) : null}
             </div>
+            {canEdit && isRapidMode && minPlayersPerTeam > 0 && !quickReadyToPlay ? (
+              <div className="game-play-hint">PLAY libera com pelo menos {minPlayersPerTeam} jogador(es) em cada time.</div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -876,29 +886,18 @@ export default function GamePage() {
           </button>
           <div className="frame">
           <div className="frame-body">
-            {canEdit ? (
-              <div className="botoes-esquerda">
-                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 1)}>+1</button>
-                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 2)}>+2</button>
-                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', 3)}>+3</button>
-                <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('A', -1)}>-1</button>
-              </div>
-            ) : (
-              <div className="side-spacer" />
-            )}
             <div className="pontos">{viewScoreA}</div>
-            {canEdit ? <div className="side-spacer" /> : null}
           </div>
           <div className="frame-footer">
             <div className="placar-checkins">
               {(teamEntries.A || []).length ? (
                 canEdit ? (
                   teamEntryRows.A.map((entry, idx) => (
-                    <span key={`A-${entry.user_id || entry.firstName}-${idx}`}>
+                    <span key={`A-${entry.attendeeKey || entry.user_id || entry.firstName}-${idx}`}>
                       <button
                         type="button"
-                        className={`checkin-player-btn ${selectedScorer.A === entry.firstName ? 'active' : ''}`}
-                        onClick={() => setSelectedScorer((prev) => ({ ...prev, A: prev.A === entry.firstName ? '' : entry.firstName }))}
+                        className="checkin-player-btn"
+                        onClick={() => openScoringPrompt('A', entry)}
                       >
                         {entry.shortName || entry.firstName}
                       </button>
@@ -933,29 +932,18 @@ export default function GamePage() {
           </button>
           <div className="frame">
           <div className="frame-body">
-            {canEdit ? <div className="side-spacer" /> : null}
             <div className="pontos">{viewScoreB}</div>
-            {canEdit ? (
-              <div className="botoes-direita">
-                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 1)}>+1</button>
-                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 2)}>+2</button>
-                <button className="btn-ponto" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', 3)}>+3</button>
-                <button className="btn-ponto minus" disabled={controlsDisabled || !enablePoints} onClick={() => handlePointButton('B', -1)}>-1</button>
-              </div>
-            ) : (
-              <div className="side-spacer" />
-            )}
           </div>
           <div className="frame-footer">
             <div className="placar-checkins">
               {(teamEntries.B || []).length ? (
                 canEdit ? (
                   teamEntryRows.B.map((entry, idx) => (
-                    <span key={`B-${entry.user_id || entry.firstName}-${idx}`}>
+                    <span key={`B-${entry.attendeeKey || entry.user_id || entry.firstName}-${idx}`}>
                       <button
                         type="button"
-                        className={`checkin-player-btn ${selectedScorer.B === entry.firstName ? 'active' : ''}`}
-                        onClick={() => setSelectedScorer((prev) => ({ ...prev, B: prev.B === entry.firstName ? '' : entry.firstName }))}
+                        className="checkin-player-btn"
+                        onClick={() => openScoringPrompt('B', entry)}
                       >
                         {entry.shortName || entry.firstName}
                       </button>
@@ -1047,9 +1035,9 @@ export default function GamePage() {
           <div className="attendance-list">
             {attendanceList.map((person) => (
               <button
-                key={person.user_id}
+                key={person.id || person.attendee_key || person.user_id || person.player_name}
                 type="button"
-                className={`attendance-pill ${canEdit ? 'interactive' : ''} ${assignedSideByUserId.get(person.user_id) === 'A' ? 'team-a' : ''} ${assignedSideByUserId.get(person.user_id) === 'B' ? 'team-b' : ''} ${assignedSideByUserId.get(person.user_id) === assignmentSide ? 'active' : ''}`}
+                className={`attendance-pill ${canEdit ? 'interactive' : ''} ${assignedSideByAttendanceKey.get(buildAttendanceKey(person)) === 'A' ? 'team-a' : ''} ${assignedSideByAttendanceKey.get(buildAttendanceKey(person)) === 'B' ? 'team-b' : ''} ${assignedSideByAttendanceKey.get(buildAttendanceKey(person)) === assignmentSide ? 'active' : ''}`}
                 onClick={() => {
                   if (!canEdit) return;
                   if (!assignmentSide) {
@@ -1075,6 +1063,20 @@ export default function GamePage() {
         onClose={closePasswordModal}
         onConfirm={confirmPassword}
       />
+
+      {scoringPrompt.open ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal modal-small">
+            <div className="modal-title">{scoringPrompt.entry?.shortName || scoringPrompt.entry?.player_name} marcou quantos pontos?</div>
+            <div className="actions">
+              <button className="btn-controle" onClick={() => handleScoreChoice(1)}>+1</button>
+              <button className="btn-controle" onClick={() => handleScoreChoice(2)}>+2</button>
+              <button className="btn-controle" onClick={() => handleScoreChoice(3)}>+3</button>
+              <button className="btn-outline" onClick={() => setScoringPrompt({ open: false, team: null, entry: null })}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {actionsMenuOpen ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">

@@ -774,12 +774,22 @@ select {
   margin: 40px auto 0;
   text-align: center;
 }
+.presence-guest-box {
+  margin-top: 18px;
+  text-align: left;
+}
 .presence-message {
   font-size: 22px;
   font-weight: 900;
 }
 .attendance-panel {
   margin-top: 14px;
+}
+.game-play-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  opacity: .82;
 }
 .attendance-header-row {
   display: flex;
@@ -815,6 +825,9 @@ select {
   background: var(--verde);
   color: var(--preto);
   border-color: var(--verde);
+}
+.modal-small {
+  max-width: 440px;
 }
 .attendance-pill.team-a,
 .attendance-pill.team-b {
@@ -1015,6 +1028,7 @@ select {
 
 .summary h2 { font-size: 20px; margin: 0 0 6px 0; text-align: center; text-shadow: 0 0 12px var(--verde); }
 .summary .subtitulo { font-size: 14px; text-align: center; margin: 0 0 8px 0; opacity: .95; }
+.summary-top-scorer { margin: 0 0 12px 0; text-align: center; font-size: 15px; font-weight: 900; }
 
 .summary table, .history-table {
   width: 100%;
@@ -1103,3 +1117,6 @@ select {
 @media (max-width: 700px) {
   .sound-grid { grid-template-columns: 1fr; }
 }
+
+.image-studio-panel, .image-preview-panel { max-width: 760px; }
+.image-preview { display: block; width: min(100%, 420px); margin: 10px auto 0; border-radius: 14px; border: 2px solid rgba(180,240,0,.28); }
