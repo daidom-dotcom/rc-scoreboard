@@ -144,10 +144,10 @@ export default function SettingsPage() {
       <h1 className="hTitle">Configurações</h1>
 
       <div className="panel tabs">
-        <button className={`btn-outline ${tab === 'quick' ? 'active' : ''}`} onClick={() => setTab('quick')}>Jogo Rápido</button>
-        <button className={`btn-outline ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>Usuários</button>
-        <button className={`btn-outline ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>Partidas cadastradas</button>
-        <NavLink to="/image-studio" className="btn-outline">🖼️ Gerar arte</NavLink>
+        <button className={`btn-outline ${tab === 'quick' ? 'active' : ''}`} onClick={() => setTab('quick')}>🏀 Jogo</button>
+        <button className={`btn-outline ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>👥 Usuários</button>
+        <button className={`btn-outline ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>Partidas</button>
+        <NavLink to="/image-studio" className="btn-outline" aria-label="Gerar arte" title="Gerar arte">📷</NavLink>
       </div>
 
       {tab === 'quick' ? (
