@@ -1,6 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatDateBR, todayISOInSaoPaulo } from '../utils/time';
 
+const DEFAULT_FRAME_SRC = '/moldura-padrao.png';
+
 function loadFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -20,7 +22,7 @@ function loadImage(src) {
 }
 
 export default function ImageStudioPage() {
-  const [frameSrc, setFrameSrc] = useState('');
+  const [frameSrc] = useState(DEFAULT_FRAME_SRC);
   const [photoSrc, setPhotoSrc] = useState('');
   const [dateISO, setDateISO] = useState(todayISOInSaoPaulo());
   const [renderedSrc, setRenderedSrc] = useState('');
@@ -28,12 +30,6 @@ export default function ImageStudioPage() {
   const canvasRef = useRef(null);
 
   const formattedDate = useMemo(() => formatDateBR(dateISO), [dateISO]);
-
-  async function onPickFrame(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setFrameSrc(await loadFileAsDataUrl(file));
-  }
 
   async function onPickPhoto(event) {
     const file = event.target.files?.[0];
@@ -73,18 +69,13 @@ export default function ImageStudioPage() {
       }
 
       ctx.drawImage(photoImage, dx, dy, drawWidth, drawHeight);
-      ctx.fillStyle = 'rgba(0,0,0,0.08)';
-      ctx.fillRect(0, 0, width, height);
       ctx.drawImage(frameImage, 0, 0, width, height);
 
       ctx.save();
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = 'rgba(0,0,0,0.65)';
-      ctx.lineWidth = Math.max(4, width * 0.0055);
-      ctx.font = `900 ${Math.round(width * 0.058)}px Georgia, serif`;
-      ctx.strokeText(formattedDate, width / 2, height - Math.round(height * 0.075));
-      ctx.fillText(formattedDate, width / 2, height - Math.round(height * 0.075));
+      ctx.fillStyle = '#000000';
+      ctx.font = `900 ${Math.round(width * 0.05)}px Georgia, serif`;
+      ctx.fillText(formattedDate, width / 2, height - Math.round(height * 0.05));
       ctx.restore();
 
       setRenderedSrc(canvas.toDataURL('image/png'));
@@ -106,7 +97,7 @@ export default function ImageStudioPage() {
       <h1 className="hTitle">Gerador de Arte</h1>
       <div className="panel image-studio-panel">
         <div className="label">Moldura padrão</div>
-        <input type="file" accept="image/*" onChange={onPickFrame} />
+        <div className="muted">A moldura fixa do amistoso já está salva no app.</div>
 
         <div className="label">Foto do jogador</div>
         <input type="file" accept="image/*" onChange={onPickPhoto} />
@@ -125,7 +116,7 @@ export default function ImageStudioPage() {
         {renderedSrc ? (
           <img src={renderedSrc} alt="Prévia da arte" className="image-preview" />
         ) : (
-          <div className="muted">Suba a moldura e a foto para gerar a arte.</div>
+          <div className="muted">Suba a foto para gerar a arte com a moldura fixa.</div>
         )}
       </div>
 
