@@ -83,10 +83,6 @@ function formatMatchLabel(match) {
   return `Torneio ${match.match_no || '—'}`;
 }
 
-function formatModeBadge(mode) {
-  return mode === 'quick' ? 'RAPIDO' : 'TORNEIO';
-}
-
 function winnerInfo(match) {
   const res = Array.isArray(match.match_results) ? match.match_results[0] : match.match_results;
   const scoreA = Number(res?.score_a || 0);
@@ -180,6 +176,13 @@ function aggregateTeams(matches) {
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'pt-BR'));
 }
 
+function medalForRank(rank) {
+  if (rank === 0) return '🥇';
+  if (rank === 1) return '🥈';
+  if (rank === 2) return '🥉';
+  return '';
+}
+
 export default function ImageStudioPage() {
   const [frameSrc, setFrameSrc] = useState(DEFAULT_FRAME_SRC);
   const [photoSrc, setPhotoSrc] = useState('');
@@ -255,6 +258,9 @@ export default function ImageStudioPage() {
       const { frameImage, ctx, width, height } = await prepareCanvas();
       const rows = await fetchMatchesByDate(effectiveDateISO);
       const safeRows = [...(rows || [])].sort((a, b) => Number(a.match_no || 0) - Number(b.match_no || 0));
+      const teamTotals = aggregateTeams(safeRows);
+      const leftTeam = teamTotals[0] || { name: 'Time 1', score: 0 };
+      const rightTeam = teamTotals[1] || { name: 'Time 2', score: 0 };
 
       const contentX = Math.round(width * 0.08);
       const contentY = Math.round(height * 0.15);
@@ -265,60 +271,35 @@ export default function ImageStudioPage() {
       ctx.save();
       ctx.fillStyle = LIME;
       ctx.textAlign = 'left';
-      ctx.font = `900 ${Math.round(width * 0.06)}px Arial`;
-      ctx.fillText('Partidas', contentX + Math.round(width * 0.04), contentY + Math.round(height * 0.055));
-      ctx.font = `700 ${Math.round(width * 0.036)}px Arial`;
-      ctx.fillStyle = LIME_SOFT;
-      ctx.fillText(formattedDate, contentX + Math.round(width * 0.04), contentY + Math.round(height * 0.09));
+      ctx.font = `900 ${Math.round(width * 0.044)}px Arial`;
+      ctx.fillText(`Partidas de ${formattedDate}`, contentX + Math.round(width * 0.04), contentY + Math.round(height * 0.055));
+      ctx.font = `900 ${Math.round(width * 0.03)}px Arial`;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`${leftTeam.score} ${leftTeam.name} x ${rightTeam.score} ${rightTeam.name}`, contentX + Math.round(width * 0.04), contentY + Math.round(height * 0.095));
 
-      const topY = contentY + Math.round(height * 0.12);
-      const rowHeight = Math.max(Math.round(height * 0.064), 38);
-      const maxRows = Math.max(1, Math.floor((contentH - Math.round(height * 0.15)) / rowHeight));
+      const topY = contentY + Math.round(height * 0.135);
+      const rowHeight = Math.max(Math.round(height * 0.048), 30);
+      const maxRows = Math.max(1, Math.floor((contentH - Math.round(height * 0.17)) / rowHeight));
       const visibleRows = safeRows.slice(0, maxRows);
 
       visibleRows.forEach((match, idx) => {
         const { winner, scoreA, scoreB } = winnerInfo(match);
         const rowY = topY + idx * rowHeight;
-        drawRoundedRect(ctx, contentX + Math.round(width * 0.03), rowY - Math.round(height * 0.028), contentW - Math.round(width * 0.06), rowHeight - Math.round(height * 0.008), 16, idx % 2 === 0 ? CARD_DARK_ALT : 'rgba(18,22,18,0.96)');
+        drawRoundedRect(ctx, contentX + Math.round(width * 0.03), rowY - Math.round(height * 0.022), contentW - Math.round(width * 0.06), rowHeight - Math.round(height * 0.004), 14, idx % 2 === 0 ? CARD_DARK_ALT : 'rgba(18,22,18,0.96)');
 
-        ctx.fillStyle = LIME;
-        ctx.font = `900 ${Math.round(width * 0.03)}px Arial`;
-        ctx.fillText(formatMatchLabel(match), contentX + Math.round(width * 0.06), rowY);
-
-        const badgeText = formatModeBadge(match.mode);
-        const badgeX = contentX + contentW - Math.round(width * 0.3);
-        const badgeY = rowY - Math.round(height * 0.024);
-        const badgeW = Math.round(width * 0.18);
-        const badgeH = Math.round(height * 0.03);
-        drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 10, 'rgba(214,255,57,0.14)');
-        ctx.textAlign = 'center';
-        ctx.font = `900 ${Math.round(width * 0.018)}px Arial`;
-        ctx.fillStyle = LIME_SOFT;
-        ctx.fillText(badgeText, badgeX + badgeW / 2, badgeY + badgeH * 0.7);
-
-        ctx.font = `900 ${Math.round(width * 0.03)}px Arial`;
-        const scoreText = `${scoreA} x ${scoreB}`;
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(scoreText, contentX + contentW - Math.round(width * 0.08), rowY);
+        const prefix = match.mode === 'quick' ? `[P${match.match_no || '—'}]` : `[T${match.match_no || '—'}]`;
+        const leftName = String(match.team_a_name || 'Time 1').trim() || 'Time 1';
+        const rightName = String(match.team_b_name || 'Time 2').trim() || 'Time 2';
+        const line = winner === 'A'
+          ? `${prefix} 🏆 ${leftName} ${scoreA} x ${scoreB} ${rightName}`
+          : winner === 'B'
+            ? `${prefix} ${leftName} ${scoreA} x ${scoreB} 🏆 ${rightName}`
+            : `${prefix} ${leftName} ${scoreA} x ${scoreB} ${rightName}`;
 
         ctx.textAlign = 'left';
-        ctx.font = `700 ${Math.round(width * 0.024)}px Arial`;
-        ctx.fillStyle = '#ebebeb';
-        const teamLine = winner === 'A'
-          ? `🏆 ${match.team_a_name || 'Time A'} vs ${match.team_b_name || 'Time B'}`
-          : winner === 'B'
-            ? `${match.team_a_name || 'Time A'} vs 🏆 ${match.team_b_name || 'Time B'}`
-            : `${match.team_a_name || 'Time A'} vs ${match.team_b_name || 'Time B'} 🤝`;
-        drawMultiline(
-          ctx,
-          teamLine,
-          contentX + Math.round(width * 0.06),
-          rowY + Math.round(height * 0.024),
-          contentW - Math.round(width * 0.22),
-          Math.round(height * 0.022),
-          2
-        );
+        ctx.font = `900 ${Math.round(width * 0.022)}px Arial`;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(line, contentX + Math.round(width * 0.055), rowY);
       });
 
       if (!visibleRows.length) {
@@ -352,8 +333,16 @@ export default function ImageStudioPage() {
       const teamTotals = aggregateTeams(matches);
       const leftTeam = teamTotals[0] || { name: 'Time 1', score: 0 };
       const rightTeam = teamTotals[1] || { name: 'Time 2', score: 0 };
-      const maxBaskets = Math.max(0, ...players.map((player) => player.baskets));
-      const maxPoints = Math.max(0, ...players.map((player) => player.points));
+      const basketRanks = players
+        .map((player) => player.baskets)
+        .filter((value, index, arr) => value > 0 && arr.indexOf(value) === index)
+        .sort((a, b) => b - a)
+        .slice(0, 3);
+      const pointRanks = players
+        .map((player) => player.points)
+        .filter((value, index, arr) => value > 0 && arr.indexOf(value) === index)
+        .sort((a, b) => b - a)
+        .slice(0, 3);
 
       const contentX = Math.round(width * 0.08);
       const contentY = Math.round(height * 0.15);
@@ -373,11 +362,11 @@ export default function ImageStudioPage() {
       const tableX = contentX + Math.round(width * 0.04);
       const tableY = contentY + Math.round(height * 0.145);
       const tableW = contentW - Math.round(width * 0.08);
-      const rowHeight = Math.max(Math.round(height * 0.055), 36);
-      const maxRows = Math.max(1, Math.floor((contentH - Math.round(height * 0.19)) / rowHeight));
+      const rowHeight = Math.max(Math.round(height * 0.042), 28);
+      const maxRows = Math.max(1, Math.floor((contentH - Math.round(height * 0.18)) / rowHeight));
       const visiblePlayers = players.slice(0, maxRows);
 
-      drawRoundedRect(ctx, tableX, tableY - Math.round(height * 0.028), tableW, rowHeight, 14, 'rgba(214,255,57,0.12)');
+      drawRoundedRect(ctx, tableX, tableY - Math.round(height * 0.022), tableW, rowHeight, 14, 'rgba(214,255,57,0.12)');
       ctx.fillStyle = LIME_SOFT;
       ctx.font = `900 ${Math.round(width * 0.024)}px Arial`;
       ctx.fillText('Participante', tableX + Math.round(width * 0.03), tableY);
@@ -387,17 +376,19 @@ export default function ImageStudioPage() {
 
       visiblePlayers.forEach((player, idx) => {
         const rowY = tableY + rowHeight + idx * rowHeight;
-        drawRoundedRect(ctx, tableX, rowY - Math.round(height * 0.028), tableW, rowHeight - 4, 14, idx % 2 === 0 ? CARD_DARK_ALT : 'rgba(18,22,18,0.96)');
+        drawRoundedRect(ctx, tableX, rowY - Math.round(height * 0.022), tableW, rowHeight - 3, 14, idx % 2 === 0 ? CARD_DARK_ALT : 'rgba(18,22,18,0.96)');
         ctx.textAlign = 'left';
         ctx.fillStyle = '#ffffff';
-        ctx.font = `800 ${Math.round(width * 0.025)}px Arial`;
+        ctx.font = `800 ${Math.round(width * 0.022)}px Arial`;
         drawMultiline(ctx, player.name, tableX + Math.round(width * 0.03), rowY, Math.round(tableW * 0.56), Math.round(height * 0.02), 1);
 
+        const basketRank = basketRanks.indexOf(player.baskets);
+        const pointRank = pointRanks.indexOf(player.points);
         ctx.textAlign = 'center';
-        ctx.fillStyle = player.baskets === maxBaskets && player.baskets > 0 ? LIME : '#ffffff';
-        ctx.fillText(`${player.baskets}${player.baskets === maxBaskets && player.baskets > 0 ? ' 🏆' : ''}`, tableX + Math.round(tableW * 0.72), rowY);
-        ctx.fillStyle = player.points === maxPoints && player.points > 0 ? LIME : '#ffffff';
-        ctx.fillText(`${player.points}${player.points === maxPoints && player.points > 0 ? ' 🏆' : ''}`, tableX + Math.round(tableW * 0.89), rowY);
+        ctx.fillStyle = basketRank >= 0 ? LIME : '#ffffff';
+        ctx.fillText(`${player.baskets}${basketRank >= 0 ? ` ${medalForRank(basketRank)}` : ''}`, tableX + Math.round(tableW * 0.72), rowY);
+        ctx.fillStyle = pointRank >= 0 ? LIME : '#ffffff';
+        ctx.fillText(`${player.points}${pointRank >= 0 ? ` ${medalForRank(pointRank)}` : ''}`, tableX + Math.round(tableW * 0.89), rowY);
       });
 
       if (!visiblePlayers.length) {
