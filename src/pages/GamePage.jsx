@@ -378,7 +378,6 @@ export default function GamePage() {
   useEffect(() => {
     let active = true;
     const requestId = ++entriesRequestRef.current;
-    setTeamEntryRows({ A: [], B: [] });
     async function loadEntries() {
       const modeForEntries = canEdit ? mode : (liveView?.mode || lastGoodLiveRef.current?.mode || mode);
       let liveMatchId = canEdit
@@ -677,6 +676,27 @@ export default function GamePage() {
     }
   }
 
+  async function removeAllPlayersFromTeam(side) {
+    if (!canEdit || !['A', 'B'].includes(side)) return;
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
+    if (!currentMatchId) return;
+    try {
+      const { error } = await supabase
+        .from('player_entries')
+        .delete()
+        .eq('match_id', currentMatchId)
+        .eq('team_side', side);
+      if (error) throw error;
+      setTeamEntryRows((prev) => ({
+        ...prev,
+        [side]: []
+      }));
+      setEntriesReloadKey((k) => k + 1);
+    } catch (err) {
+      showAlert(err.message || 'Erro ao remover jogadores do time.');
+    }
+  }
+
   async function resolveCurrentMatchIdForEvents() {
     if ((safeLive?.mode || mode) === 'tournament') {
       return safeLive?.match_id || matchId || null;
@@ -918,6 +938,17 @@ export default function GamePage() {
                 )
               ) : 'Sem check-in registrado.'}
             </div>
+            {canEdit && (teamEntryRows.A || []).length ? (
+              <button
+                type="button"
+                className="team-clear-btn"
+                onClick={() => removeAllPlayersFromTeam('A')}
+                title={`Remover todos de ${viewTeamA}`}
+                aria-label={`Remover todos de ${viewTeamA}`}
+              >
+                remover todos
+              </button>
+            ) : null}
           </div>
         </div>
         </div>
@@ -964,6 +995,17 @@ export default function GamePage() {
                 )
               ) : 'Sem check-in registrado.'}
             </div>
+            {canEdit && (teamEntryRows.B || []).length ? (
+              <button
+                type="button"
+                className="team-clear-btn"
+                onClick={() => removeAllPlayersFromTeam('B')}
+                title={`Remover todos de ${viewTeamB}`}
+                aria-label={`Remover todos de ${viewTeamB}`}
+              >
+                remover todos
+              </button>
+            ) : null}
           </div>
         </div>
         </div>

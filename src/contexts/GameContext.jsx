@@ -884,6 +884,8 @@ export function GameProvider({ children }) {
       const snapshotScoreB = Number(scoreBRef.current || 0);
       const hasNonZeroScore = snapshotScoreA !== 0 || snapshotScoreB !== 0;
       const closingMatchNo = quickMatchNumber;
+      const closingMatchId = ensuredMatch?.id || matchId || matchIdRef.current || null;
+      const carryEntries = await fetchQuickEntriesForCarry(closingMatchId);
 
       if (hasNonZeroScore) {
         const savedMatchId = await saveQuickMatch(ensuredMatch?.id || null, {
@@ -910,7 +912,7 @@ export function GameProvider({ children }) {
         score_a: snapshotScoreA,
         score_b: snapshotScoreB
       });
-      await prepareNextQuick(false, closingMatchNo + 1);
+      await prepareNextQuick(false, closingMatchNo + 1, carryEntries);
       logDebug('finishQuick.nextPrepared', { nextNo: closingMatchNo + 1 });
     } catch (err) {
       setLastError(err);
@@ -919,7 +921,49 @@ export function GameProvider({ children }) {
     }
   }
 
-  async function prepareNextQuick(resetDay = false, forcedNextNo = null) {
+  async function fetchQuickEntriesForCarry(sourceMatchId) {
+    if (!sourceMatchId) return [];
+    try {
+      const { data, error } = await supabase
+        .from('player_entries')
+        .select('user_id,player_name,team_side')
+        .eq('match_id', sourceMatchId);
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      logDebug('quickEntriesCarry.readError', err?.message || 'unknown');
+      return [];
+    }
+  }
+
+  async function copyQuickEntriesToMatch(entries, targetMatchId, targetDate) {
+    if (!targetMatchId || !entries?.length) return;
+    try {
+      const seen = new Set();
+      const payload = entries
+        .filter((entry) => {
+          const key = entry.user_id ? `user:${entry.user_id}` : `guest:${String(entry.player_name || '').trim().toLowerCase()}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((entry) => ({
+          match_id: targetMatchId,
+          user_id: entry.user_id || null,
+          player_name: entry.player_name,
+          team_side: entry.team_side,
+          date_iso: targetDate
+        }));
+      if (!payload.length) return;
+      const { error } = await supabase.from('player_entries').insert(payload);
+      if (error) throw error;
+      logDebug('quickEntriesCarry.copied', { count: payload.length, targetMatchId });
+    } catch (err) {
+      logDebug('quickEntriesCarry.copyError', err?.message || 'unknown');
+    }
+  }
+
+  async function prepareNextQuick(resetDay = false, forcedNextNo = null, carryEntries = []) {
     setAjusteFinalAtivo(false);
     setRunning(false);
     setCurrentDurationSeconds(settings.quickDurationSeconds);
@@ -944,6 +988,7 @@ export function GameProvider({ children }) {
     currentMatchRef.current = null;
     const nextMatch = await ensureQuickMatch(nextNo);
     if (!nextMatch?.id) return;
+    await copyQuickEntriesToMatch(carryEntries, nextMatch.id, date);
     updateLiveGame({
       status: 'paused',
       match_id: nextMatch.id,

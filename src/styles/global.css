@@ -702,6 +702,23 @@ select {
 .checkin-player-remove:hover {
   opacity: 1;
 }
+.team-clear-btn {
+  display: block;
+  margin: 2px auto 0;
+  border: none;
+  background: transparent;
+  color: var(--verde);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  opacity: .45;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+.team-clear-btn:hover {
+  opacity: .95;
+}
 .collapsible {
   margin-top: 10px;
 }

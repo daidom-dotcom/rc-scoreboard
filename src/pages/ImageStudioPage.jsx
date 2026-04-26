@@ -412,14 +412,6 @@ export default function ImageStudioPage() {
     }
   }
 
-  function downloadPng() {
-    if (!renderedSrc) return;
-    const link = document.createElement('a');
-    link.href = renderedSrc;
-    link.download = `arte-rachao-${dateISO}.png`;
-    link.click();
-  }
-
   return (
     <div className="container">
       <h1 className="hTitle">Gerador de Arte</h1>
@@ -456,7 +448,6 @@ export default function ImageStudioPage() {
           {activeMode === 'players' ? (
             <button className="btn-controle" onClick={renderPlayersImage} disabled={!frameSrc || busy}>Gerar Cestas</button>
           ) : null}
-          <button className="btn-outline" onClick={downloadPng} disabled={!renderedSrc}>Download PNG</button>
         </div>
       </div>
 
