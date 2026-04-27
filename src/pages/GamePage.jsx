@@ -551,6 +551,10 @@ export default function GamePage() {
     });
     return map;
   }, [teamEntryRows]);
+  const availableAttendanceList = useMemo(
+    () => attendanceList.filter((person) => !assignedSideByAttendanceKey.has(buildAttendanceKey(person))),
+    [attendanceList, assignedSideByAttendanceKey]
+  );
   const minPlayersPerTeam = Math.max(0, Number(settings.quickMinPlayersPerTeam || 0));
   const quickReadyToPlay = !isRapidMode || minPlayersPerTeam === 0 || ((teamEntryRows.A || []).length >= minPlayersPerTeam && (teamEntryRows.B || []).length >= minPlayersPerTeam);
   const basketStats = useMemo(() => {
@@ -1073,13 +1077,13 @@ export default function GamePage() {
             </div>
           ) : null}
         </div>
-        {attendanceList.length ? (
+        {availableAttendanceList.length ? (
           <div className="attendance-list">
-            {attendanceList.map((person) => (
+            {availableAttendanceList.map((person) => (
               <button
                 key={person.id || person.attendee_key || person.user_id || person.player_name}
                 type="button"
-                className={`attendance-pill ${canEdit ? 'interactive' : ''} ${assignedSideByAttendanceKey.get(buildAttendanceKey(person)) === 'A' ? 'team-a' : ''} ${assignedSideByAttendanceKey.get(buildAttendanceKey(person)) === 'B' ? 'team-b' : ''} ${assignedSideByAttendanceKey.get(buildAttendanceKey(person)) === assignmentSide ? 'active' : ''}`}
+                className={`attendance-pill ${canEdit ? 'interactive' : ''}`}
                 onClick={() => {
                   if (!canEdit) return;
                   if (!assignmentSide) {
@@ -1093,6 +1097,8 @@ export default function GamePage() {
               </button>
             ))}
           </div>
+        ) : attendanceList.length ? (
+          <div className="muted">Todos os presentes já foram atribuídos a um time.</div>
         ) : (
           <div className="muted">Nenhuma presença registrada hoje.</div>
         )}
