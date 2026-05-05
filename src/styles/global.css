@@ -564,8 +564,8 @@ select {
   width: 100%;
 }
 .game-logo-slot {
-  width: min(300px, 30vw);
-  min-width: 180px;
+  width: min(calc(210px * var(--score-scale) / 2), 30vw);
+  min-width: calc(126px * var(--score-scale) / 2);
   border: none;
   border-radius: 0;
   padding: 0;
@@ -718,6 +718,10 @@ select {
 }
 .team-clear-btn:hover {
   opacity: .95;
+}
+.team-clear-btn-top {
+  margin: 0 auto -2px;
+  align-self: center;
 }
 .collapsible {
   margin-top: 10px;
@@ -1107,7 +1111,7 @@ select {
   .game-main-row { flex-direction: column; gap: 10px; }
   .game-info-col { width: 100%; }
   .game-head { flex-direction: column; gap: 10px; }
-  .game-logo-slot { width: min(260px, 78vw); min-width: 0; }
+  .game-logo-slot { width: min(calc(182px * var(--score-scale) / 2), 78vw); min-width: 0; }
   #timer { font-size: calc(86px * var(--timer-scale)); }
   #partidaLabel { font-size: 22px; min-width: 140px; }
   #controlesJogos { min-width: 140px; }

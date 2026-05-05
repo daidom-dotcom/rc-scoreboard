@@ -909,6 +909,17 @@ export default function GamePage() {
             {viewTeamA}
           </button>
           <div className="frame">
+          {canEdit && (teamEntryRows.A || []).length ? (
+            <button
+              type="button"
+              className="team-clear-btn team-clear-btn-top"
+              onClick={() => removeAllPlayersFromTeam('A')}
+              title={`Remover todos de ${viewTeamA}`}
+              aria-label={`Remover todos de ${viewTeamA}`}
+            >
+              remover todos
+            </button>
+          ) : null}
           <div className="frame-body">
             <div className="pontos">{viewScoreA}</div>
           </div>
@@ -942,17 +953,6 @@ export default function GamePage() {
                 )
               ) : 'Sem check-in registrado.'}
             </div>
-            {canEdit && (teamEntryRows.A || []).length ? (
-              <button
-                type="button"
-                className="team-clear-btn"
-                onClick={() => removeAllPlayersFromTeam('A')}
-                title={`Remover todos de ${viewTeamA}`}
-                aria-label={`Remover todos de ${viewTeamA}`}
-              >
-                remover todos
-              </button>
-            ) : null}
           </div>
         </div>
         </div>
@@ -966,6 +966,17 @@ export default function GamePage() {
             {viewTeamB}
           </button>
           <div className="frame">
+          {canEdit && (teamEntryRows.B || []).length ? (
+            <button
+              type="button"
+              className="team-clear-btn team-clear-btn-top"
+              onClick={() => removeAllPlayersFromTeam('B')}
+              title={`Remover todos de ${viewTeamB}`}
+              aria-label={`Remover todos de ${viewTeamB}`}
+            >
+              remover todos
+            </button>
+          ) : null}
           <div className="frame-body">
             <div className="pontos">{viewScoreB}</div>
           </div>
@@ -999,17 +1010,6 @@ export default function GamePage() {
                 )
               ) : 'Sem check-in registrado.'}
             </div>
-            {canEdit && (teamEntryRows.B || []).length ? (
-              <button
-                type="button"
-                className="team-clear-btn"
-                onClick={() => removeAllPlayersFromTeam('B')}
-                title={`Remover todos de ${viewTeamB}`}
-                aria-label={`Remover todos de ${viewTeamB}`}
-              >
-                remover todos
-              </button>
-            ) : null}
           </div>
         </div>
         </div>
