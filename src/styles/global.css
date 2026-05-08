@@ -690,18 +690,6 @@ select {
   text-shadow: none;
   text-decoration: none;
 }
-.checkin-player-remove {
-  border: none;
-  background: transparent;
-  color: var(--verde);
-  cursor: pointer;
-  font-size: 10px;
-  padding: 0 2px;
-  opacity: .8;
-}
-.checkin-player-remove:hover {
-  opacity: 1;
-}
 .team-clear-btn {
   display: block;
   margin: 2px auto 0;
@@ -722,6 +710,36 @@ select {
 .team-clear-btn-top {
   margin: 0 auto -2px;
   align-self: center;
+}
+.team-remove-subtitle {
+  margin: -8px 0 14px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 900;
+  opacity: .85;
+  text-transform: uppercase;
+}
+.team-remove-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin: 10px 0 18px;
+}
+.team-remove-pill {
+  border: 1px solid rgba(180,240,0,.45);
+  background: transparent;
+  color: var(--verde);
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.team-remove-pill.selected {
+  background: var(--verde);
+  color: var(--preto);
+  border-color: var(--verde);
 }
 .collapsible {
   margin-top: 10px;

@@ -75,6 +75,7 @@ export default function GamePage() {
   const [attendanceList, setAttendanceList] = useState([]);
   const [assignmentSide, setAssignmentSide] = useState(null);
   const [scoringPrompt, setScoringPrompt] = useState({ open: false, team: null, entry: null });
+  const [teamRemoveModal, setTeamRemoveModal] = useState({ open: false, side: null, selectedKeys: [] });
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -456,6 +457,7 @@ export default function GamePage() {
   useEffect(() => {
     setAssignmentSide(null);
     setScoringPrompt({ open: false, team: null, entry: null });
+    setTeamRemoveModal({ open: false, side: null, selectedKeys: [] });
   }, [matchId, liveView?.match_id, quickMatchNumber]);
 
   useEffect(() => {
@@ -555,6 +557,7 @@ export default function GamePage() {
     () => attendanceList.filter((person) => !assignedSideByAttendanceKey.has(buildAttendanceKey(person))),
     [attendanceList, assignedSideByAttendanceKey]
   );
+  const entriesForRemoval = teamRemoveModal.side ? (teamEntryRows[teamRemoveModal.side] || []) : [];
   const minPlayersPerTeam = Math.max(0, Number(settings.quickMinPlayersPerTeam || 0));
   const quickReadyToPlay = !isRapidMode || minPlayersPerTeam === 0 || ((teamEntryRows.A || []).length >= minPlayersPerTeam && (teamEntryRows.B || []).length >= minPlayersPerTeam);
   const basketStats = useMemo(() => {
@@ -656,46 +659,52 @@ export default function GamePage() {
     }
   }
 
-  async function removePlayerFromTeam(entry) {
-    if (!canEdit || !entry) return;
-    const currentMatchId = await resolveCurrentMatchIdForEvents();
-    if (!currentMatchId) return;
-    try {
-      let removeQuery = supabase
-        .from('player_entries')
-        .delete()
-        .eq('match_id', currentMatchId);
-      removeQuery = entry.user_id
-        ? removeQuery.eq('user_id', entry.user_id)
-        : removeQuery.is('user_id', null).eq('player_name', entry.player_name);
-      const { error } = await removeQuery;
-      if (error) throw error;
-      setTeamEntryRows((prev) => ({
-        A: (prev.A || []).filter((item) => item.attendeeKey !== entry.attendeeKey),
-        B: (prev.B || []).filter((item) => item.attendeeKey !== entry.attendeeKey)
-      }));
-      setEntriesReloadKey((k) => k + 1);
-    } catch (err) {
-      showAlert(err.message || 'Erro ao remover jogador do time.');
-    }
+  function openTeamRemoveModal(side) {
+    if (!canEdit || !['A', 'B'].includes(side)) return;
+    setTeamRemoveModal({ open: true, side, selectedKeys: [] });
   }
 
-  async function removeAllPlayersFromTeam(side) {
-    if (!canEdit || !['A', 'B'].includes(side)) return;
+  function closeTeamRemoveModal() {
+    setTeamRemoveModal({ open: false, side: null, selectedKeys: [] });
+  }
+
+  function toggleTeamRemoveSelection(entry) {
+    if (!entry?.attendeeKey) return;
+    setTeamRemoveModal((prev) => ({
+      ...prev,
+      selectedKeys: prev.selectedKeys.includes(entry.attendeeKey)
+        ? prev.selectedKeys.filter((key) => key !== entry.attendeeKey)
+        : [...prev.selectedKeys, entry.attendeeKey]
+    }));
+  }
+
+  async function confirmRemoveSelectedPlayers() {
+    if (!canEdit || !teamRemoveModal.side) return;
     const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) return;
+    const entriesToRemove = (teamEntryRows[teamRemoveModal.side] || []).filter((entry) => teamRemoveModal.selectedKeys.includes(entry.attendeeKey));
+    if (!entriesToRemove.length) {
+      closeTeamRemoveModal();
+      return;
+    }
     try {
-      const { error } = await supabase
-        .from('player_entries')
-        .delete()
-        .eq('match_id', currentMatchId)
-        .eq('team_side', side);
-      if (error) throw error;
+      for (const entry of entriesToRemove) {
+        let removeQuery = supabase
+          .from('player_entries')
+          .delete()
+          .eq('match_id', currentMatchId);
+        removeQuery = entry.user_id
+          ? removeQuery.eq('user_id', entry.user_id)
+          : removeQuery.is('user_id', null).eq('player_name', entry.player_name);
+        const { error } = await removeQuery;
+        if (error) throw error;
+      }
       setTeamEntryRows((prev) => ({
         ...prev,
-        [side]: []
+        [teamRemoveModal.side]: (prev[teamRemoveModal.side] || []).filter((entry) => !teamRemoveModal.selectedKeys.includes(entry.attendeeKey))
       }));
       setEntriesReloadKey((k) => k + 1);
+      closeTeamRemoveModal();
     } catch (err) {
       showAlert(err.message || 'Erro ao remover jogadores do time.');
     }
@@ -913,11 +922,11 @@ export default function GamePage() {
             <button
               type="button"
               className="team-clear-btn team-clear-btn-top"
-              onClick={() => removeAllPlayersFromTeam('A')}
-              title={`Remover todos de ${viewTeamA}`}
-              aria-label={`Remover todos de ${viewTeamA}`}
+              onClick={() => openTeamRemoveModal('A')}
+              title={`Remover jogadores de ${viewTeamA}`}
+              aria-label={`Remover jogadores de ${viewTeamA}`}
             >
-              remover todos
+              remover
             </button>
           ) : null}
           <div className="frame-body">
@@ -935,15 +944,6 @@ export default function GamePage() {
                         onClick={() => openScoringPrompt('A', entry)}
                       >
                         {entry.shortName || entry.firstName}
-                      </button>
-                      <button
-                        type="button"
-                        className="checkin-player-remove"
-                        onClick={() => removePlayerFromTeam(entry)}
-                        title={`Remover ${entry.shortName || entry.firstName}`}
-                        aria-label={`Remover ${entry.shortName || entry.firstName}`}
-                      >
-                        ❌
                       </button>
                       {idx < teamEntryRows.A.length - 1 ? ' / ' : ''}
                     </span>
@@ -970,11 +970,11 @@ export default function GamePage() {
             <button
               type="button"
               className="team-clear-btn team-clear-btn-top"
-              onClick={() => removeAllPlayersFromTeam('B')}
-              title={`Remover todos de ${viewTeamB}`}
-              aria-label={`Remover todos de ${viewTeamB}`}
+              onClick={() => openTeamRemoveModal('B')}
+              title={`Remover jogadores de ${viewTeamB}`}
+              aria-label={`Remover jogadores de ${viewTeamB}`}
             >
-              remover todos
+              remover
             </button>
           ) : null}
           <div className="frame-body">
@@ -992,15 +992,6 @@ export default function GamePage() {
                         onClick={() => openScoringPrompt('B', entry)}
                       >
                         {entry.shortName || entry.firstName}
-                      </button>
-                      <button
-                        type="button"
-                        className="checkin-player-remove"
-                        onClick={() => removePlayerFromTeam(entry)}
-                        title={`Remover ${entry.shortName || entry.firstName}`}
-                        aria-label={`Remover ${entry.shortName || entry.firstName}`}
-                      >
-                        ❌
                       </button>
                       {idx < teamEntryRows.B.length - 1 ? ' / ' : ''}
                     </span>
@@ -1111,6 +1102,46 @@ export default function GamePage() {
         onClose={closePasswordModal}
         onConfirm={confirmPassword}
       />
+
+      {teamRemoveModal.open ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal modal-small">
+            <div className="modal-title">Remover jogadores</div>
+            <div className="team-remove-subtitle">
+              {teamRemoveModal.side === 'A' ? viewTeamA : viewTeamB}
+            </div>
+            {!entriesForRemoval.length ? (
+              <div className="muted">Sem jogadores neste time.</div>
+            ) : (
+              <div className="team-remove-list">
+                {entriesForRemoval.map((entry) => {
+                  const selected = teamRemoveModal.selectedKeys.includes(entry.attendeeKey);
+                  return (
+                    <button
+                      key={`remove-${teamRemoveModal.side}-${entry.attendeeKey}`}
+                      type="button"
+                      className={`team-remove-pill ${selected ? 'selected' : ''}`}
+                      onClick={() => toggleTeamRemoveSelection(entry)}
+                    >
+                      {entry.shortName || entry.firstName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className="actions">
+              <button className="btn-outline" onClick={closeTeamRemoveModal}>Cancelar</button>
+              <button
+                className="btn-controle"
+                onClick={confirmRemoveSelectedPlayers}
+                disabled={!teamRemoveModal.selectedKeys.length}
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {scoringPrompt.open ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">
