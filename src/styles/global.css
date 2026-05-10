@@ -187,12 +187,28 @@ select {
   cursor: pointer;
 }
 
+.btn-gray {
+  background: #4d4d4d;
+  border: 2px solid #777;
+  color: #f3f3f3;
+  padding: 8px 14px;
+  font-weight: 900;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .actions { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: center; }
 .actions .btn-controle,
-.actions .btn-outline { min-width: 120px; max-width: 170px; height: 46px; margin: 0; flex: 0 0 auto; }
+.actions .btn-outline,
+.actions .btn-gray { min-width: 120px; max-width: 170px; height: 46px; margin: 0; flex: 0 0 auto; }
 .modal .actions { margin-top: 18px; }
 .modal .actions .btn-controle,
-.modal .actions .btn-outline { min-width: 120px; height: 42px; flex: 0 0 auto; }
+.modal .actions .btn-outline,
+.modal .actions .btn-gray { min-width: 120px; height: 42px; flex: 0 0 auto; }
+.scoring-reduce-row {
+  margin-top: 10px !important;
+}
 .history-actions .btn-controle { min-width: 120px; max-width: 170px; flex: 0 0 auto; }
 .history-actions { margin-top: 12px; }
 .btn-small { height: 32px; min-width: 80px; max-width: 100px; padding: 4px 8px; font-size: 11px; }

@@ -825,6 +825,45 @@ export default function GamePage() {
     setScoringPrompt({ open: false, team: null, entry: null });
   }
 
+  async function handleScoreReduction(points) {
+    if (!scoringPrompt.open || !scoringPrompt.team || !scoringPrompt.entry) return;
+    const currentMatchId = await ensureActiveQuickMatchId();
+    if (!currentMatchId) {
+      showAlert('Partida ainda não disponível.');
+      return;
+    }
+    const { data: latest, error } = await supabase
+      .from('basket_events')
+      .select('id, team_side, points, player_name, created_at')
+      .eq('match_id', currentMatchId)
+      .eq('team_side', scoringPrompt.team)
+      .eq('player_name', scoringPrompt.entry.player_name)
+      .eq('points', points)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      showAlert(error.message || 'Erro ao buscar cesta para excluir.');
+      return;
+    }
+    if (!latest?.id) {
+      showAlert(`Esse jogador não tem cesta de ${points} ponto${points > 1 ? 's' : ''} para remover.`);
+      return;
+    }
+    const { error: delErr } = await supabase
+      .from('basket_events')
+      .delete()
+      .eq('id', latest.id);
+    if (delErr) {
+      showAlert(delErr.message || 'Erro ao excluir cesta.');
+      return;
+    }
+    setBasketEvents((prev) => prev.filter((e) => e.id !== latest.id));
+    addPoint(scoringPrompt.team, -Number(points));
+    setBasketReloadKey((k) => k + 1);
+    setScoringPrompt({ open: false, team: null, entry: null });
+  }
+
   useEffect(() => {
     setBasketEvents([]);
   }, [safeLive?.match_id, safeLive?.match_no, mode, quickMatchNumber]);
@@ -1151,6 +1190,13 @@ export default function GamePage() {
               <button className="btn-controle" onClick={() => handleScoreChoice(1)}>+1</button>
               <button className="btn-controle" onClick={() => handleScoreChoice(2)}>+2</button>
               <button className="btn-controle" onClick={() => handleScoreChoice(3)}>+3</button>
+            </div>
+            <div className="actions scoring-reduce-row">
+              <button className="btn-gray" onClick={() => handleScoreReduction(1)}>-1</button>
+              <button className="btn-gray" onClick={() => handleScoreReduction(2)}>-2</button>
+              <button className="btn-gray" onClick={() => handleScoreReduction(3)}>-3</button>
+            </div>
+            <div className="actions">
               <button className="btn-outline" onClick={() => setScoringPrompt({ open: false, team: null, entry: null })}>Cancelar</button>
             </div>
           </div>
