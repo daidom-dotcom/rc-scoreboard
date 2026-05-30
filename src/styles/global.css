@@ -913,6 +913,16 @@ select {
 .attendance-panel {
   margin-top: 14px;
 }
+.attendance-summary {
+  cursor: pointer;
+  list-style-position: outside;
+}
+.attendance-summary::marker {
+  color: var(--verde);
+}
+.attendance-body {
+  margin-top: 10px;
+}
 .game-play-hint {
   margin-top: 8px;
   font-size: 12px;

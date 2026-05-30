@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.64';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.67';
 
 function pickLiveDebug(live) {
   if (!live) return null;
@@ -989,7 +989,7 @@ export default function GamePage() {
   const enablePoints = running || ajusteFinalAtivo;
   const fmtBasketCount = (value) => String(Number(value || 0)).padStart(2, '0');
   const playDisabled = !canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo) || (isRapidMode && !quickReadyToPlay);
-  const showGameDiagnostic = !!user && (canEdit || isMaster || profile?.role === 'master');
+  const showGameDiagnostic = !!user && (isMaster || profile?.role === 'master');
   const diagnosticText = useMemo(() => JSON.stringify({
     deploy: DEPLOY_DEBUG_VERSION,
     generated_at: new Date().toISOString(),
@@ -1290,41 +1290,45 @@ export default function GamePage() {
         )}
       </details>
 
-      <div className="panel attendance-panel">
-        <div className="attendance-header-row">
-          <div className="label">Presentes no dia</div>
-          {canEdit ? (
-            <div className="attendance-target">
-              Adicionando em: <strong>{assignmentSide === 'A' ? viewTeamA : assignmentSide === 'B' ? viewTeamB : 'nenhum time'}</strong>
-            </div>
-          ) : null}
-        </div>
-        {availableAttendanceList.length ? (
-          <div className="attendance-list">
-            {availableAttendanceList.map((person) => (
-              <button
-                key={person.id || person.attendee_key || person.user_id || person.player_name}
-                type="button"
-                className={`attendance-pill ${canEdit ? 'interactive' : ''}`}
-                onClick={() => {
-                  if (!canEdit) return;
-                  if (!assignmentSide) {
-                    showAlert('Selecione primeiro o Time 1 ou o Time 2.');
-                    return;
-                  }
-                  assignAttendanceToTeam(person, assignmentSide);
-                }}
-              >
-                {formatAttendanceName(person.player_name)}
-              </button>
-            ))}
+      <details className="panel attendance-panel" open>
+        <summary className="attendance-summary">
+          <div className="attendance-header-row">
+            <div className="label">Presentes no dia</div>
+            {canEdit ? (
+              <div className="attendance-target">
+                Adicionando em: <strong>{assignmentSide === 'A' ? viewTeamA : assignmentSide === 'B' ? viewTeamB : 'nenhum time'}</strong>
+              </div>
+            ) : null}
           </div>
-        ) : attendanceList.length ? (
-          <div className="muted">Todos os presentes já foram atribuídos a um time.</div>
-        ) : (
-          <div className="muted">Nenhuma presença registrada hoje.</div>
-        )}
-      </div>
+        </summary>
+        <div className="attendance-body">
+          {availableAttendanceList.length ? (
+            <div className="attendance-list">
+              {availableAttendanceList.map((person) => (
+                <button
+                  key={person.id || person.attendee_key || person.user_id || person.player_name}
+                  type="button"
+                  className={`attendance-pill ${canEdit ? 'interactive' : ''}`}
+                  onClick={() => {
+                    if (!canEdit) return;
+                    if (!assignmentSide) {
+                      showAlert('Selecione primeiro o Time 1 ou o Time 2.');
+                      return;
+                    }
+                    assignAttendanceToTeam(person, assignmentSide);
+                  }}
+                >
+                  {formatAttendanceName(person.player_name)}
+                </button>
+              ))}
+            </div>
+          ) : attendanceList.length ? (
+            <div className="muted">Todos os presentes já foram atribuídos a um time.</div>
+          ) : (
+            <div className="muted">Nenhuma presença registrada hoje.</div>
+          )}
+        </div>
+      </details>
 
       <PasswordModal
         open={passwordState.open}

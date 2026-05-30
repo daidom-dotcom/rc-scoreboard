@@ -336,7 +336,7 @@ export function GameProvider({ children }) {
       ? quickMatchNumber
       : (applied?.match_no || currentMatchRef.current?.match_no || null);
     const effectiveQuarter = effectiveMode === 'tournament'
-      ? numberOrFallback(applied?.quarter, quarterIndex + 1)
+      ? (mode === 'tournament' ? quarterIndex + 1 : numberOrFallback(applied?.quarter, quarterIndex + 1))
       : quarterIndex + 1;
     const effectiveTeamA = effectiveMode === 'tournament'
       ? (applied?.team_a || teamAName)
@@ -408,7 +408,23 @@ export function GameProvider({ children }) {
       return null;
     }
 
-    return guardedUpsertLiveGame(payload, 'pushLiveGame').catch(() => {});
+    try {
+      const written = await guardedUpsertLiveGame(payload, 'pushLiveGame');
+      if (written) {
+        lastAppliedLiveRef.current = written;
+        logDebug('pushLiveGame.written', {
+          mode: written.mode,
+          match_id: written.match_id || null,
+          quarter: written.quarter || null,
+          score: `${written.score_a || 0}x${written.score_b || 0}`,
+          time_left: written.time_left ?? null
+        });
+      }
+      return written;
+    } catch (err) {
+      logDebug('pushLiveGame.error', err?.message || 'unknown');
+      return null;
+    }
   }
 
   useEffect(() => {
@@ -516,8 +532,8 @@ export function GameProvider({ children }) {
       time_left: totalSeconds,
       team_a: teamAName,
       team_b: teamBName,
-      score_a: scoreA,
-      score_b: scoreB,
+      score_a: scoreARef.current,
+      score_b: scoreBRef.current,
       reset_at: null
     });
   }, [canControlLive, mode, matchId, quickMatchNumber, running, totalSeconds, teamAName, teamBName, scoreA, scoreB]);
@@ -769,8 +785,8 @@ export function GameProvider({ children }) {
         time_left: totalSeconds,
         team_a: quickTeamA,
         team_b: quickTeamB,
-        score_a: scoreA,
-        score_b: scoreB,
+        score_a: scoreARef.current,
+        score_b: scoreBRef.current,
         reset_at: null
       });
       return match;
@@ -1260,7 +1276,7 @@ export function GameProvider({ children }) {
       setCurrentDurationSeconds(overtimeSeconds);
       setTotalSeconds(overtimeSeconds);
       setAjusteFinalAtivo(false);
-      pushLiveGame({
+      const nextLive = {
         id: 1,
         status: 'paused',
         mode,
@@ -1270,10 +1286,12 @@ export function GameProvider({ children }) {
         time_left: overtimeSeconds,
         team_a: teamAName,
         team_b: teamBName,
-        score_a: scoreA,
-        score_b: scoreB,
+        score_a: scoreARef.current,
+        score_b: scoreBRef.current,
         reset_at: null
-      });
+      };
+      lastAppliedLiveRef.current = { ...(lastAppliedLiveRef.current || {}), ...nextLive };
+      pushLiveGame(nextLive);
       return;
     }
 
@@ -1283,7 +1301,7 @@ export function GameProvider({ children }) {
     setCurrentDurationSeconds(nextDur);
     setTotalSeconds(nextDur);
     setAjusteFinalAtivo(false);
-    pushLiveGame({
+    const nextLive = {
       id: 1,
       status: 'paused',
       mode,
@@ -1293,10 +1311,12 @@ export function GameProvider({ children }) {
       time_left: nextDur,
       team_a: teamAName,
       team_b: teamBName,
-      score_a: scoreA,
-      score_b: scoreB,
+      score_a: scoreARef.current,
+      score_b: scoreBRef.current,
       reset_at: null
-    });
+    };
+    lastAppliedLiveRef.current = { ...(lastAppliedLiveRef.current || {}), ...nextLive };
+    pushLiveGame(nextLive);
   }
 
   function resetTimer() {
