@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.67';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.68';
 
 function pickLiveDebug(live) {
   if (!live) return null;
@@ -114,6 +114,14 @@ export default function GamePage() {
     if (Number.isFinite(ms)) return ms;
     const fallback = Date.parse(raw);
     return Number.isFinite(fallback) ? fallback : 0;
+  }
+
+  function isActiveLivePayload(live) {
+    return !!live?.match_id && live.status !== 'ended';
+  }
+
+  function isActiveTournamentPayload(live) {
+    return isActiveLivePayload(live) && live.mode === 'tournament';
   }
 
   function formatAttendanceName(name) {
@@ -237,9 +245,7 @@ export default function GamePage() {
         return;
       }
       if (mode === 'tournament' && matchId) {
-        logDebugRef.current('GamePage.bootstrap.keepTournamentState', { matchId, quarterIndex: quarterIndex + 1 });
-        setScoreboardBootstrapComplete(true);
-        return;
+        logDebugRef.current('GamePage.bootstrap.checkLocalTournamentAgainstLive', { matchId, quarterIndex: quarterIndex + 1 });
       }
       const today = todayISOInSaoPaulo();
       logDebugRef.current('GamePage.bootstrap.begin', { today, dateISO });
@@ -307,11 +313,12 @@ export default function GamePage() {
     if (!isScoreboard) return;
     if (!scoreboardBootstrapComplete) return;
     if (location.state?.tournamentMatch?.id) return;
-    if (mode === 'tournament' || liveView?.mode === 'tournament') return;
-    if (restoringLiveRef.current || lastGoodLiveRef.current?.mode === 'tournament') return;
-    if (mode !== 'quick') return;
-    if (matchId) return;
-    if (liveView?.match_id) return;
+    const activeTournamentLive = isActiveTournamentPayload(liveView) || isActiveTournamentPayload(lastGoodLiveRef.current);
+    const activeAnyLive = isActiveLivePayload(liveView) || isActiveLivePayload(lastGoodLiveRef.current);
+    if (activeTournamentLive) return;
+    if (restoringLiveRef.current) return;
+    if (mode !== 'quick' && activeAnyLive) return;
+    if (matchId && activeAnyLive) return;
     if (quickFallbackStartedRef.current) return;
     quickFallbackStartedRef.current = true;
     let cancelled = false;
@@ -574,7 +581,7 @@ export default function GamePage() {
   }, [canEdit, matchId, liveView?.match_id, liveView?.match_no, liveView?.mode, mode, basketReloadKey]);
 
   const rawLive = liveView || lastGoodLiveRef.current;
-  const safeLive = rawLive && rawLive.mode === 'quick' && !rawLive.match_id ? null : rawLive;
+  const safeLive = rawLive && (rawLive.status === 'ended' || (rawLive.mode === 'quick' && !rawLive.match_id)) ? null : rawLive;
   const quickViewMode = (canEdit ? mode : (safeLive?.mode || mode)) === 'quick';
   const quickTeamA = (settings.defaultTeamA || 'Com Colete').trim() || 'Com Colete';
   const quickTeamB = (settings.defaultTeamB || 'Sem Colete').trim() || 'Sem Colete';
