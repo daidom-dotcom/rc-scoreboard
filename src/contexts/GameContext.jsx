@@ -80,6 +80,14 @@ export function GameProvider({ children }) {
     return dateISO || todayISOInSaoPaulo();
   }
 
+  function isActiveLiveGame(live) {
+    return !!live?.match_id && live.status !== 'ended';
+  }
+
+  function isActiveTournamentLive(live) {
+    return isActiveLiveGame(live) && live.mode === 'tournament';
+  }
+
   useEffect(() => {
     matchIdRef.current = matchId;
   }, [matchId]);
@@ -521,8 +529,15 @@ export function GameProvider({ children }) {
     try {
       const date = getActiveDateISO();
       logDebug('refreshQuickNumber.begin', { date });
-      const live = await fetchLiveGame().catch(() => null);
-      if (live?.match_id && live.status !== 'ended') {
+      const live = await withTimeout(fetchLiveGame(), 2500, 'fetchLiveGame').catch(() => null);
+      if (isActiveTournamentLive(live)) {
+        logDebug('refreshQuickNumber.skipActiveTournament', {
+          match_id: live.match_id,
+          status: live.status || null
+        });
+        return Number(quickMatchNumber || 1);
+      }
+      if (isActiveLiveGame(live)) {
         logDebug('refreshQuickNumber.skipActiveLive', {
           mode: live.mode || null,
           match_id: live.match_id || null,
@@ -657,11 +672,19 @@ export function GameProvider({ children }) {
     const run = (async () => {
     clearDebugTrail();
     logDebug('startQuick.begin', { dateISO: getActiveDateISO() });
-    const live = await withTimeout(fetchLiveGame(), 3500, 'fetchLiveGame').catch(() => null);
-    if (live?.match_id && live.status !== 'ended') {
-      logDebug('startQuick.restoreActiveLiveInstead', {
-        mode: live.mode || null,
-        match_id: live.match_id || null,
+    const live = await withTimeout(fetchLiveGame(), 2500, 'fetchLiveGame').catch(() => null);
+    if (isActiveTournamentLive(live)) {
+      logDebug('startQuick.restoreActiveTournamentInstead', {
+        match_id: live.match_id,
+        match_no: live.match_no || null,
+        status: live.status || null
+      });
+      applyLiveSnapshot(live);
+      return live;
+    }
+    if (isActiveLiveGame(live) && live.mode === 'quick') {
+      logDebug('startQuick.restoreActiveQuickInstead', {
+        match_id: live.match_id,
         match_no: live.match_no || null,
         status: live.status || null
       });

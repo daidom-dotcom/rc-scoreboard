@@ -212,7 +212,7 @@ export default function GamePage() {
         setDateISO(today);
       }
       try {
-        const live = await withTimeout(fetchLiveGame(), 3500, 'fetchLiveGame');
+        const live = await withTimeout(fetchLiveGame(), 2500, 'fetchLiveGame');
         if (!active) return;
         const liveIsValidQuick = !(live?.mode === 'quick' && !live?.match_id);
         const hasLivePayload = !!(live && liveIsValidQuick && (live.match_id || live.match_no || live.team_a || live.team_b));
