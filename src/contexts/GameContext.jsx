@@ -20,6 +20,8 @@ const defaultSettings = {
   quickTeamNameScale: 1,
   quickPlayerNameScale: 1,
   quickControlsScale: 1,
+  scoringPositiveButtonScale: 1,
+  scoringNegativeButtonScale: 1,
   soundEnabled: true,
   theme: 'dark-green'
 };
@@ -452,7 +454,9 @@ export function GameProvider({ children }) {
           quickMatchLabelScale: Number(remote.quick_match_label_scale ?? settings.quickMatchLabelScale ?? defaultSettings.quickMatchLabelScale),
           quickTeamNameScale: Number(remote.quick_team_name_scale ?? settings.quickTeamNameScale ?? defaultSettings.quickTeamNameScale),
           quickPlayerNameScale: Number(remote.quick_player_name_scale ?? settings.quickPlayerNameScale ?? defaultSettings.quickPlayerNameScale),
-          quickControlsScale: Number(remote.quick_controls_scale ?? settings.quickControlsScale ?? defaultSettings.quickControlsScale)
+          quickControlsScale: Number(remote.quick_controls_scale ?? settings.quickControlsScale ?? defaultSettings.quickControlsScale),
+          scoringPositiveButtonScale: Number(remote.scoring_positive_button_scale ?? settings.scoringPositiveButtonScale ?? defaultSettings.scoringPositiveButtonScale),
+          scoringNegativeButtonScale: Number(remote.scoring_negative_button_scale ?? settings.scoringNegativeButtonScale ?? defaultSettings.scoringNegativeButtonScale)
         });
         setSettings(merged);
       } catch {

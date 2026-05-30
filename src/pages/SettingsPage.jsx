@@ -25,6 +25,8 @@ export default function SettingsPage() {
   const [quickTeamNameScale, setQuickTeamNameScale] = useState(settings.quickTeamNameScale || 1);
   const [quickPlayerNameScale, setQuickPlayerNameScale] = useState(settings.quickPlayerNameScale || 1);
   const [quickControlsScale, setQuickControlsScale] = useState(settings.quickControlsScale || 1);
+  const [scoringPositiveButtonScale, setScoringPositiveButtonScale] = useState(settings.scoringPositiveButtonScale || 1);
+  const [scoringNegativeButtonScale, setScoringNegativeButtonScale] = useState(settings.scoringNegativeButtonScale || 1);
   const presenceUrl = typeof window !== 'undefined' ? `${window.location.origin}/presence` : '/presence';
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(presenceUrl)}`;
 
@@ -50,7 +52,9 @@ export default function SettingsPage() {
       quickMatchLabelScale: readScale(quickMatchLabelScale, 1),
       quickTeamNameScale: readScale(quickTeamNameScale, 1),
       quickPlayerNameScale: readScale(quickPlayerNameScale, 1),
-      quickControlsScale: readScale(quickControlsScale, 1)
+      quickControlsScale: readScale(quickControlsScale, 1),
+      scoringPositiveButtonScale: readScale(scoringPositiveButtonScale, 1),
+      scoringNegativeButtonScale: readScale(scoringNegativeButtonScale, 1)
     });
     try {
       const basePayload = {
@@ -68,7 +72,9 @@ export default function SettingsPage() {
         quick_match_label_scale: nextSettings.quickMatchLabelScale,
         quick_team_name_scale: nextSettings.quickTeamNameScale,
         quick_player_name_scale: nextSettings.quickPlayerNameScale,
-        quick_controls_scale: nextSettings.quickControlsScale
+        quick_controls_scale: nextSettings.quickControlsScale,
+        scoring_positive_button_scale: nextSettings.scoringPositiveButtonScale,
+        scoring_negative_button_scale: nextSettings.scoringNegativeButtonScale
       };
       try {
         await upsertAppSettings({ ...basePayload, ...screenPayload });
@@ -255,8 +261,16 @@ export default function SettingsPage() {
               <input type="number" min="0.4" max="5" step="0.1" value={quickPlayerNameScale} onChange={(e) => setQuickPlayerNameScale(e.target.value)} />
             </label>
             <label>
-              <span className="label">Botões</span>
+              <span className="label">Botões Play/Stop</span>
               <input type="number" min="0.4" max="5" step="0.1" value={quickControlsScale} onChange={(e) => setQuickControlsScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Botões + pontos</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={scoringPositiveButtonScale} onChange={(e) => setScoringPositiveButtonScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Botões - pontos</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={scoringNegativeButtonScale} onChange={(e) => setScoringNegativeButtonScale(e.target.value)} />
             </label>
           </div>
           <div className="actions" style={{ marginTop: 14 }}>

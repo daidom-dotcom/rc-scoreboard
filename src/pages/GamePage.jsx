@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.68';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.69';
 
 function pickLiveDebug(live) {
   if (!live) return null;
@@ -1389,15 +1389,13 @@ export default function GamePage() {
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal modal-small">
             <div className="modal-title">{scoringPrompt.entry?.shortName || scoringPrompt.entry?.player_name} marcou quantos pontos?</div>
-            <div className="actions">
-              <button className="btn-controle" onClick={() => handleScoreChoice(1)}>+1</button>
-              <button className="btn-controle" onClick={() => handleScoreChoice(2)}>+2</button>
-              <button className="btn-controle" onClick={() => handleScoreChoice(3)}>+3</button>
-            </div>
-            <div className="actions scoring-reduce-row">
-              <button className="btn-gray" onClick={() => handleScoreReduction(1)}>-1</button>
-              <button className="btn-gray" onClick={() => handleScoreReduction(2)}>-2</button>
-              <button className="btn-gray" onClick={() => handleScoreReduction(3)}>-3</button>
+            <div className="scoring-button-grid">
+              <button className="btn-controle scoring-point-btn scoring-plus-btn" onClick={() => handleScoreChoice(1)}>+1</button>
+              <button className="btn-controle scoring-point-btn scoring-plus-btn" onClick={() => handleScoreChoice(2)}>+2</button>
+              <button className="btn-controle scoring-point-btn scoring-plus-btn" onClick={() => handleScoreChoice(3)}>+3</button>
+              <button className="btn-gray scoring-point-btn scoring-minus-btn" onClick={() => handleScoreReduction(1)}>-1</button>
+              <button className="btn-gray scoring-point-btn scoring-minus-btn" onClick={() => handleScoreReduction(2)}>-2</button>
+              <button className="btn-gray scoring-point-btn scoring-minus-btn" onClick={() => handleScoreReduction(3)}>-3</button>
             </div>
             <div className="actions">
               <button className="btn-outline" onClick={() => setScoringPrompt({ open: false, team: null, entry: null })}>Cancelar</button>

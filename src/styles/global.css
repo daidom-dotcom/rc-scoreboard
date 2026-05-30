@@ -11,6 +11,8 @@
   --team-name-scale: 1;
   --player-name-scale: 1;
   --controls-scale: 1;
+  --scoring-positive-scale: 1;
+  --scoring-negative-scale: 1;
 }
 
 * { box-sizing: border-box; }
@@ -225,6 +227,29 @@ select {
 .modal .actions .btn-gray { min-width: 120px; height: 42px; flex: 0 0 auto; }
 .scoring-reduce-row {
   margin-top: 10px !important;
+}
+
+.scoring-button-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+.scoring-button-grid .scoring-point-btn {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  min-height: 46px;
+  height: auto;
+  margin: 0;
+  padding: 10px 8px;
+  line-height: 1.05;
+}
+.scoring-button-grid .scoring-plus-btn {
+  font-size: calc(18px * var(--scoring-positive-scale));
+}
+.scoring-button-grid .scoring-minus-btn {
+  font-size: calc(18px * var(--scoring-negative-scale));
 }
 .history-actions .btn-controle { min-width: 120px; max-width: 170px; flex: 0 0 auto; }
 .history-actions { margin-top: 12px; }

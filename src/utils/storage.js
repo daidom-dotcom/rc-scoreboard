@@ -30,7 +30,9 @@ export function sanitizeSettings(settings) {
     quickMatchLabelScale: sanitizeScale(settings.quickMatchLabelScale, 1),
     quickTeamNameScale: sanitizeScale(settings.quickTeamNameScale, 1),
     quickPlayerNameScale: sanitizeScale(settings.quickPlayerNameScale, 1),
-    quickControlsScale: sanitizeScale(settings.quickControlsScale, 1)
+    quickControlsScale: sanitizeScale(settings.quickControlsScale, 1),
+    scoringPositiveButtonScale: sanitizeScale(settings.scoringPositiveButtonScale, 1),
+    scoringNegativeButtonScale: sanitizeScale(settings.scoringNegativeButtonScale, 1)
   };
 }
 

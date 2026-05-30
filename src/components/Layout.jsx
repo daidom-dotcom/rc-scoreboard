@@ -56,7 +56,9 @@ export default function Layout() {
     document.documentElement.style.setProperty('--team-name-scale', String(settings.quickTeamNameScale || 1));
     document.documentElement.style.setProperty('--player-name-scale', String(settings.quickPlayerNameScale || 1));
     document.documentElement.style.setProperty('--controls-scale', String(settings.quickControlsScale || 1));
-  }, [timerScale, scoreScale, settings.quickLogoScale, settings.quickMatchLabelScale, settings.quickTeamNameScale, settings.quickPlayerNameScale, settings.quickControlsScale]);
+    document.documentElement.style.setProperty('--scoring-positive-scale', String(settings.scoringPositiveButtonScale || 1));
+    document.documentElement.style.setProperty('--scoring-negative-scale', String(settings.scoringNegativeButtonScale || 1));
+  }, [timerScale, scoreScale, settings.quickLogoScale, settings.quickMatchLabelScale, settings.quickTeamNameScale, settings.quickPlayerNameScale, settings.quickControlsScale, settings.scoringPositiveButtonScale, settings.scoringNegativeButtonScale]);
 
   function adjustFont(delta) {
     setTimerScale((v) => Number(Math.max(MIN_SCALE, v + delta).toFixed(2)));
@@ -103,7 +105,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.68</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.69</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
