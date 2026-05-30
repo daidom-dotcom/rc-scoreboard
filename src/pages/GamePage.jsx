@@ -348,6 +348,14 @@ export default function GamePage() {
         lastLiveAtRef.current = ts;
         lastGoodLiveRef.current = data;
         setLiveView(data);
+        if (
+          isScoreboard &&
+          data.match_id &&
+          data.status !== 'ended' &&
+          (mode !== data.mode || matchId !== data.match_id)
+        ) {
+          applyLiveSnapshotRef.current(data);
+        }
       }
     }
     async function loadLive() {
@@ -364,7 +372,7 @@ export default function GamePage() {
       active = false;
       clearInterval(t);
     };
-  }, []);
+  }, [isScoreboard, mode, matchId]);
 
   useEffect(() => {
     const channel = supabase

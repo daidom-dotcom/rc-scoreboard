@@ -672,7 +672,13 @@ export function GameProvider({ children }) {
     const run = (async () => {
     clearDebugTrail();
     logDebug('startQuick.begin', { dateISO: getActiveDateISO() });
-    const live = await withTimeout(fetchLiveGame(), 2500, 'fetchLiveGame').catch(() => null);
+    let live = null;
+    try {
+      live = await withTimeout(fetchLiveGame(), 2500, 'fetchLiveGame');
+    } catch (err) {
+      logDebug('startQuick.liveCheckFailedAbortQuick', err?.message || 'unknown');
+      return null;
+    }
     if (isActiveTournamentLive(live)) {
       logDebug('startQuick.restoreActiveTournamentInstead', {
         match_id: live.match_id,
