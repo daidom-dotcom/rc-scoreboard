@@ -13,6 +13,13 @@ const defaultSettings = {
   alertSeconds: 20,
   defaultTeamA: 'Com Colete',
   defaultTeamB: 'Sem Colete',
+  quickTimerScale: 2,
+  quickScoreScale: 2,
+  quickLogoScale: 1,
+  quickMatchLabelScale: 1,
+  quickTeamNameScale: 1,
+  quickPlayerNameScale: 1,
+  quickControlsScale: 1,
   soundEnabled: true,
   theme: 'dark-green'
 };
@@ -275,7 +282,14 @@ export function GameProvider({ children }) {
           alertSeconds: Number(remote.alert_seconds ?? settings.alertSeconds ?? defaultSettings.alertSeconds),
           soundEnabled: remote.sound_enabled ?? settings.soundEnabled ?? defaultSettings.soundEnabled,
           defaultTeamA: remote.default_team_a ?? settings.defaultTeamA ?? defaultSettings.defaultTeamA,
-          defaultTeamB: remote.default_team_b ?? settings.defaultTeamB ?? defaultSettings.defaultTeamB
+          defaultTeamB: remote.default_team_b ?? settings.defaultTeamB ?? defaultSettings.defaultTeamB,
+          quickTimerScale: Number(remote.quick_timer_scale ?? settings.quickTimerScale ?? defaultSettings.quickTimerScale),
+          quickScoreScale: Number(remote.quick_score_scale ?? settings.quickScoreScale ?? defaultSettings.quickScoreScale),
+          quickLogoScale: Number(remote.quick_logo_scale ?? settings.quickLogoScale ?? defaultSettings.quickLogoScale),
+          quickMatchLabelScale: Number(remote.quick_match_label_scale ?? settings.quickMatchLabelScale ?? defaultSettings.quickMatchLabelScale),
+          quickTeamNameScale: Number(remote.quick_team_name_scale ?? settings.quickTeamNameScale ?? defaultSettings.quickTeamNameScale),
+          quickPlayerNameScale: Number(remote.quick_player_name_scale ?? settings.quickPlayerNameScale ?? defaultSettings.quickPlayerNameScale),
+          quickControlsScale: Number(remote.quick_controls_scale ?? settings.quickControlsScale ?? defaultSettings.quickControlsScale)
         });
         setSettings(merged);
       } catch {
@@ -379,9 +393,6 @@ export function GameProvider({ children }) {
       const currentIndex = Math.max(0, Number(quarterIndex || 0));
       const currentSeconds = Number(data.durations?.[currentIndex] || totalSeconds || settings.quickDurationSeconds);
       setCurrentDurationSeconds(currentSeconds);
-      if (!running) {
-        setTotalSeconds(currentSeconds);
-      }
     }
     hydrateTournamentMatch();
     return () => {

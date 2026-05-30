@@ -18,8 +18,21 @@ export default function SettingsPage() {
   const [soundEnabled, setSoundEnabled] = useState(settings.soundEnabled);
   const [defaultTeamA, setDefaultTeamA] = useState(settings.defaultTeamA);
   const [defaultTeamB, setDefaultTeamB] = useState(settings.defaultTeamB);
+  const [quickTimerScale, setQuickTimerScale] = useState(settings.quickTimerScale || 2);
+  const [quickScoreScale, setQuickScoreScale] = useState(settings.quickScoreScale || 2);
+  const [quickLogoScale, setQuickLogoScale] = useState(settings.quickLogoScale || 1);
+  const [quickMatchLabelScale, setQuickMatchLabelScale] = useState(settings.quickMatchLabelScale || 1);
+  const [quickTeamNameScale, setQuickTeamNameScale] = useState(settings.quickTeamNameScale || 1);
+  const [quickPlayerNameScale, setQuickPlayerNameScale] = useState(settings.quickPlayerNameScale || 1);
+  const [quickControlsScale, setQuickControlsScale] = useState(settings.quickControlsScale || 1);
   const presenceUrl = typeof window !== 'undefined' ? `${window.location.origin}/presence` : '/presence';
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(presenceUrl)}`;
+
+  function readScale(value, fallback = 1) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(5, Math.max(0.4, n));
+  }
 
   async function save() {
     const duration = Math.max(0, Number(quickMinutes) * 60 + Number(quickSeconds));
@@ -30,17 +43,41 @@ export default function SettingsPage() {
       alertSeconds: Number(alertSeconds) || 20,
       soundEnabled: !!soundEnabled,
       defaultTeamA: defaultTeamA || 'Com Colete',
-      defaultTeamB: defaultTeamB || 'Sem Colete'
+      defaultTeamB: defaultTeamB || 'Sem Colete',
+      quickTimerScale: readScale(quickTimerScale, 2),
+      quickScoreScale: readScale(quickScoreScale, 2),
+      quickLogoScale: readScale(quickLogoScale, 1),
+      quickMatchLabelScale: readScale(quickMatchLabelScale, 1),
+      quickTeamNameScale: readScale(quickTeamNameScale, 1),
+      quickPlayerNameScale: readScale(quickPlayerNameScale, 1),
+      quickControlsScale: readScale(quickControlsScale, 1)
     });
     try {
-      await upsertAppSettings({
+      const basePayload = {
         quick_duration_seconds: nextSettings.quickDurationSeconds,
         quick_min_players_per_team: nextSettings.quickMinPlayersPerTeam,
         alert_seconds: nextSettings.alertSeconds,
         sound_enabled: nextSettings.soundEnabled,
         default_team_a: nextSettings.defaultTeamA,
         default_team_b: nextSettings.defaultTeamB
-      });
+      };
+      const screenPayload = {
+        quick_timer_scale: nextSettings.quickTimerScale,
+        quick_score_scale: nextSettings.quickScoreScale,
+        quick_logo_scale: nextSettings.quickLogoScale,
+        quick_match_label_scale: nextSettings.quickMatchLabelScale,
+        quick_team_name_scale: nextSettings.quickTeamNameScale,
+        quick_player_name_scale: nextSettings.quickPlayerNameScale,
+        quick_controls_scale: nextSettings.quickControlsScale
+      };
+      try {
+        await upsertAppSettings({ ...basePayload, ...screenPayload });
+      } catch (settingsError) {
+        if (!String(settingsError.message || '').includes('schema cache') && !String(settingsError.message || '').includes('column')) {
+          throw settingsError;
+        }
+        await upsertAppSettings(basePayload);
+      }
       const { data: live, error: liveError } = await supabase
         .from('live_game')
         .select('id,mode,status,match_id,score_a,score_b')
@@ -145,6 +182,7 @@ export default function SettingsPage() {
 
       <div className="panel tabs">
         <button className={`btn-outline ${tab === 'quick' ? 'active' : ''}`} onClick={() => setTab('quick')}>🏀 Jogo</button>
+        <button className={`btn-outline ${tab === 'screen' ? 'active' : ''}`} onClick={() => setTab('screen')}>🖥️ Tela</button>
         <button className={`btn-outline ${tab === 'users' ? 'active' : ''}`} onClick={() => setTab('users')}>👥 Usuários</button>
         <button className={`btn-outline ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>Partidas</button>
         <NavLink to="/image-studio" className="btn-outline" aria-label="Gerar arte" title="Gerar arte">📷</NavLink>
@@ -187,6 +225,42 @@ export default function SettingsPage() {
             <div className="label">QR de Presença</div>
             <img src={qrUrl} alt="QR Code de presença" className="qr-image" />
             <div className="muted">{presenceUrl}</div>
+          </div>
+        </div>
+      ) : tab === 'screen' ? (
+        <div className="panel">
+          <div className="screen-settings-grid">
+            <label>
+              <span className="label">Cronômetro</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={quickTimerScale} onChange={(e) => setQuickTimerScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Placar</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={quickScoreScale} onChange={(e) => setQuickScoreScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Logo</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={quickLogoScale} onChange={(e) => setQuickLogoScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Partida/Quarter</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={quickMatchLabelScale} onChange={(e) => setQuickMatchLabelScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Nome dos times</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={quickTeamNameScale} onChange={(e) => setQuickTeamNameScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Jogadores</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={quickPlayerNameScale} onChange={(e) => setQuickPlayerNameScale(e.target.value)} />
+            </label>
+            <label>
+              <span className="label">Botões</span>
+              <input type="number" min="0.4" max="5" step="0.1" value={quickControlsScale} onChange={(e) => setQuickControlsScale(e.target.value)} />
+            </label>
+          </div>
+          <div className="actions" style={{ marginTop: 14 }}>
+            <button className="btn-controle" onClick={save}>Salvar</button>
           </div>
         </div>
       ) : tab === 'users' ? (

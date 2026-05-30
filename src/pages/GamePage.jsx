@@ -57,10 +57,12 @@ export default function GamePage() {
   const canEdit = !!user && isScoreboard;
   const [teamEntryRows, setTeamEntryRows] = useState({ A: [], B: [] });
   const [liveView, setLiveView] = useState(null);
+  const [scoreboardBootstrapComplete, setScoreboardBootstrapComplete] = useState(false);
   const lastLiveAtRef = useRef(0);
   const lastGoodLiveRef = useRef(null);
   const initializedScoreboardRef = useRef(false);
   const quickFallbackStartedRef = useRef(false);
+  const restoringLiveRef = useRef(false);
   const entriesRequestRef = useRef(0);
   const startQuickRef = useRef(startQuick);
   const applyLiveSnapshotRef = useRef(applyLiveSnapshot);
@@ -189,10 +191,12 @@ export default function GamePage() {
     async function bootstrapScoreboard() {
       if (location.state?.tournamentMatch?.id) {
         logDebugRef.current('GamePage.bootstrap.skipForTournamentNavigation', { matchId: location.state.tournamentMatch.id });
+        setScoreboardBootstrapComplete(true);
         return;
       }
       if (mode === 'tournament' && matchId) {
         logDebugRef.current('GamePage.bootstrap.keepTournamentState', { matchId, quarterIndex: quarterIndex + 1 });
+        setScoreboardBootstrapComplete(true);
         return;
       }
       const today = todayISOInSaoPaulo();
@@ -208,8 +212,9 @@ export default function GamePage() {
         const defaultQuickSeconds = Number(settings.quickDurationSeconds || 420);
         const liveQuickSeconds = Number(live?.time_left || 0);
         const quickInProgress = !!live && live.mode === 'quick' && liveQuickSeconds > 0 && liveQuickSeconds < defaultQuickSeconds;
+        const tournamentInProgress = !!live && live.mode === 'tournament' && !!live.match_id && live.status !== 'ended';
         const shouldRestoreLive = !!live && (
-          (live.mode === 'quick' ? quickInProgress : true)
+          live.mode === 'quick' ? quickInProgress : tournamentInProgress
         );
         if (live && !liveIsValidQuick) {
           logDebugRef.current('GamePage.bootstrap.ignoreInvalidQuickLive', {
@@ -225,7 +230,16 @@ export default function GamePage() {
             match_no: live.match_no,
             time_left: live.time_left
           });
+          restoringLiveRef.current = true;
+          quickFallbackStartedRef.current = true;
+          lastLiveAtRef.current = live.updated_at ? parseTimestampMs(live.updated_at) : Date.now();
+          lastGoodLiveRef.current = live;
+          setLiveView(live);
           applyLiveSnapshotRef.current(live);
+          setTimeout(() => {
+            restoringLiveRef.current = false;
+          }, 500);
+          setScoreboardBootstrapComplete(true);
           return;
         }
       } catch {
@@ -241,6 +255,7 @@ export default function GamePage() {
           // deixa a tela viva, mas sem quebrar a montagem
         }
       }
+      if (active) setScoreboardBootstrapComplete(true);
     }
     bootstrapScoreboard();
     return () => {
@@ -250,8 +265,10 @@ export default function GamePage() {
 
   useEffect(() => {
     if (!isScoreboard) return;
+    if (!scoreboardBootstrapComplete) return;
     if (location.state?.tournamentMatch?.id) return;
     if (mode === 'tournament' || liveView?.mode === 'tournament') return;
+    if (restoringLiveRef.current || lastGoodLiveRef.current?.mode === 'tournament') return;
     if (mode !== 'quick') return;
     if (matchId) return;
     if (liveView?.match_id) return;
@@ -272,7 +289,7 @@ export default function GamePage() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [isScoreboard, mode, matchId, liveView?.match_id, dateISO, quickMatchNumber]);
+  }, [isScoreboard, scoreboardBootstrapComplete, mode, matchId, liveView?.match_id, dateISO, quickMatchNumber]);
 
   useEffect(() => {
     if (matchId || liveView?.match_id) {

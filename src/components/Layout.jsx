@@ -5,15 +5,17 @@ import AlertModal from './AlertModal';
 import PasswordModal from './PasswordModal';
 import OvertimeModal from './OvertimeModal';
 import { useEffect, useState } from 'react';
+import { useGame } from '../contexts/GameContext';
 
 export default function Layout() {
   const { user, isMaster, isScoreboard, loading, signOut } = useAuth();
+  const { settings } = useGame();
   const location = useLocation();
   const navigate = useNavigate();
   const isGameRoute = location.pathname === '/game';
   const [showNav, setShowNav] = useState(true);
-  const [timerScale, setTimerScale] = useState(1);
-  const [scoreScale, setScoreScale] = useState(1);
+  const [timerScale, setTimerScale] = useState(settings.quickTimerScale || 2);
+  const [scoreScale, setScoreScale] = useState(settings.quickScoreScale || 2);
   const [logoutPwdOpen, setLogoutPwdOpen] = useState(false);
   const MIN_FONT_PX = 12;
   const MIN_SCALE = Math.max(MIN_FONT_PX / 86, MIN_FONT_PX / 200);
@@ -41,26 +43,39 @@ export default function Layout() {
   }, [user, isMaster, isScoreboard, location.pathname, navigate, loading]);
 
   useEffect(() => {
-    if (!isScoreboard || !isGameRoute) return;
-    setTimerScale((v) => (v < 2 ? 2 : v));
-    setScoreScale((v) => (v < 2 ? 2 : v));
-  }, [isScoreboard, isGameRoute]);
+    if (!isGameRoute) return;
+    setTimerScale(Number(settings.quickTimerScale || 2));
+    setScoreScale(Number(settings.quickScoreScale || 2));
+  }, [isGameRoute, settings.quickTimerScale, settings.quickScoreScale]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--timer-scale', String(timerScale));
     document.documentElement.style.setProperty('--score-scale', String(scoreScale));
-  }, [timerScale, scoreScale]);
+    document.documentElement.style.setProperty('--logo-scale', String(settings.quickLogoScale || 1));
+    document.documentElement.style.setProperty('--match-label-scale', String(settings.quickMatchLabelScale || 1));
+    document.documentElement.style.setProperty('--team-name-scale', String(settings.quickTeamNameScale || 1));
+    document.documentElement.style.setProperty('--player-name-scale', String(settings.quickPlayerNameScale || 1));
+    document.documentElement.style.setProperty('--controls-scale', String(settings.quickControlsScale || 1));
+  }, [timerScale, scoreScale, settings.quickLogoScale, settings.quickMatchLabelScale, settings.quickTeamNameScale, settings.quickPlayerNameScale, settings.quickControlsScale]);
 
   function adjustFont(delta) {
     setTimerScale((v) => Number(Math.max(MIN_SCALE, v + delta).toFixed(2)));
     setScoreScale((v) => Number(Math.max(MIN_SCALE, v + delta).toFixed(2)));
   }
 
-  function toggleFullScreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-    } else if (document.exitFullscreen) {
-      document.exitFullscreen();
+  async function toggleFullScreen() {
+    const root = document.documentElement;
+    const isFull = document.fullscreenElement || document.webkitFullscreenElement;
+    try {
+      if (!isFull) {
+        const request = root.requestFullscreen || root.webkitRequestFullscreen;
+        if (request) await request.call(root);
+      } else {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) await exit.call(document);
+      }
+    } catch {
+      // Fullscreen must be triggered by the tap gesture; unsupported browsers just ignore it.
     }
   }
 
@@ -88,7 +103,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <div>Rachão dos Crias</div>
-          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.48</div>
+          <div className="brand-sub">Desenvolvido por Daiane Esteves · V.1.2.50</div>
         </div>
         <nav className={`nav ${showNav ? '' : 'nav-hidden'}`} style={isScoreboard ? { display: 'none' } : undefined}>
           {location.pathname !== '/' ? (
@@ -150,11 +165,9 @@ export default function Layout() {
               ⚙️
             </NavLink>
           ) : null}
-          {!isScoreboard ? (
-            <button className="btn-outline btn-ghost topbar-btn" onClick={toggleFullScreen} title="Tela cheia" aria-label="Tela cheia">
-              ⛶
-            </button>
-          ) : null}
+          <button className="btn-outline btn-ghost topbar-btn" onClick={toggleFullScreen} title="Tela cheia" aria-label="Tela cheia">
+            ⛶
+          </button>
           {user ? (
             <button className="btn-outline topbar-btn" onClick={handleLogout}>Sair</button>
           ) : (

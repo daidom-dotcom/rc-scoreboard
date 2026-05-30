@@ -11,13 +11,26 @@ export function sanitizeQuickTeamName(value, fallback) {
   return normalized;
 }
 
+function sanitizeScale(value, fallback = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(5, Math.max(0.4, n));
+}
+
 export function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object') return settings;
   return {
     ...settings,
     quickMinPlayersPerTeam: Math.max(0, Number(settings.quickMinPlayersPerTeam || 0)),
     defaultTeamA: sanitizeQuickTeamName(settings.defaultTeamA, 'Com Colete'),
-    defaultTeamB: sanitizeQuickTeamName(settings.defaultTeamB, 'Sem Colete')
+    defaultTeamB: sanitizeQuickTeamName(settings.defaultTeamB, 'Sem Colete'),
+    quickTimerScale: sanitizeScale(settings.quickTimerScale, 2),
+    quickScoreScale: sanitizeScale(settings.quickScoreScale, 2),
+    quickLogoScale: sanitizeScale(settings.quickLogoScale, 1),
+    quickMatchLabelScale: sanitizeScale(settings.quickMatchLabelScale, 1),
+    quickTeamNameScale: sanitizeScale(settings.quickTeamNameScale, 1),
+    quickPlayerNameScale: sanitizeScale(settings.quickPlayerNameScale, 1),
+    quickControlsScale: sanitizeScale(settings.quickControlsScale, 1)
   };
 }
 
