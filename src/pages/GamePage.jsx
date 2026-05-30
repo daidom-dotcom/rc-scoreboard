@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.60';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.62';
 
 function pickLiveDebug(live) {
   if (!live) return null;
@@ -790,7 +790,7 @@ export default function GamePage() {
     if (![1, 2, 3].includes(points)) return true;
     const side = team === 'A' ? 'A' : 'B';
     const scorer = scorerName || 'Outros';
-    const currentMatchId = await ensureActiveQuickMatchId();
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) {
       return false;
     }
@@ -821,7 +821,7 @@ export default function GamePage() {
   async function removeLastBasketEvent(team) {
     if (!canEdit) return true;
     const side = team === 'A' ? 'A' : 'B';
-    const currentMatchId = await ensureActiveQuickMatchId();
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) return false;
     const { data: latest, error } = await supabase
       .from('basket_events')
@@ -848,7 +848,7 @@ export default function GamePage() {
 
   async function removeBasketByPlayerAndType(playerName, points) {
     if (!canEdit) return;
-    const currentMatchId = await ensureActiveQuickMatchId();
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) return;
     const { data: latest, error } = await supabase
       .from('basket_events')
@@ -895,7 +895,7 @@ export default function GamePage() {
 
   async function handleScoreReduction(points) {
     if (!scoringPrompt.open || !scoringPrompt.team || !scoringPrompt.entry) return;
-    const currentMatchId = await ensureActiveQuickMatchId();
+    const currentMatchId = await resolveCurrentMatchIdForEvents();
     if (!currentMatchId) {
       showAlert('Partida ainda não disponível.');
       return;

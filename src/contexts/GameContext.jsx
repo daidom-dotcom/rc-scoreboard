@@ -325,6 +325,43 @@ export function GameProvider({ children }) {
     return updateLiveGame(payload);
   }
 
+  function buildLivePayload(overrides = {}) {
+    const applied = lastAppliedLiveRef.current;
+    const activeTournament = isActiveTournamentLive(applied);
+    const effectiveMode = activeTournament ? 'tournament' : mode;
+    const effectiveMatchId = effectiveMode === 'tournament'
+      ? (applied?.match_id || currentMatchRef.current?.id || matchId)
+      : matchId;
+    const effectiveMatchNo = effectiveMode === 'quick'
+      ? quickMatchNumber
+      : (applied?.match_no || currentMatchRef.current?.match_no || null);
+    const effectiveQuarter = effectiveMode === 'tournament'
+      ? numberOrFallback(applied?.quarter, quarterIndex + 1)
+      : quarterIndex + 1;
+    const effectiveTeamA = effectiveMode === 'tournament'
+      ? (applied?.team_a || teamAName)
+      : teamAName;
+    const effectiveTeamB = effectiveMode === 'tournament'
+      ? (applied?.team_b || teamBName)
+      : teamBName;
+    const effectiveTimeLeft = totalSeconds;
+    return {
+      id: 1,
+      status: running ? 'running' : 'paused',
+      mode: effectiveMode,
+      match_id: effectiveMatchId || null,
+      match_no: effectiveMatchNo,
+      quarter: effectiveQuarter,
+      time_left: effectiveTimeLeft,
+      team_a: effectiveTeamA,
+      team_b: effectiveTeamB,
+      score_a: scoreARef.current,
+      score_b: scoreBRef.current,
+      reset_at: null,
+      ...overrides
+    };
+  }
+
   async function pushLiveGame(payload) {
     if (!canControlLive) return null;
     if (remoteResetRef.current) return null;
@@ -861,7 +898,8 @@ export function GameProvider({ children }) {
       reset_at: null
     };
     if (user && (isScoreboard || isMaster)) {
-      await upsertLiveGame(tournamentLivePayload);
+      const live = await upsertLiveGame(tournamentLivePayload);
+      lastAppliedLiveRef.current = live || tournamentLivePayload;
     }
   }
 
@@ -877,24 +915,24 @@ export function GameProvider({ children }) {
     // Priming the horn pauses Apple Music on iPad.
     ensureAudioReady().catch(() => {});
     let ensuredQuick = null;
-    if (mode === 'quick') {
+    const restoringTournament = isActiveTournamentLive(lastAppliedLiveRef.current) || mode === 'tournament';
+    if (mode === 'quick' && !restoringTournament) {
       ensuredQuick = await ensureQuickMatch();
       if (!ensuredQuick?.id && !matchId) return;
     }
-    pushLiveGame({
-      id: 1,
+    if (ensuredQuick?.id) {
+      setMatchId(ensuredQuick.id);
+      matchIdRef.current = ensuredQuick.id;
+    }
+    pushLiveGame(buildLivePayload({
       status: 'running',
-      mode,
-      match_id: mode === 'tournament' ? currentMatchRef.current?.id : (ensuredQuick?.id || matchId),
-      match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
-      quarter: quarterIndex + 1,
-      time_left: totalSeconds,
-      team_a: teamAName,
-      team_b: teamBName,
-      score_a: scoreA,
-      score_b: scoreB,
-      reset_at: null
-    });
+      match_id: restoringTournament
+        ? (lastAppliedLiveRef.current?.match_id || currentMatchRef.current?.id || matchId)
+        : (ensuredQuick?.id || matchId),
+      score_a: scoreARef.current,
+      score_b: scoreBRef.current,
+      time_left: totalSeconds
+    }));
   }
 
   function pause() {
@@ -902,20 +940,12 @@ export function GameProvider({ children }) {
     if (remoteResetRef.current) return;
     if (mode === 'quick' && !matchId) return;
     setRunning(false);
-    pushLiveGame({
-      id: 1,
+    pushLiveGame(buildLivePayload({
       status: 'paused',
-      mode,
-      match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-      match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
-      quarter: quarterIndex + 1,
-      time_left: totalSeconds,
-      team_a: teamAName,
-      team_b: teamBName,
-      score_a: scoreA,
-      score_b: scoreB,
-      reset_at: null
-    });
+      score_a: scoreARef.current,
+      score_b: scoreBRef.current,
+      time_left: totalSeconds
+    }));
   }
 
   function addPoint(team, value) {
@@ -929,20 +959,10 @@ export function GameProvider({ children }) {
       setScoreA((prev) => {
         const nextScore = Math.max(0, prev + delta);
         scoreARef.current = nextScore;
-        pushLiveGame({
-          id: 1,
-          status: running ? 'running' : 'paused',
-          mode,
-          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
-          quarter: quarterIndex + 1,
-          time_left: totalSeconds,
-          team_a: teamAName,
-          team_b: teamBName,
+        pushLiveGame(buildLivePayload({
           score_a: nextScore,
-          score_b: scoreB,
-          reset_at: null
-        });
+          score_b: scoreBRef.current
+        }));
         return nextScore;
       });
       setBasketsA((prev) => {
@@ -966,20 +986,10 @@ export function GameProvider({ children }) {
       setScoreB((prev) => {
         const nextScore = Math.max(0, prev + delta);
         scoreBRef.current = nextScore;
-        pushLiveGame({
-          id: 1,
-          status: running ? 'running' : 'paused',
-          mode,
-          match_id: mode === 'tournament' ? currentMatchRef.current?.id : matchId,
-          match_no: mode === 'quick' ? quickMatchNumber : (currentMatchRef.current?.match_no || null),
-          quarter: quarterIndex + 1,
-          time_left: totalSeconds,
-          team_a: teamAName,
-          team_b: teamBName,
-          score_a: scoreA,
-          score_b: nextScore,
-          reset_at: null
-        });
+        pushLiveGame(buildLivePayload({
+          score_a: scoreARef.current,
+          score_b: nextScore
+        }));
         return nextScore;
       });
       setBasketsB((prev) => {
