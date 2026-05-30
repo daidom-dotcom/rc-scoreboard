@@ -155,6 +155,13 @@ export default function GamePage() {
     setPasswordState({ open: false, message: '', resolve: null });
   }
 
+  function withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms))
+    ]);
+  }
+
   useEffect(() => {
     startQuickRef.current = startQuick;
     applyLiveSnapshotRef.current = applyLiveSnapshot;
@@ -205,7 +212,7 @@ export default function GamePage() {
         setDateISO(today);
       }
       try {
-        const live = await fetchLiveGame();
+        const live = await withTimeout(fetchLiveGame(), 3500, 'fetchLiveGame');
         if (!active) return;
         const liveIsValidQuick = !(live?.mode === 'quick' && !live?.match_id);
         const hasLivePayload = !!(live && liveIsValidQuick && (live.match_id || live.match_no || live.team_a || live.team_b));
@@ -259,7 +266,7 @@ export default function GamePage() {
     return () => {
       active = false;
     };
-  }, [isScoreboard, dateISO, setDateISO, mode, matchId, quarterIndex, location.state]);
+  }, [isScoreboard, setDateISO, mode, matchId, quarterIndex, location.state]);
 
   useEffect(() => {
     if (!isScoreboard) return;

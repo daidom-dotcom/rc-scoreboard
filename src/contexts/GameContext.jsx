@@ -138,6 +138,13 @@ export function GameProvider({ children }) {
     setDebugTrail([]);
   }
 
+  function withTimeout(promise, ms, label) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timeout`)), ms))
+    ]);
+  }
+
   function syncQuickMatch(match, fallbackNo = null) {
     if (!match?.id) return null;
     setMatchId(match.id);
@@ -650,7 +657,7 @@ export function GameProvider({ children }) {
     const run = (async () => {
     clearDebugTrail();
     logDebug('startQuick.begin', { dateISO: getActiveDateISO() });
-    const live = await fetchLiveGame().catch(() => null);
+    const live = await withTimeout(fetchLiveGame(), 3500, 'fetchLiveGame').catch(() => null);
     if (live?.match_id && live.status !== 'ended') {
       logDebug('startQuick.restoreActiveLiveInstead', {
         mode: live.mode || null,
