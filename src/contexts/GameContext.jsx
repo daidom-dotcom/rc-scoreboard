@@ -284,12 +284,53 @@ export function GameProvider({ children }) {
       playAlarmPulse();
     }
   }
-  function pushLiveGame(payload) {
-    if (!canControlLive) return Promise.resolve(null);
-    if (remoteResetRef.current) return Promise.resolve(null);
-    if (liveRestoreRef.current) return Promise.resolve(null);
+  async function shouldBlockQuickLiveWrite(payload, source) {
+    const payloadMode = payload?.mode || mode;
+    if (payloadMode !== 'quick') return false;
+    const applied = lastAppliedLiveRef.current;
+    if (isActiveTournamentLive(applied)) {
+      logDebug('liveWrite.blockQuickLocalTournament', {
+        source,
+        tournamentMatchId: applied.match_id,
+        payloadMatchId: payload?.match_id || null
+      });
+      return true;
+    }
+    try {
+      const remoteLive = await withTimeout(fetchLiveGame(), 1500, 'fetchLiveGame');
+      if (isActiveTournamentLive(remoteLive)) {
+        lastAppliedLiveRef.current = remoteLive;
+        logDebug('liveWrite.blockQuickRemoteTournament', {
+          source,
+          tournamentMatchId: remoteLive.match_id,
+          tournamentScore: `${remoteLive.score_a || 0}x${remoteLive.score_b || 0}`,
+          payloadMatchId: payload?.match_id || null
+        });
+        return true;
+      }
+    } catch (err) {
+      logDebug('liveWrite.remoteCheckFailed', { source, error: err?.message || 'unknown' });
+      return true;
+    }
+    return false;
+  }
+
+  async function guardedUpsertLiveGame(payload, source = 'liveUpsert') {
+    if (await shouldBlockQuickLiveWrite(payload, source)) return null;
+    return upsertLiveGame(payload);
+  }
+
+  async function guardedUpdateLiveGame(payload, source = 'liveUpdate') {
+    if (await shouldBlockQuickLiveWrite(payload, source)) return null;
+    return updateLiveGame(payload);
+  }
+
+  async function pushLiveGame(payload) {
+    if (!canControlLive) return null;
+    if (remoteResetRef.current) return null;
+    if (liveRestoreRef.current) return null;
     // Never overwrite quick live with null match_id.
-    if (payload?.mode === 'quick' && !payload?.match_id) return Promise.resolve(null);
+    if (payload?.mode === 'quick' && !payload?.match_id) return null;
     const applied = lastAppliedLiveRef.current;
     const payloadScoreA = numberOrFallback(payload?.score_a, 0);
     const payloadScoreB = numberOrFallback(payload?.score_b, 0);
@@ -307,7 +348,7 @@ export function GameProvider({ children }) {
         appliedMatchId: applied.match_id,
         payloadMode: payload.mode || null
       });
-      return Promise.resolve(null);
+      return null;
     }
 
     if (appliedIsActive && payloadIsDifferentGame && payloadLooksZero && payload.status !== 'ended') {
@@ -317,7 +358,7 @@ export function GameProvider({ children }) {
         payloadMode: payload.mode,
         payloadMatchId: payload.match_id
       });
-      return Promise.resolve(null);
+      return null;
     }
 
     if (appliedIsActive && payloadIsSameGame && justRestoredLive && payloadLooksZero && appliedHadScore && payload.status !== 'ended') {
@@ -327,10 +368,10 @@ export function GameProvider({ children }) {
         appliedScoreA,
         appliedScoreB
       });
-      return Promise.resolve(null);
+      return null;
     }
 
-    return upsertLiveGame(payload).catch(() => {});
+    return guardedUpsertLiveGame(payload, 'pushLiveGame').catch(() => {});
   }
 
   useEffect(() => {
@@ -591,7 +632,7 @@ export function GameProvider({ children }) {
           live_match_no: live.match_no || null,
           live_status: live.status || null
         });
-        await upsertLiveGame({
+        await guardedUpsertLiveGame({
           id: 1,
           status: 'ended',
           mode: 'quick',
@@ -753,7 +794,7 @@ export function GameProvider({ children }) {
       const nextMatch = await ensureQuickMatch(nextNo);
       if (nextMatch?.id) {
         logDebug('startQuick.matchReady', { id: nextMatch.id, match_no: nextNo });
-        await upsertLiveGame({
+        await guardedUpsertLiveGame({
           id: 1,
           status: 'paused',
           mode: 'quick',
@@ -766,7 +807,7 @@ export function GameProvider({ children }) {
           score_a: 0,
           score_b: 0,
           reset_at: null
-        });
+        }, 'startQuick.liveReadyUpsert');
         logDebug('startQuick.liveReady', { match_id: nextMatch.id, match_no: nextNo });
       } else {
         logDebug('startQuick.matchMissingAfterEnsure');
@@ -1028,7 +1069,7 @@ export function GameProvider({ children }) {
         currentMatchRef.current = null;
       }
 
-      await updateLiveGame({
+      await guardedUpdateLiveGame({
         status: 'ended',
         match_no: closingMatchNo,
         time_left: 0,
@@ -1112,7 +1153,7 @@ export function GameProvider({ children }) {
     const nextMatch = await ensureQuickMatch(nextNo);
     if (!nextMatch?.id) return;
     await copyQuickEntriesToMatch(carryEntries, nextMatch.id, date);
-    updateLiveGame({
+    guardedUpdateLiveGame({
       status: 'paused',
       match_id: nextMatch.id,
       match_no: nextNo,

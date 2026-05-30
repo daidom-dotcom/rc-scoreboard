@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.59';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.60';
 
 function pickLiveDebug(live) {
   if (!live) return null;
