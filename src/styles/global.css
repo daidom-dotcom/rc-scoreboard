@@ -584,16 +584,6 @@ select {
   touch-action: manipulation;
   user-select: none;
 }
-.game-loading {
-  min-height: 45vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  font-weight: 900;
-  text-transform: uppercase;
-  text-shadow: 0 0 15px var(--verde);
-}
 
 .game-title-center {
   font-size: calc(28px * var(--match-label-scale));
