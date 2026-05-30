@@ -864,6 +864,25 @@ export function GameProvider({ children }) {
   }
 
   async function startTournamentMatch(match) {
+    if (!match?.id) return;
+    try {
+      const live = await withTimeout(fetchLiveGame(), 1500, 'fetchLiveGame').catch(() => null);
+      if (isActiveTournamentLive(live)) {
+        currentMatchRef.current = live.match_id === match.id ? match : currentMatchRef.current;
+        setCurrentTournamentId((live.match_id === match.id ? match.tournament_id : currentMatchRef.current?.tournament_id) || null);
+        logDebug('startTournamentMatch.restoreActiveLive', {
+          requestedMatchId: match.id,
+          liveMatchId: live.match_id,
+          liveQuarter: live.quarter,
+          liveScore: `${live.score_a || 0}x${live.score_b || 0}`
+        });
+        applyLiveSnapshot(live);
+        return;
+      }
+    } catch (err) {
+      logDebug('startTournamentMatch.liveCheckFailed', err?.message || 'unknown');
+    }
+
     setMode('tournament');
     if (match.date_iso) {
       setDateISO(match.date_iso);
