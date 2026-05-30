@@ -650,6 +650,17 @@ export function GameProvider({ children }) {
     const run = (async () => {
     clearDebugTrail();
     logDebug('startQuick.begin', { dateISO: getActiveDateISO() });
+    const live = await fetchLiveGame().catch(() => null);
+    if (live?.match_id && live.status !== 'ended') {
+      logDebug('startQuick.restoreActiveLiveInstead', {
+        mode: live.mode || null,
+        match_id: live.match_id || null,
+        match_no: live.match_no || null,
+        status: live.status || null
+      });
+      applyLiveSnapshot(live);
+      return live;
+    }
     setMode('quick');
     setMatchId(null);
     setQuarterIndex(0);

@@ -937,6 +937,14 @@ export default function GamePage() {
   const fmtBasketCount = (value) => String(Number(value || 0)).padStart(2, '0');
   const playDisabled = !canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo) || (isRapidMode && !quickReadyToPlay);
 
+  if (isScoreboard && !scoreboardBootstrapComplete) {
+    return (
+      <div className="game">
+        <div className="game-loading">Carregando placar...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="game">
       <div className="center" style={{ position: 'relative' }}>
