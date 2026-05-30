@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.62';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.63';
 
 function pickLiveDebug(live) {
   if (!live) return null;
@@ -601,11 +601,11 @@ export default function GamePage() {
   const timerAlert = safeViewTime <= settings.alertSeconds
     && safeViewTime > 0
     && (canEdit ? running : (safeLive?.status === 'running'));
-  const viewLabel = canEdit
-    ? label
-    : (safeLive?.mode === 'tournament'
-      ? `Quarter ${safeLive?.quarter || 1}`
-      : `Partida ${safeLive?.match_no || 1}`);
+  const viewLabel = safeLive?.mode === 'tournament'
+    ? `Quarter ${safeLive?.quarter || 1}`
+    : (safeLive?.mode === 'quick'
+      ? `Partida ${safeLive?.match_no || 1}`
+      : label);
   const isRapidMode = (safeLive?.mode || mode) === 'quick';
   const teamEntries = useMemo(() => ({
     A: (teamEntryRows.A || []).map((entry) => entry.shortName || formatAttendanceName(entry.player_name) || entry.firstName),
