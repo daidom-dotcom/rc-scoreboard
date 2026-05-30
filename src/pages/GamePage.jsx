@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.58';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.59';
 
 function pickLiveDebug(live) {
   if (!live) return null;
@@ -30,7 +30,7 @@ function pickLiveDebug(live) {
 }
 
 export default function GamePage() {
-  const { user, isScoreboard, profile } = useAuth();
+  const { user, isScoreboard, isMaster, profile } = useAuth();
   const {
     mode,
     quarterIndex,
@@ -989,7 +989,7 @@ export default function GamePage() {
   const enablePoints = running || ajusteFinalAtivo;
   const fmtBasketCount = (value) => String(Number(value || 0)).padStart(2, '0');
   const playDisabled = !canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo) || (isRapidMode && !quickReadyToPlay);
-  const showGameDiagnostic = !!user && (canEdit || profile?.role === 'master');
+  const showGameDiagnostic = !!user && (canEdit || isMaster || profile?.role === 'master');
   const diagnosticText = useMemo(() => JSON.stringify({
     deploy: DEPLOY_DEBUG_VERSION,
     generated_at: new Date().toISOString(),
@@ -998,6 +998,7 @@ export default function GamePage() {
       email: user?.email || null,
       role: profile?.role || null,
       isScoreboard,
+      isMaster,
       canEdit
     },
     local_state: {
@@ -1059,6 +1060,7 @@ export default function GamePage() {
     user?.email,
     profile?.role,
     isScoreboard,
+    isMaster,
     canEdit,
     mode,
     matchId,
