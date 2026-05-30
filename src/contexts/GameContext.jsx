@@ -74,6 +74,7 @@ export function GameProvider({ children }) {
   const resettingRef = useRef(false);
   const startQuickInFlightRef = useRef(null);
   const liveRestoreRef = useRef(false);
+  const lastLiveRestoreAtRef = useRef(0);
   const lastAppliedLiveRef = useRef(null);
 
   function getActiveDateISO() {
@@ -86,6 +87,16 @@ export function GameProvider({ children }) {
 
   function isActiveTournamentLive(live) {
     return isActiveLiveGame(live) && live.mode === 'tournament';
+  }
+
+  function parseLiveTimestampMs(value) {
+    const parsed = value ? new Date(value).getTime() : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function numberOrFallback(value, fallback = 0) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
   }
 
   useEffect(() => {
@@ -280,9 +291,25 @@ export function GameProvider({ children }) {
     // Never overwrite quick live with null match_id.
     if (payload?.mode === 'quick' && !payload?.match_id) return Promise.resolve(null);
     const applied = lastAppliedLiveRef.current;
-    const payloadLooksZero = Number(payload?.score_a || 0) === 0 && Number(payload?.score_b || 0) === 0;
+    const payloadScoreA = numberOrFallback(payload?.score_a, 0);
+    const payloadScoreB = numberOrFallback(payload?.score_b, 0);
+    const payloadLooksZero = payloadScoreA === 0 && payloadScoreB === 0;
+    const appliedScoreA = numberOrFallback(applied?.score_a, 0);
+    const appliedScoreB = numberOrFallback(applied?.score_b, 0);
+    const appliedHadScore = appliedScoreA !== 0 || appliedScoreB !== 0;
     const appliedIsActive = !!applied?.match_id && applied.status !== 'ended';
     const payloadIsDifferentGame = !!payload?.match_id && !!applied?.match_id && payload.match_id !== applied.match_id;
+    const payloadIsSameGame = !!payload?.match_id && !!applied?.match_id && payload.match_id === applied.match_id;
+    const justRestoredLive = Date.now() - lastLiveRestoreAtRef.current < 5000;
+
+    if (appliedIsActive && applied.mode === 'tournament' && payload?.mode !== 'tournament') {
+      logDebug('pushLiveGame.skipQuickOverTournament', {
+        appliedMatchId: applied.match_id,
+        payloadMode: payload.mode || null
+      });
+      return Promise.resolve(null);
+    }
+
     if (appliedIsActive && payloadIsDifferentGame && payloadLooksZero && payload.status !== 'ended') {
       logDebug('pushLiveGame.skipStaleZeroOverwrite', {
         appliedMode: applied.mode,
@@ -292,6 +319,17 @@ export function GameProvider({ children }) {
       });
       return Promise.resolve(null);
     }
+
+    if (appliedIsActive && payloadIsSameGame && justRestoredLive && payloadLooksZero && appliedHadScore && payload.status !== 'ended') {
+      logDebug('pushLiveGame.skipPostRestoreZeroOverwrite', {
+        mode: applied.mode,
+        matchId: applied.match_id,
+        appliedScoreA,
+        appliedScoreB
+      });
+      return Promise.resolve(null);
+    }
+
     return upsertLiveGame(payload).catch(() => {});
   }
 
@@ -1361,30 +1399,50 @@ export function GameProvider({ children }) {
     if (!live) return;
     if (live.reset_at) return;
     liveRestoreRef.current = true;
+    lastLiveRestoreAtRef.current = Date.now();
     lastAppliedLiveRef.current = live;
+
     const liveMode = live.mode || 'quick';
-    setMode(liveMode);
-    setQuarterIndex(Math.max(0, Number(live.quarter || 1) - 1));
     const isQuick = liveMode === 'quick';
+    const period = Math.max(1, numberOrFallback(live.quarter, 1));
+    const periodIndex = period - 1;
+    const liveScoreA = numberOrFallback(live.score_a, 0);
+    const liveScoreB = numberOrFallback(live.score_b, 0);
+    const baseTimeLeft = numberOrFallback(live.time_left, settings.quickDurationSeconds);
+    const elapsedSinceWrite = live.status === 'running'
+      ? Math.max(0, Math.floor((Date.now() - parseLiveTimestampMs(live.updated_at)) / 1000))
+      : 0;
+    const restoredTimeLeft = Math.max(0, baseTimeLeft - elapsedSinceWrite);
+    const matchDuration = numberOrFallback(
+      currentMatchRef.current?.durations?.[periodIndex],
+      numberOrFallback(currentDurationSeconds, Math.max(restoredTimeLeft, settings.quickDurationSeconds))
+    );
+    const durationForPeriod = isQuick ? settings.quickDurationSeconds : Math.max(matchDuration, restoredTimeLeft);
+
+    setMode(liveMode);
+    setQuarterIndex(periodIndex);
     const regularQuarters = Number(currentMatchRef.current?.quarters || currentMatchQuarters || 1);
     setCurrentMatchQuarters(regularQuarters);
-    setOvertimeCount(isQuick ? 0 : Math.max(0, Number(live.quarter || 1) - regularQuarters));
+    setOvertimeCount(isQuick ? 0 : Math.max(0, period - regularQuarters));
     const fallbackA = isQuick ? quickTeamA : (currentMatchRef.current?.team_a_name || currentMatchRef.current?.teamA || teamAName || 'TIME 1');
     const fallbackB = isQuick ? quickTeamB : (currentMatchRef.current?.team_b_name || currentMatchRef.current?.teamB || teamBName || 'TIME 2');
     // In quick mode, names are fixed and must never fallback to TIME 1/TIME 2.
     setTeamAName(isQuick ? quickTeamA : (live.team_a || fallbackA));
     setTeamBName(isQuick ? quickTeamB : (live.team_b || fallbackB));
-    setScoreA(Number(live.score_a || 0));
-    setScoreB(Number(live.score_b || 0));
-    setTotalSeconds(Number(live.time_left || settings.quickDurationSeconds));
-    setCurrentDurationSeconds(Number(live.time_left || settings.quickDurationSeconds));
+    setScoreA(liveScoreA);
+    setScoreB(liveScoreB);
+    scoreARef.current = liveScoreA;
+    scoreBRef.current = liveScoreB;
+    setTotalSeconds(restoredTimeLeft);
+    setCurrentDurationSeconds(durationForPeriod);
     setMatchId(live.match_id || null);
-    if (live.match_no) setQuickMatchNumber(live.match_no);
+    matchIdRef.current = live.match_id || null;
+    if (live.match_no != null) setQuickMatchNumber(Number(live.match_no));
     setAjusteFinalAtivo(false);
     setRunning(live.status === 'running');
     setTimeout(() => {
       liveRestoreRef.current = false;
-    }, 800);
+    }, 1500);
   }
 
   const value = useMemo(() => ({
