@@ -8,6 +8,27 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
+const DEPLOY_DEBUG_VERSION = 'V.1.2.58';
+
+function pickLiveDebug(live) {
+  if (!live) return null;
+  return {
+    id: live.id ?? null,
+    status: live.status ?? null,
+    mode: live.mode ?? null,
+    match_id: live.match_id ?? null,
+    match_no: live.match_no ?? null,
+    quarter: live.quarter ?? null,
+    time_left: live.time_left ?? null,
+    team_a: live.team_a ?? null,
+    team_b: live.team_b ?? null,
+    score_a: live.score_a ?? null,
+    score_b: live.score_b ?? null,
+    updated_at: live.updated_at ?? null,
+    reset_at: live.reset_at ?? null
+  };
+}
+
 export default function GamePage() {
   const { user, isScoreboard, profile } = useAuth();
   const {
@@ -78,6 +99,7 @@ export default function GamePage() {
   const [assignmentSide, setAssignmentSide] = useState(null);
   const [scoringPrompt, setScoringPrompt] = useState({ open: false, team: null, entry: null });
   const [teamRemoveModal, setTeamRemoveModal] = useState({ open: false, side: null, selectedKeys: [] });
+  const [liveFetchDebug, setLiveFetchDebug] = useState({ source: 'init', at: null, error: null, live: null });
 
   function parseTimestampMs(value) {
     if (!value) return 0;
@@ -107,6 +129,19 @@ export default function GamePage() {
     if (person?.attendee_key) return person.attendee_key;
     if (person?.user_id) return `user:${person.user_id}`;
     return `guest:${String(person?.player_name || '').trim().toLowerCase()}`;
+  }
+
+  async function copyDiagnosticText() {
+    const el = document.getElementById('game-diagnostic-text');
+    const text = el?.value || '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      showAlert('Diagnóstico copiado.');
+    } catch {
+      el?.focus();
+      el?.select();
+    }
   }
 
   function formatBasketPlayerName(rawName) {
@@ -348,6 +383,7 @@ export default function GamePage() {
         lastLiveAtRef.current = ts;
         lastGoodLiveRef.current = data;
         setLiveView(data);
+        setLiveFetchDebug({ source: 'poll', at: new Date().toISOString(), error: null, live: pickLiveDebug(data) });
         if (
           isScoreboard &&
           data.match_id &&
@@ -362,7 +398,8 @@ export default function GamePage() {
       try {
         const data = await fetchLiveGame();
         if (active && data) applyLiveIfNewer(data);
-      } catch {
+      } catch (err) {
+        setLiveFetchDebug((prev) => ({ ...prev, source: 'poll-error', at: new Date().toISOString(), error: err?.message || 'fetchLiveGame failed' }));
         // mantém o último valor para não piscar
       }
     }
@@ -388,6 +425,7 @@ export default function GamePage() {
             lastLiveAtRef.current = ts;
             lastGoodLiveRef.current = live;
             setLiveView(live);
+            setLiveFetchDebug({ source: 'realtime', at: new Date().toISOString(), error: null, live: pickLiveDebug(live) });
             if (
               isScoreboard &&
               live.mode === 'tournament' &&
@@ -951,6 +989,114 @@ export default function GamePage() {
   const enablePoints = running || ajusteFinalAtivo;
   const fmtBasketCount = (value) => String(Number(value || 0)).padStart(2, '0');
   const playDisabled = !canEdit || running || (totalSeconds === 0 && ajusteFinalAtivo) || (isRapidMode && !quickReadyToPlay);
+  const showGameDiagnostic = !!user && (canEdit || profile?.role === 'master');
+  const diagnosticText = useMemo(() => JSON.stringify({
+    deploy: DEPLOY_DEBUG_VERSION,
+    generated_at: new Date().toISOString(),
+    browser_path: window.location.pathname,
+    auth: {
+      email: user?.email || null,
+      role: profile?.role || null,
+      isScoreboard,
+      canEdit
+    },
+    local_state: {
+      mode,
+      matchId,
+      quickMatchNumber,
+      quarter: quarterIndex + 1,
+      currentMatchQuarters,
+      overtimeCount,
+      currentTournamentId,
+      running,
+      ajusteFinalAtivo,
+      totalSeconds,
+      formattedTime: formatTime(safeViewTime),
+      currentDurationSeconds: settings.quickDurationSeconds,
+      teamAName,
+      teamBName,
+      scoreA,
+      scoreB,
+      dateISO
+    },
+    view_state: {
+      viewLabel,
+      viewTeamA,
+      viewTeamB,
+      viewScoreA,
+      viewScoreB,
+      safeViewTime,
+      isRapidMode,
+      playDisabled,
+      quickReadyToPlay,
+      minPlayersPerTeam
+    },
+    live_state: {
+      rawLive: pickLiveDebug(rawLive),
+      safeLive: pickLiveDebug(safeLive),
+      liveFetchDebug,
+      lastLiveAt: lastLiveAtRef.current,
+      lastGoodLive: pickLiveDebug(lastGoodLiveRef.current)
+    },
+    page_flags: {
+      scoreboardBootstrapComplete,
+      initializedScoreboard: initializedScoreboardRef.current,
+      quickFallbackStarted: quickFallbackStartedRef.current,
+      restoringLive: restoringLiveRef.current
+    },
+    entries: {
+      debug: entriesDebug,
+      teamA_count: teamEntryRows.A?.length || 0,
+      teamB_count: teamEntryRows.B?.length || 0,
+      teamA: (teamEntryRows.A || []).map((p) => p.shortName || p.player_name),
+      teamB: (teamEntryRows.B || []).map((p) => p.shortName || p.player_name),
+      attendance_count: attendanceList.length,
+      available_attendance_count: availableAttendanceList.length,
+      basket_events_count: basketEvents.length
+    },
+    events: (debugTrail || []).slice(-40)
+  }, null, 2), [
+    user?.email,
+    profile?.role,
+    isScoreboard,
+    canEdit,
+    mode,
+    matchId,
+    quickMatchNumber,
+    quarterIndex,
+    currentMatchQuarters,
+    overtimeCount,
+    currentTournamentId,
+    running,
+    ajusteFinalAtivo,
+    totalSeconds,
+    safeViewTime,
+    settings.quickDurationSeconds,
+    teamAName,
+    teamBName,
+    scoreA,
+    scoreB,
+    dateISO,
+    viewLabel,
+    viewTeamA,
+    viewTeamB,
+    viewScoreA,
+    viewScoreB,
+    isRapidMode,
+    playDisabled,
+    quickReadyToPlay,
+    minPlayersPerTeam,
+    rawLive,
+    safeLive,
+    liveFetchDebug,
+    scoreboardBootstrapComplete,
+    entriesDebug,
+    teamEntryRows,
+    attendanceList.length,
+    availableAttendanceList.length,
+    basketEvents.length,
+    debugTrail
+  ]);
 
   return (
     <div className="game">
@@ -1087,6 +1233,20 @@ export default function GamePage() {
             🔑
           </button>
         </div>
+      ) : null}
+
+      {showGameDiagnostic ? (
+        <details className="debug-panel game-diagnostic-panel" open>
+          <summary className="game-diagnostic-title">Diagnóstico do deploy {DEPLOY_DEBUG_VERSION}</summary>
+          <button type="button" className="btn-outline diagnostic-copy-btn" onClick={copyDiagnosticText}>Copiar diagnóstico</button>
+          <textarea
+            id="game-diagnostic-text"
+            className="game-diagnostic-text"
+            readOnly
+            value={diagnosticText}
+            onFocus={(event) => event.target.select()}
+          />
+        </details>
       ) : null}
 
       <details className="basket-stats-plain">

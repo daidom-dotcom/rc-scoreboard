@@ -862,6 +862,41 @@ select {
   text-align: left;
   word-break: break-word;
 }
+
+.game-diagnostic-panel {
+  max-width: min(920px, calc(100vw - 24px));
+  margin-top: 12px;
+  opacity: .95;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.game-diagnostic-title {
+  cursor: pointer;
+  font-weight: 900;
+  color: var(--verde);
+}
+.diagnostic-copy-btn {
+  margin: 8px 0;
+  min-height: 28px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.game-diagnostic-text {
+  width: 100%;
+  min-height: 260px;
+  max-height: 46vh;
+  resize: vertical;
+  border: 1px solid rgba(180,240,0,.35);
+  border-radius: 8px;
+  background: rgba(0,0,0,.78);
+  color: var(--verde);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 10px;
+  white-space: pre;
+}
+
 .presence-panel {
   max-width: 620px;
   margin: 40px auto 0;
