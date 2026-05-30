@@ -73,6 +73,8 @@ export function GameProvider({ children }) {
   const remoteResetRef = useRef(false);
   const resettingRef = useRef(false);
   const startQuickInFlightRef = useRef(null);
+  const liveRestoreRef = useRef(false);
+  const lastAppliedLiveRef = useRef(null);
 
   function getActiveDateISO() {
     return dateISO || todayISOInSaoPaulo();
@@ -259,8 +261,22 @@ export function GameProvider({ children }) {
   function pushLiveGame(payload) {
     if (!canControlLive) return Promise.resolve(null);
     if (remoteResetRef.current) return Promise.resolve(null);
+    if (liveRestoreRef.current) return Promise.resolve(null);
     // Never overwrite quick live with null match_id.
     if (payload?.mode === 'quick' && !payload?.match_id) return Promise.resolve(null);
+    const applied = lastAppliedLiveRef.current;
+    const payloadLooksZero = Number(payload?.score_a || 0) === 0 && Number(payload?.score_b || 0) === 0;
+    const appliedIsActive = !!applied?.match_id && applied.status !== 'ended';
+    const payloadIsDifferentGame = !!payload?.match_id && !!applied?.match_id && payload.match_id !== applied.match_id;
+    if (appliedIsActive && payloadIsDifferentGame && payloadLooksZero && payload.status !== 'ended') {
+      logDebug('pushLiveGame.skipStaleZeroOverwrite', {
+        appliedMode: applied.mode,
+        appliedMatchId: applied.match_id,
+        payloadMode: payload.mode,
+        payloadMatchId: payload.match_id
+      });
+      return Promise.resolve(null);
+    }
     return upsertLiveGame(payload).catch(() => {});
   }
 
@@ -499,6 +515,17 @@ export function GameProvider({ children }) {
       const date = getActiveDateISO();
       logDebug('refreshQuickNumber.begin', { date });
       const live = await fetchLiveGame().catch(() => null);
+      if (live?.match_id && live.status !== 'ended') {
+        logDebug('refreshQuickNumber.skipActiveLive', {
+          mode: live.mode || null,
+          match_id: live.match_id || null,
+          status: live.status || null
+        });
+        if (live.mode === 'quick' && live.match_no) {
+          setQuickMatchNumber(Number(live.match_no));
+        }
+        return Number(live?.match_no || quickMatchNumber || 1);
+      }
       if (live?.mode === 'quick' && !live?.match_id) {
         logDebug('refreshQuickNumber.invalidateLiveWithoutMatch', {
           live_match_no: live.match_no || null,
@@ -1286,6 +1313,8 @@ export function GameProvider({ children }) {
   function applyLiveSnapshot(live) {
     if (!live) return;
     if (live.reset_at) return;
+    liveRestoreRef.current = true;
+    lastAppliedLiveRef.current = live;
     const liveMode = live.mode || 'quick';
     setMode(liveMode);
     setQuarterIndex(Math.max(0, Number(live.quarter || 1) - 1));
@@ -1306,6 +1335,9 @@ export function GameProvider({ children }) {
     if (live.match_no) setQuickMatchNumber(live.match_no);
     setAjusteFinalAtivo(false);
     setRunning(live.status === 'running');
+    setTimeout(() => {
+      liveRestoreRef.current = false;
+    }, 800);
   }
 
   const value = useMemo(() => ({

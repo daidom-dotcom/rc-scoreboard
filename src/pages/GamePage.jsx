@@ -209,9 +209,7 @@ export default function GamePage() {
         if (!active) return;
         const liveIsValidQuick = !(live?.mode === 'quick' && !live?.match_id);
         const hasLivePayload = !!(live && liveIsValidQuick && (live.match_id || live.match_no || live.team_a || live.team_b));
-        const defaultQuickSeconds = Number(settings.quickDurationSeconds || 420);
-        const liveQuickSeconds = Number(live?.time_left || 0);
-        const quickInProgress = !!live && live.mode === 'quick' && liveQuickSeconds > 0 && liveQuickSeconds < defaultQuickSeconds;
+        const quickInProgress = !!live && live.mode === 'quick' && !!live.match_id && live.status !== 'ended';
         const tournamentInProgress = !!live && live.mode === 'tournament' && !!live.match_id && live.status !== 'ended';
         const shouldRestoreLive = !!live && (
           live.mode === 'quick' ? quickInProgress : tournamentInProgress
