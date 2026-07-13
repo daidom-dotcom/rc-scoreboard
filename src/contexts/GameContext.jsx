@@ -80,7 +80,9 @@ export function GameProvider({ children }) {
   const lastAppliedLiveRef = useRef(null);
 
   function getActiveDateISO() {
-    return dateISO || todayISOInSaoPaulo();
+    const today = todayISOInSaoPaulo();
+    if (isScoreboard && dateISO !== today) return today;
+    return dateISO || today;
   }
 
   function isActiveLiveGame(live) {
@@ -99,6 +101,43 @@ export function GameProvider({ children }) {
   function numberOrFallback(value, fallback = 0) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : fallback;
+  }
+
+  async function getLiveMatchDate(live) {
+    if (!live?.match_id) return null;
+    const { data, error } = await supabase
+      .from('matches')
+      .select('date_iso')
+      .eq('id', live.match_id)
+      .maybeSingle();
+    if (error) return null;
+    return data?.date_iso || null;
+  }
+
+  async function isLiveFromActiveDate(live) {
+    if (!isActiveLiveGame(live)) return false;
+    const matchDate = await getLiveMatchDate(live);
+    return !!matchDate && matchDate === getActiveDateISO();
+  }
+
+  async function endStaleLiveGame(live, source = 'staleLive') {
+    if (!live?.match_id || live.status === 'ended') return;
+    logDebug(`${source}.endStaleLive`, {
+      liveMode: live.mode || null,
+      liveMatchId: live.match_id,
+      liveMatchNo: live.match_no || null,
+      activeDate: getActiveDateISO()
+    });
+    try {
+      await updateLiveGame({
+        status: 'ended',
+        time_left: 0,
+        reset_at: new Date().toISOString()
+      });
+    } catch (err) {
+      logDebug(`${source}.endStaleLiveError`, err?.message || 'unknown');
+    }
+    lastAppliedLiveRef.current = null;
   }
 
   useEffect(() => {
@@ -301,14 +340,17 @@ export function GameProvider({ children }) {
     try {
       const remoteLive = await withTimeout(fetchLiveGame(), 1500, 'fetchLiveGame');
       if (isActiveTournamentLive(remoteLive)) {
-        lastAppliedLiveRef.current = remoteLive;
-        logDebug('liveWrite.blockQuickRemoteTournament', {
-          source,
-          tournamentMatchId: remoteLive.match_id,
-          tournamentScore: `${remoteLive.score_a || 0}x${remoteLive.score_b || 0}`,
-          payloadMatchId: payload?.match_id || null
-        });
-        return true;
+        if (await isLiveFromActiveDate(remoteLive)) {
+          lastAppliedLiveRef.current = remoteLive;
+          logDebug('liveWrite.blockQuickRemoteTournament', {
+            source,
+            tournamentMatchId: remoteLive.match_id,
+            tournamentScore: `${remoteLive.score_a || 0}x${remoteLive.score_b || 0}`,
+            payloadMatchId: payload?.match_id || null
+          });
+          return true;
+        }
+        await endStaleLiveGame(remoteLive, 'liveWrite');
       }
     } catch (err) {
       logDebug('liveWrite.remoteCheckFailed', { source, error: err?.message || 'unknown' });
@@ -666,23 +708,26 @@ export function GameProvider({ children }) {
       const date = getActiveDateISO();
       logDebug('refreshQuickNumber.begin', { date });
       const live = await withTimeout(fetchLiveGame(), 2500, 'fetchLiveGame').catch(() => null);
-      if (isActiveTournamentLive(live)) {
-        logDebug('refreshQuickNumber.skipActiveTournament', {
-          match_id: live.match_id,
-          status: live.status || null
-        });
-        return Number(quickMatchNumber || 1);
-      }
       if (isActiveLiveGame(live)) {
-        logDebug('refreshQuickNumber.skipActiveLive', {
-          mode: live.mode || null,
-          match_id: live.match_id || null,
-          status: live.status || null
-        });
-        if (live.mode === 'quick' && live.match_no) {
-          setQuickMatchNumber(Number(live.match_no));
+        if (await isLiveFromActiveDate(live)) {
+          if (isActiveTournamentLive(live)) {
+            logDebug('refreshQuickNumber.skipActiveTournament', {
+              match_id: live.match_id,
+              status: live.status || null
+            });
+            return Number(quickMatchNumber || 1);
+          }
+          logDebug('refreshQuickNumber.skipActiveLive', {
+            mode: live.mode || null,
+            match_id: live.match_id || null,
+            status: live.status || null
+          });
+          if (live.mode === 'quick' && live.match_no) {
+            setQuickMatchNumber(Number(live.match_no));
+          }
+          return Number(live?.match_no || quickMatchNumber || 1);
         }
-        return Number(live?.match_no || quickMatchNumber || 1);
+        await endStaleLiveGame(live, 'refreshQuickNumber');
       }
       if (live?.mode === 'quick' && !live?.match_id) {
         logDebug('refreshQuickNumber.invalidateLiveWithoutMatch', {
@@ -815,23 +860,29 @@ export function GameProvider({ children }) {
       logDebug('startQuick.liveCheckFailedAbortQuick', err?.message || 'unknown');
       return null;
     }
-    if (isActiveTournamentLive(live)) {
-      logDebug('startQuick.restoreActiveTournamentInstead', {
-        match_id: live.match_id,
-        match_no: live.match_no || null,
-        status: live.status || null
-      });
-      applyLiveSnapshot(live);
-      return live;
-    }
-    if (isActiveLiveGame(live) && live.mode === 'quick') {
-      logDebug('startQuick.restoreActiveQuickInstead', {
-        match_id: live.match_id,
-        match_no: live.match_no || null,
-        status: live.status || null
-      });
-      applyLiveSnapshot(live);
-      return live;
+    if (isActiveLiveGame(live)) {
+      if (await isLiveFromActiveDate(live)) {
+        if (isActiveTournamentLive(live)) {
+          logDebug('startQuick.restoreActiveTournamentInstead', {
+            match_id: live.match_id,
+            match_no: live.match_no || null,
+            status: live.status || null
+          });
+          applyLiveSnapshot(live);
+          return live;
+        }
+        if (live.mode === 'quick') {
+          logDebug('startQuick.restoreActiveQuickInstead', {
+            match_id: live.match_id,
+            match_no: live.match_no || null,
+            status: live.status || null
+          });
+          applyLiveSnapshot(live);
+          return live;
+        }
+      } else {
+        await endStaleLiveGame(live, 'startQuick');
+      }
     }
     setMode('quick');
     setMatchId(null);

@@ -8,7 +8,7 @@ import { todayISOInSaoPaulo } from '../utils/time';
 import PasswordModal from '../components/PasswordModal';
 import { preferredDisplayName } from '../utils/names';
 
-const DEPLOY_DEBUG_VERSION = 'V.1.2.69';
+const DEPLOY_DEBUG_VERSION = 'V.1.2.71';
 
 function pickLiveDebug(live) {
   if (!live) return null;
@@ -122,6 +122,45 @@ export default function GamePage() {
 
   function isActiveTournamentPayload(live) {
     return isActiveLivePayload(live) && live.mode === 'tournament';
+  }
+
+  async function getLiveMatchDate(live) {
+    if (!live?.match_id) return null;
+    const { data, error } = await supabase
+      .from('matches')
+      .select('date_iso')
+      .eq('id', live.match_id)
+      .maybeSingle();
+    if (error) return null;
+    return data?.date_iso || null;
+  }
+
+  async function isLiveFromToday(live, today) {
+    if (!isActiveLivePayload(live)) return false;
+    const matchDate = await getLiveMatchDate(live);
+    return !!matchDate && matchDate === today;
+  }
+
+  async function endStaleLiveForNewDay(live, today) {
+    if (!live?.match_id || live.status === 'ended') return;
+    logDebugRef.current('GamePage.bootstrap.endStaleLiveForNewDay', {
+      liveMode: live.mode || null,
+      liveMatchId: live.match_id,
+      liveMatchNo: live.match_no || null,
+      today
+    });
+    await supabase
+      .from('live_game')
+      .update({
+        status: 'ended',
+        time_left: 0,
+        reset_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', 1);
+    lastGoodLiveRef.current = null;
+    setLiveView(null);
+    lastLiveAtRef.current = Date.now();
   }
 
   function formatAttendanceName(name) {
@@ -256,10 +295,14 @@ export default function GamePage() {
         const live = await withTimeout(fetchLiveGame(), 2500, 'fetchLiveGame');
         if (!active) return;
         const liveIsValidQuick = !(live?.mode === 'quick' && !live?.match_id);
-        const hasLivePayload = !!(live && liveIsValidQuick && (live.match_id || live.match_no || live.team_a || live.team_b));
-        const quickInProgress = !!live && live.mode === 'quick' && !!live.match_id && live.status !== 'ended';
-        const tournamentInProgress = !!live && live.mode === 'tournament' && !!live.match_id && live.status !== 'ended';
-        const shouldRestoreLive = !!live && (
+        const liveIsActiveToday = await isLiveFromToday(live, today);
+        if (isActiveLivePayload(live) && !liveIsActiveToday) {
+          await endStaleLiveForNewDay(live, today);
+        }
+        const hasLivePayload = !!(live && liveIsActiveToday && liveIsValidQuick && (live.match_id || live.match_no || live.team_a || live.team_b));
+        const quickInProgress = !!live && liveIsActiveToday && live.mode === 'quick' && !!live.match_id && live.status !== 'ended';
+        const tournamentInProgress = !!live && liveIsActiveToday && live.mode === 'tournament' && !!live.match_id && live.status !== 'ended';
+        const shouldRestoreLive = !!live && liveIsActiveToday && (
           live.mode === 'quick' ? quickInProgress : tournamentInProgress
         );
         if (live && !liveIsValidQuick) {
